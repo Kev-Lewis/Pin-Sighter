@@ -62,13 +62,20 @@ type Pattern = {
   notes: string;
 };
 
+type EventScheduleUnit = "Weeks" | "Days";
+
 type EventSetup = {
   id: number;
   name: string;
   eventType: "League" | "Tournament";
   seriesGameCount: number;
+  scheduleUnit: EventScheduleUnit;
+  scheduleCount: number;
+  startDate: string;
+  endDate: string;
   centerId: number;
   patternId: number;
+  notes: string;
 };
 
 type CarryoverFields = {
@@ -108,6 +115,7 @@ type LogGamesPageProps = {
   bowlers: Bowler[];
   centers: Center[];
   patterns: Pattern[];
+  events: EventSetup[];
 };
 
 type BowlersPageProps = {
@@ -125,6 +133,13 @@ type PatternsPageProps = {
   setPatterns: Dispatch<SetStateAction<Pattern[]>>;
 };
 
+type EventsPageProps = {
+  events: EventSetup[];
+  setEvents: Dispatch<SetStateAction<EventSetup[]>>;
+  centers: Center[];
+  patterns: Pattern[];
+};
+
 type GameEntryPageProps = {
   bowlers: Bowler[];
   bowlerNames: string[];
@@ -132,6 +147,7 @@ type GameEntryPageProps = {
   format: BowlingFormat;
   centerName: string;
   patternName: string;
+  eventStageLabel: string;
   laneMode: string;
   startingLaneOrPair: string;
   laneOptions: LaneOption[];
@@ -208,38 +224,58 @@ const defaultPatterns: Pattern[] = [
   },
 ];
 
-const temporaryEvents: EventSetup[] = [
+const defaultEvents: EventSetup[] = [
   {
     id: 1,
     name: "Tuesday Night League",
     eventType: "League",
     seriesGameCount: 3,
+    scheduleUnit: "Weeks",
+    scheduleCount: 12,
+    startDate: "",
+    endDate: "",
     centerId: 1,
     patternId: 0,
+    notes: "",
   },
   {
     id: 2,
     name: "Sport Shot League",
     eventType: "League",
     seriesGameCount: 4,
+    scheduleUnit: "Weeks",
+    scheduleCount: 10,
+    startDate: "",
+    endDate: "",
     centerId: 2,
     patternId: 1,
+    notes: "",
   },
   {
     id: 3,
     name: "Wolf Qualifying Block",
     eventType: "Tournament",
     seriesGameCount: 5,
+    scheduleUnit: "Days",
+    scheduleCount: 1,
+    startDate: "",
+    endDate: "",
     centerId: 2,
     patternId: 2,
+    notes: "",
   },
   {
     id: 4,
     name: "Scratch Sweeper",
     eventType: "Tournament",
     seriesGameCount: 3,
+    scheduleUnit: "Days",
+    scheduleCount: 1,
+    startDate: "",
+    endDate: "",
     centerId: 3,
     patternId: 0,
+    notes: "",
   },
 ];
 
@@ -328,6 +364,7 @@ function App() {
   const [bowlers, setBowlers] = useState<Bowler[]>(defaultBowlers);
   const [centers, setCenters] = useState<Center[]>(defaultCenters);
   const [patterns, setPatterns] = useState<Pattern[]>(defaultPatterns);
+  const [events, setEvents] = useState<EventSetup[]>(defaultEvents);
 
   return (
     <main className="app-shell">
@@ -359,6 +396,7 @@ function App() {
               bowlers={bowlers}
               centers={centers}
               patterns={patterns}
+              events={events}
             />
           )}
           {activeTab === "stats" && <StatsPage />}
@@ -368,7 +406,14 @@ function App() {
           {activeTab === "centers" && (
             <CentersPage centers={centers} setCenters={setCenters} />
           )}
-          {activeTab === "events" && <EventsPage />}
+          {activeTab === "events" && (
+            <EventsPage
+              events={events}
+              setEvents={setEvents}
+              centers={centers}
+              patterns={patterns}
+            />
+          )}
           {activeTab === "patterns" && (
             <PatternsPage patterns={patterns} setPatterns={setPatterns} />
           )}
@@ -378,12 +423,18 @@ function App() {
   );
 }
 
-function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
+function LogGamesPage({
+  bowlers,
+  centers,
+  patterns,
+  events,
+}: LogGamesPageProps) {
   const [showGameEntry, setShowGameEntry] = useState(false);
 
   const [competitionType, setCompetitionType] =
     useState<CompetitionType>("Open");
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedEventStage, setSelectedEventStage] = useState("");
   const [format, setFormat] = useState<BowlingFormat>("Singles");
   const [selectedCenterId, setSelectedCenterId] = useState("");
   const [selectedPatternId, setSelectedPatternId] = useState("0");
@@ -394,11 +445,11 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
   const isOpen = competitionType === "Open";
   const isLimitedSeries = !isOpen;
 
-  const availableEvents = temporaryEvents.filter(
+  const availableEvents = events.filter(
     (event) => event.eventType === competitionType
   );
 
-  const selectedEvent = temporaryEvents.find(
+  const selectedEvent = events.find(
     (event) => String(event.id) === selectedEventId
   );
 
@@ -417,6 +468,22 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
   const seriesGameCount = isLimitedSeries
     ? selectedEvent?.seriesGameCount ?? null
     : null;
+
+  const eventStageOptions =
+    selectedEvent && selectedEvent.scheduleCount > 0
+      ? Array.from(
+          { length: selectedEvent.scheduleCount },
+          (_, index) => index + 1
+        )
+      : [];
+
+  const eventStageSingular =
+    selectedEvent?.scheduleUnit === "Days" ? "Day" : "Week";
+
+  const eventStageLabel =
+    selectedEvent && selectedEventStage
+      ? `${eventStageSingular} ${selectedEventStage}`
+      : "";
 
   const bowlerSlotCount = getBowlerSlotCount(format);
   const activeBowlers = selectedBowlers.filter(Boolean);
@@ -454,6 +521,7 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
   function handleCompetitionTypeChange(newCompetitionType: CompetitionType) {
     setCompetitionType(newCompetitionType);
     setSelectedEventId("");
+    setSelectedEventStage("");
     setSelectedCenterId("");
     setSelectedPatternId("0");
     setStartingLaneOrPair("");
@@ -477,6 +545,7 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
 
   function handleEventChange(newEventId: string) {
     setSelectedEventId(newEventId);
+    setSelectedEventStage("");
     setStartingLaneOrPair("");
   }
 
@@ -510,9 +579,12 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
     new Set(selectedNonEmptyBowlers).size !== selectedNonEmptyBowlers.length;
 
   const hasRequiredEvent = isOpen || selectedEvent !== undefined;
+  const hasRequiredEventStage =
+    isOpen || eventStageOptions.length === 0 || selectedEventStage !== "";
 
   const canStartGame =
     hasRequiredEvent &&
+    hasRequiredEventStage &&
     selectedCenter !== undefined &&
     startingLaneOrPair !== "" &&
     hasEnoughBowlers &&
@@ -529,6 +601,7 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
         format={format}
         centerName={selectedCenter?.name ?? "Unknown Center"}
         patternName={selectedPattern?.name ?? "Unknown Pattern"}
+        eventStageLabel={eventStageLabel}
         laneMode={laneMode}
         startingLaneOrPair={startingLaneOrPair}
         laneOptions={laneOptions}
@@ -631,6 +704,23 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
           </>
         )}
 
+        {selectedEvent && eventStageOptions.length > 0 && (
+          <label>
+            {eventStageSingular} <span className="required">*</span>
+            <select
+              value={selectedEventStage}
+              onChange={(event) => setSelectedEventStage(event.target.value)}
+            >
+              <option value="">Select {eventStageSingular.toLowerCase()}</option>
+              {eventStageOptions.map((stageNumber) => (
+                <option key={stageNumber} value={stageNumber}>
+                  {eventStageSingular} {stageNumber}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <label>
           Lane Mode
           <select
@@ -676,6 +766,15 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
             <strong>Games in Series/Block:</strong>{" "}
             {selectedEvent.seriesGameCount}
           </p>
+          <p>
+            <strong>Schedule:</strong> {selectedEvent.scheduleCount}{" "}
+            {selectedEvent.scheduleUnit.toLowerCase()}
+          </p>
+          {eventStageLabel && (
+            <p>
+              <strong>Logging For:</strong> {eventStageLabel}
+            </p>
+          )}
           <p>
             <strong>Bowling Center:</strong> {selectedCenter?.name}
           </p>
@@ -757,7 +856,7 @@ function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
             ? "Select at least 2 Baker bowlers, a starting pair/lane, and any required event setup to begin."
             : isOpen
             ? "Select a bowling center, starting pair/lane, and complete the bowler order to begin."
-            : `Select a ${competitionType.toLowerCase()}, starting pair/lane, and complete the bowler order to begin.`}
+            : `Select a ${competitionType.toLowerCase()}, week/day, starting pair/lane, and complete the bowler order to begin.`}
         </p>
       )}
     </>
@@ -1323,6 +1422,7 @@ function GameEntryPage({
   format,
   centerName,
   patternName,
+  eventStageLabel,
   laneMode,
   startingLaneOrPair,
   laneOptions,
@@ -1624,6 +1724,11 @@ function GameEntryPage({
         <p>
           <strong>Pattern:</strong> {patternName}
         </p>
+        {eventStageLabel && (
+          <p>
+            <strong>Week/Day:</strong> {eventStageLabel}
+          </p>
+        )}
         <p>
           <strong>Pair/Lane:</strong>{" "}
           {formatLaneLabel(laneMode, currentStartingLaneOrPair)}
@@ -2396,15 +2501,599 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
   );
 }
 
-function EventsPage() {
+function EventsPage({
+  events,
+  setEvents,
+  centers,
+  patterns,
+}: EventsPageProps) {
+  const [newEventName, setNewEventName] = useState("");
+  const [newEventType, setNewEventType] = useState<"League" | "Tournament">(
+    "League"
+  );
+  const [newSeriesGameCount, setNewSeriesGameCount] = useState("3");
+  const [newScheduleUnit, setNewScheduleUnit] =
+    useState<EventScheduleUnit>("Weeks");
+  const [newScheduleCount, setNewScheduleCount] = useState("12");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [newCenterId, setNewCenterId] = useState("");
+  const [newPatternId, setNewPatternId] = useState("0");
+  const [newNotes, setNewNotes] = useState("");
+  const [eventDrafts, setEventDrafts] = useState<Record<number, EventSetup>>(
+    {}
+  );
+
+  function getEventDraft(event: EventSetup) {
+    return eventDrafts[event.id] ?? event;
+  }
+
+  function hasEventChanged(event: EventSetup) {
+    const draft = eventDrafts[event.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return JSON.stringify(draft) !== JSON.stringify(event);
+  }
+
+  function updateEventDraft(event: EventSetup, updates: Partial<EventSetup>) {
+    setEventDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [event.id]: {
+        ...getEventDraft(event),
+        ...updates,
+      },
+    }));
+  }
+
+  function saveEvent(eventId: number) {
+    const draft = eventDrafts[eventId];
+
+    if (!draft) {
+      return;
+    }
+
+    const trimmedName = draft.name.trim();
+
+    if (!trimmedName) {
+      window.alert("Event name cannot be empty.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.seriesGameCount) || draft.seriesGameCount < 1) {
+      window.alert("Games in series/block must be at least 1.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.scheduleCount) || draft.scheduleCount < 1) {
+      window.alert("Number of weeks/days must be at least 1.");
+      return;
+    }
+
+    if (!centers.some((center) => center.id === draft.centerId)) {
+      window.alert("Choose a valid bowling center.");
+      return;
+    }
+
+    const nameAlreadyExists = events.some(
+      (event) =>
+        event.id !== eventId &&
+        event.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("An event with that name already exists.");
+      return;
+    }
+
+    setEvents((currentEvents) =>
+      currentEvents.map((event) =>
+        event.id === eventId
+          ? {
+              ...draft,
+              name: trimmedName,
+              seriesGameCount: Math.max(
+                1,
+                Math.floor(draft.seriesGameCount)
+              ),
+              scheduleCount: Math.max(1, Math.floor(draft.scheduleCount)),
+              startDate: draft.startDate,
+              endDate: draft.endDate,
+              notes: draft.notes.trim(),
+            }
+          : event
+      )
+    );
+
+    setEventDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[eventId];
+      return updatedDrafts;
+    });
+  }
+
+  function addEvent() {
+    const trimmedName = newEventName.trim();
+    const seriesGameCount = Number(newSeriesGameCount);
+    const scheduleCount = Number(newScheduleCount);
+    const centerId = Number(newCenterId);
+    const patternId = Number(newPatternId);
+
+    if (
+      !trimmedName ||
+      !Number.isFinite(seriesGameCount) ||
+      seriesGameCount < 1 ||
+      !Number.isFinite(scheduleCount) ||
+      scheduleCount < 1 ||
+      !Number.isFinite(centerId)
+    ) {
+      return;
+    }
+
+    const nameAlreadyExists = events.some(
+      (event) => event.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("An event with that name already exists.");
+      return;
+    }
+
+    setEvents((currentEvents) => [
+      ...currentEvents,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        eventType: newEventType,
+        seriesGameCount: Math.floor(seriesGameCount),
+        scheduleUnit: newScheduleUnit,
+        scheduleCount: Math.floor(scheduleCount),
+        startDate: newStartDate,
+        endDate: newEndDate,
+        centerId,
+        patternId: Number.isFinite(patternId) ? patternId : 0,
+        notes: newNotes.trim(),
+      },
+    ]);
+
+    setNewEventName("");
+    setNewEventType("League");
+    setNewSeriesGameCount("3");
+    setNewScheduleUnit("Weeks");
+    setNewScheduleCount("12");
+    setNewStartDate("");
+    setNewEndDate("");
+    setNewCenterId("");
+    setNewPatternId("0");
+    setNewNotes("");
+  }
+
+  function deleteEvent(eventId: number) {
+    const event = events.find((currentEvent) => currentEvent.id === eventId);
+
+    if (!event) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${event.name}? This will remove it from league/tournament selection.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setEvents((currentEvents) =>
+      currentEvents.filter((currentEvent) => currentEvent.id !== eventId)
+    );
+
+    setEventDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[eventId];
+      return updatedDrafts;
+    });
+  }
+
+  function getCenterName(centerId: number) {
+    return (
+      centers.find((center) => center.id === centerId)?.name ?? "Unknown Center"
+    );
+  }
+
+  function getPatternName(patternId: number) {
+    return (
+      patterns.find((pattern) => pattern.id === patternId)?.name ??
+      "Unknown Pattern"
+    );
+  }
+
+  function getScheduleLabel(event: EventSetup) {
+    return `${event.scheduleCount} ${event.scheduleUnit.toLowerCase()}`;
+  }
+
+  function formatEventSummary(event: EventSetup) {
+    return `${event.eventType} • ${event.seriesGameCount} game${
+      event.seriesGameCount === 1 ? "" : "s"
+    } • ${getScheduleLabel(event)} • ${getCenterName(event.centerId)}`;
+  }
+
+  const canAddEvent =
+    newEventName.trim() !== "" &&
+    Number(newSeriesGameCount) >= 1 &&
+    Number(newScheduleCount) >= 1 &&
+    newCenterId !== "";
+
   return (
     <>
       <h2>Tournaments / Leagues</h2>
-      <p>Create leagues, tournaments, dates, centers, patterns, and formats.</p>
+      <p>
+        Create leagues and tournaments so Log Games can pull the center, pattern,
+        number of games in the set/block, and exact week/day automatically.
+      </p>
+
+      <section className="event-form-card">
+        <h3>Add League / Tournament</h3>
+
+        <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newEventName}
+              onChange={(event) => setNewEventName(event.target.value)}
+              placeholder="Example: Tuesday Night League"
+            />
+          </label>
+
+          <label>
+            Type
+            <select
+              value={newEventType}
+              onChange={(event) => {
+                const nextType = event.target.value as "League" | "Tournament";
+                setNewEventType(nextType);
+                setNewScheduleUnit(nextType === "League" ? "Weeks" : "Days");
+                setNewScheduleCount(nextType === "League" ? "12" : "1");
+              }}
+            >
+              <option>League</option>
+              <option>Tournament</option>
+            </select>
+          </label>
+
+          <label>
+            Games in Series/Block <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newSeriesGameCount}
+              onChange={(event) => setNewSeriesGameCount(event.target.value)}
+              placeholder="Example: 3"
+            />
+          </label>
+
+          <label>
+            Schedule Type
+            <select
+              value={newScheduleUnit}
+              onChange={(event) =>
+                setNewScheduleUnit(event.target.value as EventScheduleUnit)
+              }
+            >
+              <option>Weeks</option>
+              <option>Days</option>
+            </select>
+          </label>
+
+          <label>
+            Number of {newScheduleUnit} <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newScheduleCount}
+              onChange={(event) => setNewScheduleCount(event.target.value)}
+              placeholder={newScheduleUnit === "Weeks" ? "Example: 12" : "Example: 2"}
+            />
+          </label>
+
+          <label>
+            Start Date
+            <input
+              type="date"
+              value={newStartDate}
+              onChange={(event) => setNewStartDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            End Date
+            <input
+              type="date"
+              value={newEndDate}
+              onChange={(event) => setNewEndDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Bowling Center <span className="required">*</span>
+            <select
+              value={newCenterId}
+              onChange={(event) => setNewCenterId(event.target.value)}
+            >
+              <option value="">Select bowling center</option>
+              {centers.map((center) => (
+                <option key={center.id} value={center.id}>
+                  {center.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Pattern
+            <select
+              value={newPatternId}
+              onChange={(event) => setNewPatternId(event.target.value)}
+            >
+              {patterns.map((pattern) => (
+                <option key={pattern.id} value={pattern.id}>
+                  {pattern.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newNotes}
+              onChange={(event) => setNewNotes(event.target.value)}
+              rows={3}
+              placeholder="Optional notes"
+            />
+          </label>
+        </div>
+
+        <button
+          className="primary-button"
+          disabled={!canAddEvent}
+          onClick={addEvent}
+        >
+          Add Event
+        </button>
+      </section>
+
+      <section className="event-list">
+        {events.map((event) => {
+          const draftEvent = getEventDraft(event);
+          const isDirty = hasEventChanged(event);
+
+          return (
+            <details className="event-card" key={event.id}>
+              <summary className="event-summary">
+                <div>
+                  <strong>{event.name}</strong>
+                  <p>{formatEventSummary(event)}</p>
+                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="event-details-content">
+                <div className="event-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => saveEvent(event.id)}
+                  >
+                    Save Event
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() => deleteEvent(event.id)}
+                  >
+                    Delete Event
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={draftEvent.name}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          name: inputEvent.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Type
+                    <select
+                      value={draftEvent.eventType}
+                      onChange={(inputEvent) => {
+                        const nextType = inputEvent.target.value as
+                          | "League"
+                          | "Tournament";
+
+                        updateEventDraft(event, {
+                          eventType: nextType,
+                          scheduleUnit:
+                            nextType === "League" ? "Weeks" : "Days",
+                        });
+                      }}
+                    >
+                      <option>League</option>
+                      <option>Tournament</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Games in Series/Block
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftEvent.seriesGameCount}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          seriesGameCount: Math.max(
+                            1,
+                            Math.floor(Number(inputEvent.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Schedule Type
+                    <select
+                      value={draftEvent.scheduleUnit}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          scheduleUnit: inputEvent.target
+                            .value as EventScheduleUnit,
+                        })
+                      }
+                    >
+                      <option>Weeks</option>
+                      <option>Days</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Number of {draftEvent.scheduleUnit}
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftEvent.scheduleCount}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          scheduleCount: Math.max(
+                            1,
+                            Math.floor(Number(inputEvent.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Start Date
+                    <input
+                      type="date"
+                      value={draftEvent.startDate}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          startDate: inputEvent.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    End Date
+                    <input
+                      type="date"
+                      value={draftEvent.endDate}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          endDate: inputEvent.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Bowling Center
+                    <select
+                      value={draftEvent.centerId}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          centerId: Number(inputEvent.target.value),
+                        })
+                      }
+                    >
+                      {centers.map((center) => (
+                        <option key={center.id} value={center.id}>
+                          {center.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Pattern
+                    <select
+                      value={draftEvent.patternId}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          patternId: Number(inputEvent.target.value),
+                        })
+                      }
+                    >
+                      {patterns.map((pattern) => (
+                        <option key={pattern.id} value={pattern.id}>
+                          {pattern.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={draftEvent.notes}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          notes: inputEvent.target.value,
+                        })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="event-preview-card">
+                  <h4>Event Summary</h4>
+                  <p>
+                    <strong>Type:</strong> {draftEvent.eventType}
+                  </p>
+                  <p>
+                    <strong>Games in Series/Block:</strong>{" "}
+                    {draftEvent.seriesGameCount}
+                  </p>
+                  <p>
+                    <strong>Schedule:</strong> {getScheduleLabel(draftEvent)}
+                  </p>
+                  <p>
+                    <strong>Dates:</strong>{" "}
+                    {draftEvent.startDate || "No start date"} →{" "}
+                    {draftEvent.endDate || "No end date"}
+                  </p>
+                  <p>
+                    <strong>Bowling Center:</strong>{" "}
+                    {getCenterName(draftEvent.centerId)}
+                  </p>
+                  <p>
+                    <strong>Pattern:</strong>{" "}
+                    {getPatternName(draftEvent.patternId)}
+                  </p>
+                </section>
+              </div>
+            </details>
+          );
+        })}
+      </section>
     </>
   );
 }
-
 function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
   const [newPatternName, setNewPatternName] = useState("");
   const [newPatternLength, setNewPatternLength] = useState("");
