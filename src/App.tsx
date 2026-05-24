@@ -68,7 +68,9 @@ type EventSetup = {
   id: number;
   name: string;
   eventType: "League" | "Tournament";
+  format: BowlingFormat;
   seriesGameCount: number;
+  bowlersPerPair: number;
   scheduleUnit: EventScheduleUnit;
   scheduleCount: number;
   startDate: string;
@@ -92,6 +94,7 @@ type FrameEntry = CarryoverFields & {
   bowlerName: string;
   firstShotKnockedPins: number[];
   secondShotKnockedPins: number[];
+  thirdShotKnockedPins: number[];
   isComplete: boolean;
 };
 
@@ -109,6 +112,35 @@ type CompletedGameSummary = {
   gameNumber: number;
   laneLabel: string;
   scores: CompletedGameScore[];
+  entries: FrameEntry[];
+};
+
+type SavedEventLog = {
+  key: string;
+  eventId: number;
+  eventName: string;
+  eventType: "League" | "Tournament";
+  stageLabel: string;
+};
+
+type SavedGameRecord = {
+  id: string;
+  sessionId: string;
+  savedAt: string;
+  competitionType: CompetitionType;
+  format: BowlingFormat;
+  bowlersPerTeam: number;
+  centerName: string;
+  patternName: string;
+  eventLogKey: string;
+  eventId: number | null;
+  eventName: string;
+  eventStageLabel: string;
+  gameNumber: number;
+  laneLabel: string;
+  bowlerNames: string[];
+  scores: CompletedGameScore[];
+  entries: FrameEntry[];
 };
 
 type LogGamesPageProps = {
@@ -116,6 +148,9 @@ type LogGamesPageProps = {
   centers: Center[];
   patterns: Pattern[];
   events: EventSetup[];
+  savedEventLogs: SavedEventLog[];
+  setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
+  setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
 };
 
 type BowlersPageProps = {
@@ -140,18 +175,31 @@ type EventsPageProps = {
   patterns: Pattern[];
 };
 
+type StatsPageProps = {
+  savedGames: SavedGameRecord[];
+  setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
+  savedEventLogs: SavedEventLog[];
+  setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
+};
+
 type GameEntryPageProps = {
   bowlers: Bowler[];
   bowlerNames: string[];
   competitionType: CompetitionType;
   format: BowlingFormat;
+  bowlersPerTeam: number;
   centerName: string;
   patternName: string;
   eventStageLabel: string;
+  eventLogKey: string;
+  eventName: string;
+  eventId: number | null;
   laneMode: string;
   startingLaneOrPair: string;
   laneOptions: LaneOption[];
   seriesGameCount: number | null;
+  onSavedEventLog: (savedLog: SavedEventLog) => void;
+  onSaveCompletedGames: (savedGames: SavedGameRecord[]) => void;
   onBack: () => void;
 };
 
@@ -229,7 +277,9 @@ const defaultEvents: EventSetup[] = [
     id: 1,
     name: "Tuesday Night League",
     eventType: "League",
+    format: "Singles",
     seriesGameCount: 3,
+    bowlersPerPair: 10,
     scheduleUnit: "Weeks",
     scheduleCount: 12,
     startDate: "",
@@ -242,7 +292,9 @@ const defaultEvents: EventSetup[] = [
     id: 2,
     name: "Sport Shot League",
     eventType: "League",
+    format: "Baker",
     seriesGameCount: 4,
+    bowlersPerPair: 10,
     scheduleUnit: "Weeks",
     scheduleCount: 10,
     startDate: "",
@@ -255,7 +307,9 @@ const defaultEvents: EventSetup[] = [
     id: 3,
     name: "Wolf Qualifying Block",
     eventType: "Tournament",
+    format: "Baker",
     seriesGameCount: 5,
+    bowlersPerPair: 10,
     scheduleUnit: "Days",
     scheduleCount: 1,
     startDate: "",
@@ -268,7 +322,9 @@ const defaultEvents: EventSetup[] = [
     id: 4,
     name: "Scratch Sweeper",
     eventType: "Tournament",
+    format: "Singles",
     seriesGameCount: 3,
+    bowlersPerPair: 8,
     scheduleUnit: "Days",
     scheduleCount: 1,
     startDate: "",
@@ -344,12 +400,45 @@ const defaultBowlers: Bowler[] = [
       },
     ],
   },
+  {
+    id: 4,
+    name: "Bowler 4",
+    handedness: "Right",
+    notes: "Sample Baker teammate",
+    arsenal: [
+      {
+        id: 401,
+        name: "House Ball",
+        brand: "",
+        surface: "",
+        layout: "",
+        notes: "",
+      },
+    ],
+  },
+  {
+    id: 5,
+    name: "Bowler 5",
+    handedness: "Right",
+    notes: "Sample Baker teammate",
+    arsenal: [
+      {
+        id: 501,
+        name: "House Ball",
+        brand: "",
+        surface: "",
+        layout: "",
+        notes: "",
+      },
+    ],
+  },
 ];
 
 const handednessOptions: Handedness[] = ["Right", "Left"];
 
 const footBoardOptions = Array.from({ length: 81 }, (_, index) => index - 20);
 const laneBoardOptions = Array.from({ length: 39 }, (_, index) => index + 1);
+const ALL_PINS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const emptyBallForm: NewBallFormState = {
   name: "",
@@ -359,12 +448,339 @@ const emptyBallForm: NewBallFormState = {
   notes: "",
 };
 
+function createSampleFrameEntry(
+  frameNumber: number,
+  bowlerName: string,
+  rolls: number[],
+  ballUsed: string
+): FrameEntry {
+  const firstShot = rolls[0] ?? 0;
+  const secondShot = rolls[1] ?? 0;
+  const thirdShot = rolls[2] ?? 0;
+  const firstShotKnockedPins = ALL_PINS.slice(0, firstShot);
+  const firstShotStandingPins = getPinsStanding(firstShotKnockedPins);
+
+  let secondShotKnockedPins: number[] = [];
+  let thirdShotKnockedPins: number[] = [];
+
+  if (frameNumber === 10) {
+    if (firstShot === 10) {
+      secondShotKnockedPins = ALL_PINS.slice(0, secondShot);
+
+      if (secondShot === 10) {
+        thirdShotKnockedPins = ALL_PINS.slice(0, thirdShot);
+      } else {
+        const secondShotStandingPins = getPinsStanding(secondShotKnockedPins);
+        thirdShotKnockedPins = secondShotStandingPins.slice(0, thirdShot);
+      }
+    } else {
+      secondShotKnockedPins = firstShotStandingPins.slice(0, secondShot);
+
+      if (firstShot + secondShot >= 10) {
+        thirdShotKnockedPins = ALL_PINS.slice(0, thirdShot);
+      }
+    }
+  } else if (firstShot < 10) {
+    secondShotKnockedPins = firstShotStandingPins.slice(0, secondShot);
+  }
+
+  const baseFootBoard = ballUsed === "IQ Tour" ? 21 : 24;
+  const baseTargetArrow = ballUsed === "IQ Tour" ? 11 : 13;
+  const baseTargetBreakpoint = ballUsed === "IQ Tour" ? 7 : 9;
+  const frameAdjustment = frameNumber > 6 ? 1 : 0;
+  const missAdjustment = frameNumber % 3 === 0 ? 1 : frameNumber % 4 === 0 ? -1 : 0;
+
+  return {
+    frameNumber,
+    bowlerName,
+    firstShotKnockedPins,
+    secondShotKnockedPins,
+    thirdShotKnockedPins,
+    isComplete: true,
+    ballUsed,
+    footBoard: String(baseFootBoard + frameAdjustment),
+    targetArrow: String(baseTargetArrow + frameAdjustment),
+    targetBreakpoint: String(baseTargetBreakpoint + frameAdjustment),
+    actualArrow: String(baseTargetArrow + frameAdjustment + missAdjustment),
+    actualBreakpoint: String(baseTargetBreakpoint + frameAdjustment + missAdjustment),
+  };
+}
+
+function createSampleGameEntries(
+  bowlerName: string,
+  frameRolls: number[][],
+  ballUsed: string
+) {
+  return frameRolls.map((rolls, index) =>
+    createSampleFrameEntry(index + 1, bowlerName, rolls, ballUsed)
+  );
+}
+
+function createSampleSavedGame(
+  id: string,
+  sessionId: string,
+  savedAt: string,
+  competitionType: CompetitionType,
+  format: BowlingFormat,
+  bowlersPerTeam: number,
+  centerName: string,
+  patternName: string,
+  eventLogKey: string,
+  eventId: number | null,
+  eventName: string,
+  eventStageLabel: string,
+  gameNumber: number,
+  laneLabel: string,
+  bowlerName: string,
+  frameRolls: number[][],
+  ballUsed: string
+): SavedGameRecord {
+  const entries = createSampleGameEntries(bowlerName, frameRolls, ballUsed);
+  const score = scoreBowlingFrames(entries);
+
+  return {
+    id,
+    sessionId,
+    savedAt,
+    competitionType,
+    format,
+    bowlersPerTeam,
+    centerName,
+    patternName,
+    eventLogKey,
+    eventId,
+    eventName,
+    eventStageLabel,
+    gameNumber,
+    laneLabel,
+    bowlerNames: [bowlerName],
+    scores: [{ label: bowlerName, score }],
+    entries,
+  };
+}
+
+function createSampleBakerSavedGame(
+  id: string,
+  sessionId: string,
+  savedAt: string,
+  competitionType: CompetitionType,
+  centerName: string,
+  patternName: string,
+  eventLogKey: string,
+  eventId: number | null,
+  eventName: string,
+  eventStageLabel: string,
+  gameNumber: number,
+  laneLabel: string,
+  bowlerNames: string[],
+  frameRolls: number[][],
+  ballUsedByFrame: string[]
+): SavedGameRecord {
+  const entries = frameRolls.map((rolls, index) => {
+    const bowlerName = bowlerNames[index % bowlerNames.length];
+    const ballUsed = ballUsedByFrame[index] ?? "House Ball";
+
+    return createSampleFrameEntry(index + 1, bowlerName, rolls, ballUsed);
+  });
+
+  const score = scoreBowlingFrames(entries);
+
+  return {
+    id,
+    sessionId,
+    savedAt,
+    competitionType,
+    format: "Baker",
+    bowlersPerTeam: bowlerNames.length,
+    centerName,
+    patternName,
+    eventLogKey,
+    eventId,
+    eventName,
+    eventStageLabel,
+    gameNumber,
+    laneLabel,
+    bowlerNames,
+    scores: [{ label: "Baker Team", score }],
+    entries,
+  };
+}
+
+function createSampleSavedGames(): SavedGameRecord[] {
+  const leagueSessionId = "sample-sport-shot-league-week-1";
+  const bakerSessionId = "sample-baker-wolf-block-day-1";
+  const openSessionId = "sample-open-practice";
+  const savedAt = new Date().toISOString();
+  const bakerBowlers = ["Kevin", "Bowler 2", "Bowler 3", "Bowler 4", "Bowler 5"];
+
+  return [
+    createSampleSavedGame(
+      "sample-league-g1",
+      leagueSessionId,
+      savedAt,
+      "League",
+      "Singles",
+      5,
+      "Bowlero Fullerton",
+      "Custom Pattern",
+      "2:Weeks:1",
+      2,
+      "Sport Shot League",
+      "Week 1",
+      1,
+      "Pair 1/2",
+      "Kevin",
+      [[10], [9, 1], [8, 1], [10], [10], [7, 2], [10], [9, 1], [8, 2], [10, 9, 1]],
+      "Venom Shock"
+    ),
+    createSampleSavedGame(
+      "sample-league-g2",
+      leagueSessionId,
+      savedAt,
+      "League",
+      "Singles",
+      5,
+      "Bowlero Fullerton",
+      "Custom Pattern",
+      "2:Weeks:1",
+      2,
+      "Sport Shot League",
+      "Week 1",
+      2,
+      "Pair 3/4",
+      "Kevin",
+      [[9, 1], [10], [10], [8, 2], [9, 0], [10], [7, 3], [10], [10], [9, 1, 10]],
+      "IQ Tour"
+    ),
+    createSampleSavedGame(
+      "sample-league-g3",
+      leagueSessionId,
+      savedAt,
+      "League",
+      "Singles",
+      5,
+      "Bowlero Fullerton",
+      "Custom Pattern",
+      "2:Weeks:1",
+      2,
+      "Sport Shot League",
+      "Week 1",
+      3,
+      "Pair 5/6",
+      "Kevin",
+      [[10], [10], [9, 1], [10], [8, 2], [10], [10], [10], [9, 1], [10, 10, 8]],
+      "Venom Shock"
+    ),
+    createSampleBakerSavedGame(
+      "sample-baker-g1",
+      bakerSessionId,
+      savedAt,
+      "Tournament",
+      "Bowlero Fullerton",
+      "2025 PBA Wolf",
+      "3:Days:1",
+      3,
+      "Wolf Qualifying Block",
+      "Day 1",
+      1,
+      "Pair 7/8",
+      bakerBowlers,
+      [[10], [9, 1], [8, 2], [10], [7, 2], [10], [9, 0], [8, 2], [10], [9, 1, 10]],
+      [
+        "Venom Shock",
+        "House Ball",
+        "House Ball",
+        "House Ball",
+        "House Ball",
+        "Venom Shock",
+        "House Ball",
+        "House Ball",
+        "House Ball",
+        "Venom Shock",
+      ]
+    ),
+    createSampleBakerSavedGame(
+      "sample-baker-g2",
+      bakerSessionId,
+      savedAt,
+      "Tournament",
+      "Bowlero Fullerton",
+      "2025 PBA Wolf",
+      "3:Days:1",
+      3,
+      "Wolf Qualifying Block",
+      "Day 1",
+      2,
+      "Pair 9/10",
+      bakerBowlers,
+      [[9, 1], [10], [10], [8, 1], [10], [7, 3], [10], [9, 1], [10], [10, 8, 1]],
+      [
+        "IQ Tour",
+        "House Ball",
+        "House Ball",
+        "House Ball",
+        "House Ball",
+        "IQ Tour",
+        "House Ball",
+        "House Ball",
+        "House Ball",
+        "IQ Tour",
+      ]
+    ),
+    createSampleSavedGame(
+      "sample-open-g1",
+      openSessionId,
+      savedAt,
+      "Open",
+      "Singles",
+      1,
+      "Titan Bowl",
+      "Unknown / House Shot",
+      "",
+      null,
+      "",
+      "",
+      1,
+      "Pair 1/2",
+      "Kevin",
+      [[10], [10], [10], [10], [10], [10], [10], [10], [10], [10, 10, 10]],
+      "Venom Shock"
+    ),
+  ];
+}
+
+function createSampleSavedEventLogs(): SavedEventLog[] {
+  return [
+    {
+      key: "2:Weeks:1",
+      eventId: 2,
+      eventName: "Sport Shot League",
+      eventType: "League",
+      stageLabel: "Week 1",
+    },
+    {
+      key: "3:Days:1",
+      eventId: 3,
+      eventName: "Wolf Qualifying Block",
+      eventType: "Tournament",
+      stageLabel: "Day 1",
+    },
+  ];
+}
+
+
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [bowlers, setBowlers] = useState<Bowler[]>(defaultBowlers);
   const [centers, setCenters] = useState<Center[]>(defaultCenters);
   const [patterns, setPatterns] = useState<Pattern[]>(defaultPatterns);
   const [events, setEvents] = useState<EventSetup[]>(defaultEvents);
+  const [savedEventLogs, setSavedEventLogs] = useState<SavedEventLog[]>(
+    createSampleSavedEventLogs()
+  );
+  const [savedGames, setSavedGames] = useState<SavedGameRecord[]>(
+    createSampleSavedGames()
+  );
 
   return (
     <main className="app-shell">
@@ -397,9 +813,19 @@ function App() {
               centers={centers}
               patterns={patterns}
               events={events}
+              savedEventLogs={savedEventLogs}
+              setSavedEventLogs={setSavedEventLogs}
+              setSavedGames={setSavedGames}
             />
           )}
-          {activeTab === "stats" && <StatsPage />}
+          {activeTab === "stats" && (
+            <StatsPage
+              savedGames={savedGames}
+              setSavedGames={setSavedGames}
+              savedEventLogs={savedEventLogs}
+              setSavedEventLogs={setSavedEventLogs}
+            />
+          )}
           {activeTab === "bowlers" && (
             <BowlersPage bowlers={bowlers} setBowlers={setBowlers} />
           )}
@@ -428,6 +854,9 @@ function LogGamesPage({
   centers,
   patterns,
   events,
+  savedEventLogs,
+  setSavedEventLogs,
+  setSavedGames,
 }: LogGamesPageProps) {
   const [showGameEntry, setShowGameEntry] = useState(false);
 
@@ -436,6 +865,9 @@ function LogGamesPage({
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedEventStage, setSelectedEventStage] = useState("");
   const [format, setFormat] = useState<BowlingFormat>("Singles");
+  const [bowlersPerTeam, setBowlersPerTeam] = useState("1");
+  const [hasVacantOrBlindBowlers, setHasVacantOrBlindBowlers] =
+    useState(false);
   const [selectedCenterId, setSelectedCenterId] = useState("");
   const [selectedPatternId, setSelectedPatternId] = useState("0");
   const [laneMode, setLaneMode] = useState("Pair");
@@ -465,6 +897,16 @@ function LogGamesPage({
         (pattern) => pattern.id === selectedEvent?.patternId
       );
 
+  const activeFormat = selectedEvent?.format ?? format;
+  const enteredBowlersPerPair = Math.max(
+    1,
+    Math.floor(Number(bowlersPerTeam) || 1)
+  );
+  const activeBowlersPerPair =
+    !isOpen && selectedEvent && !hasVacantOrBlindBowlers
+      ? selectedEvent.bowlersPerPair
+      : enteredBowlersPerPair;
+
   const seriesGameCount = isLimitedSeries
     ? selectedEvent?.seriesGameCount ?? null
     : null;
@@ -485,7 +927,16 @@ function LogGamesPage({
       ? `${eventStageSingular} ${selectedEventStage}`
       : "";
 
-  const bowlerSlotCount = getBowlerSlotCount(format);
+  const eventLogKey =
+    selectedEvent && selectedEventStage
+      ? `${selectedEvent.id}:${selectedEvent.scheduleUnit}:${selectedEventStage}`
+      : "";
+
+  const alreadyLoggedEventStage =
+    eventLogKey !== "" &&
+    savedEventLogs.some((savedLog) => savedLog.key === eventLogKey);
+
+  const bowlerSlotCount = getBowlerSlotCount(activeFormat);
   const activeBowlers = selectedBowlers.filter(Boolean);
 
   const laneOptions = useMemo<LaneOption[]>(() => {
@@ -522,6 +973,7 @@ function LogGamesPage({
     setCompetitionType(newCompetitionType);
     setSelectedEventId("");
     setSelectedEventStage("");
+    setHasVacantOrBlindBowlers(false);
     setSelectedCenterId("");
     setSelectedPatternId("0");
     setStartingLaneOrPair("");
@@ -529,6 +981,7 @@ function LogGamesPage({
 
   function handleFormatChange(newFormat: BowlingFormat) {
     setFormat(newFormat);
+    setBowlersPerTeam(String(getDefaultTeamSize(newFormat)));
 
     const newSlotCount = getBowlerSlotCount(newFormat);
 
@@ -547,6 +1000,25 @@ function LogGamesPage({
     setSelectedEventId(newEventId);
     setSelectedEventStage("");
     setStartingLaneOrPair("");
+
+    const nextEvent = events.find((event) => String(event.id) === newEventId);
+
+    if (nextEvent) {
+      const nextSlotCount = getBowlerSlotCount(nextEvent.format);
+
+      setBowlersPerTeam(String(nextEvent.bowlersPerPair));
+      setHasVacantOrBlindBowlers(false);
+
+      setSelectedBowlers((currentBowlers) => {
+        const resizedBowlers = currentBowlers.slice(0, nextSlotCount);
+
+        while (resizedBowlers.length < nextSlotCount) {
+          resizedBowlers.push("");
+        }
+
+        return resizedBowlers;
+      });
+    }
   }
 
   function handleCenterChange(newCenterId: string) {
@@ -570,10 +1042,9 @@ function LogGamesPage({
   const selectedNonEmptyBowlers = selectedBowlers.filter(Boolean);
 
   const hasEnoughBowlers =
-    format === "Baker"
+    activeFormat === "Baker"
       ? selectedBowlers[0] !== "" && selectedBowlers[1] !== ""
-      : selectedBowlers.length === bowlerSlotCount &&
-        selectedBowlers.every((bowler) => bowler !== "");
+      : selectedBowlers[0] !== "";
 
   const hasDuplicateBowlers =
     new Set(selectedNonEmptyBowlers).size !== selectedNonEmptyBowlers.length;
@@ -588,9 +1059,11 @@ function LogGamesPage({
     selectedCenter !== undefined &&
     startingLaneOrPair !== "" &&
     hasEnoughBowlers &&
-    !hasDuplicateBowlers;
+    !hasDuplicateBowlers &&
+    activeBowlersPerPair >= 1 &&
+    !alreadyLoggedEventStage;
 
-  const bowlersForGame = format === "Baker" ? activeBowlers : selectedBowlers;
+  const bowlersForGame = activeBowlers;
 
   if (showGameEntry) {
     return (
@@ -598,14 +1071,31 @@ function LogGamesPage({
         bowlers={bowlers}
         bowlerNames={bowlersForGame}
         competitionType={competitionType}
-        format={format}
+        format={activeFormat}
+        bowlersPerTeam={activeBowlersPerPair}
         centerName={selectedCenter?.name ?? "Unknown Center"}
         patternName={selectedPattern?.name ?? "Unknown Pattern"}
         eventStageLabel={eventStageLabel}
+        eventLogKey={eventLogKey}
+        eventName={selectedEvent?.name ?? ""}
+        eventId={selectedEvent?.id ?? null}
         laneMode={laneMode}
         startingLaneOrPair={startingLaneOrPair}
         laneOptions={laneOptions}
         seriesGameCount={seriesGameCount}
+        onSavedEventLog={(savedLog) =>
+          setSavedEventLogs((currentLogs) =>
+            currentLogs.some((currentLog) => currentLog.key === savedLog.key)
+              ? currentLogs
+              : [...currentLogs, savedLog]
+          )
+        }
+        onSaveCompletedGames={(newSavedGames) =>
+          setSavedGames((currentSavedGames) => [
+            ...currentSavedGames,
+            ...newSavedGames,
+          ])
+        }
         onBack={() => setShowGameEntry(false)}
       />
     );
@@ -656,7 +1146,8 @@ function LogGamesPage({
         <label>
           Format
           <select
-            value={format}
+            value={activeFormat}
+            disabled={!isOpen}
             onChange={(event) =>
               handleFormatChange(event.target.value as BowlingFormat)
             }
@@ -669,6 +1160,35 @@ function LogGamesPage({
             <option>Baker</option>
           </select>
         </label>
+
+        <label>
+          Bowlers Per Pair <span className="required">*</span>
+          <input
+            type="number"
+            min="1"
+            value={bowlersPerTeam}
+            disabled={!isOpen && !hasVacantOrBlindBowlers}
+            onChange={(event) => setBowlersPerTeam(event.target.value)}
+            placeholder="Example: 10"
+          />
+        </label>
+
+        {!isOpen && selectedEvent && (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={hasVacantOrBlindBowlers}
+              onChange={(event) => {
+                setHasVacantOrBlindBowlers(event.target.checked);
+
+                if (!event.target.checked) {
+                  setBowlersPerTeam(String(selectedEvent.bowlersPerPair));
+                }
+              }}
+            />
+            Vacant / blind / unopposed adjustment
+          </label>
+        )}
 
         {isOpen && (
           <>
@@ -763,8 +1283,16 @@ function LogGamesPage({
         <section className="event-summary-card">
           <h3>{selectedEvent.name}</h3>
           <p>
+            <strong>Format:</strong> {selectedEvent.format}
+          </p>
+          <p>
             <strong>Games in Series/Block:</strong>{" "}
             {selectedEvent.seriesGameCount}
+          </p>
+          <p>
+            <strong>Bowlers Per Pair:</strong> {activeBowlersPerPair}
+            {hasVacantOrBlindBowlers &&
+              ` (event default: ${selectedEvent.bowlersPerPair})`}
           </p>
           <p>
             <strong>Schedule:</strong> {selectedEvent.scheduleCount}{" "}
@@ -773,6 +1301,12 @@ function LogGamesPage({
           {eventStageLabel && (
             <p>
               <strong>Logging For:</strong> {eventStageLabel}
+            </p>
+          )}
+          {alreadyLoggedEventStage && (
+            <p className="error-text">
+              This {eventStageSingular.toLowerCase()} has already been saved.
+              Delete the original saved log before entering it again.
             </p>
           )}
           <p>
@@ -787,23 +1321,23 @@ function LogGamesPage({
       <section className="bowler-order-card">
         <h3>Bowler Order</h3>
         <p>
-          {format === "Baker"
-            ? "For Baker, choose 2 to 5 bowlers. Positions 1 and 2 are required; positions 3–5 are optional. The rotation repeats automatically based on the bowlers selected."
-            : "Select bowlers after choosing the format so the order matches singles or team games."}
+          {activeFormat === "Baker"
+            ? "For Baker, choose 2 to 5 tracked bowlers. Positions 1 and 2 are required; positions 3–5 are optional."
+            : "Choose at least one bowler to track. Additional team members are optional if you want individual stats for more of the lineup."}
         </p>
 
-        {format === "Baker" && (
+        {activeFormat === "Baker" && (
           <BakerRotationPreview selectedBowlers={activeBowlers} />
         )}
 
         <div className="form-grid">
           {Array.from({ length: bowlerSlotCount }, (_, index) => {
             const isRequired =
-              format !== "Baker" || (format === "Baker" && index < 2);
+              activeFormat === "Baker" ? index < 2 : index === 0;
 
             return (
               <label key={index}>
-                {format === "Baker"
+                {activeFormat === "Baker"
                   ? `Baker Position ${index + 1}`
                   : `Bowler ${index + 1}`}{" "}
                 {isRequired ? (
@@ -851,12 +1385,14 @@ function LogGamesPage({
       </button>
 
       {!canStartGame && (
-        <p className="helper-text">
-          {format === "Baker"
+        <p className={alreadyLoggedEventStage ? "error-text" : "helper-text"}>
+          {alreadyLoggedEventStage
+            ? `This ${eventStageSingular.toLowerCase()} already has saved data. Delete the original saved log before logging it again.`
+            : activeFormat === "Baker"
             ? "Select at least 2 Baker bowlers, a starting pair/lane, and any required event setup to begin."
             : isOpen
-            ? "Select a bowling center, starting pair/lane, and complete the bowler order to begin."
-            : `Select a ${competitionType.toLowerCase()}, week/day, starting pair/lane, and complete the bowler order to begin.`}
+            ? "Select a bowling center, bowlers per pair, starting pair/lane, and at least one bowler to begin."
+            : `Select a ${competitionType.toLowerCase()}, week/day, starting pair/lane, and at least one bowler to begin.`}
         </p>
       )}
     </>
@@ -864,6 +1400,23 @@ function LogGamesPage({
 }
 
 function getBowlerSlotCount(format: BowlingFormat) {
+  switch (format) {
+    case "Doubles":
+      return 2;
+    case "Trios":
+      return 3;
+    case "Fours":
+      return 4;
+    case "Fives":
+    case "Baker":
+      return 5;
+    case "Singles":
+    default:
+      return 1;
+  }
+}
+
+function getDefaultTeamSize(format: BowlingFormat) {
   switch (format) {
     case "Doubles":
       return 2;
@@ -1150,10 +1703,14 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
         arsenal for shot logging.
       </p>
 
-      <section className="bowler-form-card">
-        <h3>Add Bowler</h3>
+      <details className="bowler-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add Bowler</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
 
-        <div className="form-grid">
+        <div className="add-form-content">
+          <div className="form-grid">
           <label>
             Name <span className="required">*</span>
             <input
@@ -1190,14 +1747,15 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
           </label>
         </div>
 
-        <button
-          className="primary-button"
-          disabled={!newBowlerName.trim()}
-          onClick={addBowler}
-        >
-          Add Bowler
-        </button>
-      </section>
+          <button
+            className="primary-button"
+            disabled={!newBowlerName.trim()}
+            onClick={addBowler}
+          >
+            Add Bowler
+          </button>
+        </div>
+      </details>
 
       <section className="bowler-list">
         {bowlers.map((bowler) => {
@@ -1420,13 +1978,19 @@ function GameEntryPage({
   bowlerNames,
   competitionType,
   format,
+  bowlersPerTeam,
   centerName,
   patternName,
   eventStageLabel,
+  eventLogKey,
+  eventName,
+  eventId,
   laneMode,
   startingLaneOrPair,
   laneOptions,
   seriesGameCount,
+  onSavedEventLog,
+  onSaveCompletedGames,
   onBack,
 }: GameEntryPageProps) {
   const frameOrder = useMemo(() => {
@@ -1476,8 +2040,11 @@ function GameEntryPage({
       return {
         frameNumber: entry.frameNumber,
         bowlerName: entry.bowlerName,
-        firstShotKnockedPins: [],
-        secondShotKnockedPins: [],
+        firstShotKnockedPins: [...ALL_PINS],
+        secondShotKnockedPins:
+          entry.frameNumber === 10 ? [...ALL_PINS] : [],
+        thirdShotKnockedPins:
+          entry.frameNumber === 10 ? [...ALL_PINS] : [],
         ballUsed: carryover?.ballUsed ?? "",
         footBoard: carryover?.footBoard ?? "",
         targetArrow: carryover?.targetArrow ?? "",
@@ -1510,22 +2077,54 @@ function GameEntryPage({
     ? `${gameNumber}/${seriesGameCount}`
     : `${gameNumber}`;
 
+  const isTenthFrame = currentEntry.frameNumber === 10;
   const firstShotStandingPins = getPinsStanding(
     currentEntry.firstShotKnockedPins
   );
   const firstShotPinCount = currentEntry.firstShotKnockedPins.length;
   const isStrike = firstShotPinCount === 10;
 
+  const secondShotAvailablePins =
+    isTenthFrame && isStrike ? ALL_PINS : firstShotStandingPins;
+
   const secondShotPinCount = currentEntry.secondShotKnockedPins.length;
-  const pinsStandingAfterFrame = firstShotStandingPins.filter(
-    (pin) => !currentEntry.secondShotKnockedPins.includes(pin)
-  );
+  const secondShotStandingPins =
+    isTenthFrame && isStrike
+      ? getPinsStanding(currentEntry.secondShotKnockedPins)
+      : firstShotStandingPins.filter(
+          (pin) => !currentEntry.secondShotKnockedPins.includes(pin)
+        );
 
-  const totalFramePinCount = isStrike
-    ? 10
-    : firstShotPinCount + secondShotPinCount;
+  const isSpare =
+    !isStrike && firstShotPinCount + secondShotPinCount === 10;
 
-  const frameResult = getFrameResult(isStrike, pinsStandingAfterFrame);
+  const shouldShowSecondShot = isTenthFrame || !isStrike;
+  const shouldShowThirdShot = isTenthFrame && (isStrike || isSpare);
+
+  const thirdShotAvailablePins =
+    isTenthFrame && isStrike
+      ? secondShotPinCount === 10
+        ? ALL_PINS
+        : secondShotStandingPins
+      : isTenthFrame && isSpare
+      ? ALL_PINS
+      : [];
+
+  const thirdShotPinCount = currentEntry.thirdShotKnockedPins.length;
+
+  const pinsStandingAfterFrame =
+    shouldShowThirdShot && thirdShotAvailablePins.length > 0
+      ? thirdShotAvailablePins.filter(
+          (pin) => !currentEntry.thirdShotKnockedPins.includes(pin)
+        )
+      : secondShotStandingPins;
+
+  const totalFramePinCount =
+    firstShotPinCount +
+    (shouldShowSecondShot ? secondShotPinCount : 0) +
+    (shouldShowThirdShot ? thirdShotPinCount : 0);
+
+  const frameResult = getFrameResult(isStrike, pinsStandingAfterFrame, isSpare);
 
   function hasUnsavedProgress() {
     return (
@@ -1533,8 +2132,9 @@ function GameEntryPage({
       entries.some(
         (entry) =>
           entry.isComplete ||
-          entry.firstShotKnockedPins.length > 0 ||
+          entry.firstShotKnockedPins.length !== 10 ||
           entry.secondShotKnockedPins.length > 0 ||
+          entry.thirdShotKnockedPins.length > 0 ||
           entry.ballUsed !== "" ||
           entry.footBoard !== "" ||
           entry.targetArrow !== "" ||
@@ -1575,14 +2175,53 @@ function GameEntryPage({
 
   function updateFirstShotPins(knockedPins: number[]) {
     const newStandingPins = getPinsStanding(knockedPins);
+    const firstShotIsStrike = knockedPins.length === 10;
 
-    const filteredSecondShotPins = currentEntry.secondShotKnockedPins.filter(
-      (pin) => newStandingPins.includes(pin)
-    );
+    if (currentEntry.frameNumber === 10) {
+      if (firstShotIsStrike) {
+        updateCurrentEntry({
+          firstShotKnockedPins: knockedPins,
+          secondShotKnockedPins: [...ALL_PINS],
+          thirdShotKnockedPins: [...ALL_PINS],
+        });
+        return;
+      }
+
+      updateCurrentEntry({
+        firstShotKnockedPins: knockedPins,
+        secondShotKnockedPins: [...newStandingPins],
+        thirdShotKnockedPins: [...ALL_PINS],
+      });
+      return;
+    }
 
     updateCurrentEntry({
       firstShotKnockedPins: knockedPins,
-      secondShotKnockedPins: filteredSecondShotPins,
+      secondShotKnockedPins: [...newStandingPins],
+      thirdShotKnockedPins: [],
+    });
+  }
+
+  function updateSecondShotPins(knockedPins: number[]) {
+    if (currentEntry.frameNumber !== 10) {
+      updateCurrentEntry({ secondShotKnockedPins: knockedPins });
+      return;
+    }
+
+    if (isStrike) {
+      updateCurrentEntry({
+        secondShotKnockedPins: knockedPins,
+        thirdShotKnockedPins:
+          knockedPins.length === 10 ? [...ALL_PINS] : getPinsStanding(knockedPins),
+      });
+      return;
+    }
+
+    const secondShotMakesSpare = firstShotPinCount + knockedPins.length === 10;
+
+    updateCurrentEntry({
+      secondShotKnockedPins: knockedPins,
+      thirdShotKnockedPins: secondShotMakesSpare ? [...ALL_PINS] : [],
     });
   }
 
@@ -1672,6 +2311,12 @@ function GameEntryPage({
             gameNumber,
             laneLabel,
             scores,
+            entries: updatedEntries.map((entry) => ({
+              ...entry,
+              firstShotKnockedPins: [...entry.firstShotKnockedPins],
+              secondShotKnockedPins: [...entry.secondShotKnockedPins],
+              thirdShotKnockedPins: [...entry.thirdShotKnockedPins],
+            })),
           },
         ].sort((a, b) => a.gameNumber - b.gameNumber);
       });
@@ -1684,6 +2329,52 @@ function GameEntryPage({
   }
 
   function handleSaveAndExit() {
+    const savedAt = new Date().toISOString();
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    if (completedGames.length > 0) {
+      onSaveCompletedGames(
+        completedGames.map((game) => ({
+          id: `${sessionId}-${game.gameNumber}`,
+          sessionId,
+          savedAt,
+          competitionType,
+          format,
+          bowlersPerTeam,
+          centerName,
+          patternName,
+          eventLogKey,
+          eventId,
+          eventName,
+          eventStageLabel,
+          gameNumber: game.gameNumber,
+          laneLabel: game.laneLabel,
+          bowlerNames,
+          scores: game.scores,
+          entries: game.entries.map((entry) => ({
+            ...entry,
+            firstShotKnockedPins: [...entry.firstShotKnockedPins],
+            secondShotKnockedPins: [...entry.secondShotKnockedPins],
+          })),
+        }))
+      );
+    }
+
+    if (
+      eventLogKey &&
+      eventId !== null &&
+      eventStageLabel &&
+      competitionType !== "Open"
+    ) {
+      onSavedEventLog({
+        key: eventLogKey,
+        eventId,
+        eventName,
+        eventType: competitionType,
+        stageLabel: eventStageLabel,
+      });
+    }
+
     onBack();
   }
 
@@ -1717,6 +2408,9 @@ function GameEntryPage({
         </p>
         <p>
           <strong>Format:</strong> {format}
+        </p>
+        <p>
+          <strong>Bowlers Per Pair:</strong> {bowlersPerTeam}
         </p>
         <p>
           <strong>Bowling Center:</strong> {centerName}
@@ -1762,6 +2456,20 @@ function GameEntryPage({
           {format === "Baker" && <span>Baker rotation</span>}
         </div>
 
+        <ScoreGrid
+          title={
+            format === "Baker"
+              ? "Baker Team Score"
+              : `${currentEntry.bowlerName} Score`
+          }
+          entries={entries.filter((entry, index) => {
+            const matchesBowler =
+              format === "Baker" || entry.bowlerName === currentEntry.bowlerName;
+
+            return matchesBowler && index <= currentEntryIndex;
+          })}
+        />
+
         <div className="pin-entry-layout">
           <div className="shot-decks">
             <div>
@@ -1777,18 +2485,36 @@ function GameEntryPage({
               />
             </div>
 
-            {!isStrike && (
+            {shouldShowSecondShot && (
               <div className="second-shot-card">
                 <h3>Second Ball Pin Deck</h3>
                 <p className="helper-text">
-                  Click the pins picked up on the spare attempt.
+                  {isTenthFrame && isStrike
+                    ? "Tenth-frame bonus shot. Default is strike; deselect pins left standing."
+                    : "Default is spare conversion; deselect pins left standing after the spare attempt."}
                 </p>
 
                 <PinDeck
                   knockedPins={currentEntry.secondShotKnockedPins}
-                  availablePins={firstShotStandingPins}
+                  availablePins={secondShotAvailablePins}
+                  onChange={updateSecondShotPins}
+                />
+              </div>
+            )}
+
+            {shouldShowThirdShot && (
+              <div className="second-shot-card">
+                <h3>Third Ball Pin Deck</h3>
+                <p className="helper-text">
+                  Tenth-frame fill shot. Default is strike or spare conversion;
+                  deselect pins left standing.
+                </p>
+
+                <PinDeck
+                  knockedPins={currentEntry.thirdShotKnockedPins}
+                  availablePins={thirdShotAvailablePins}
                   onChange={(knockedPins) =>
-                    updateCurrentEntry({ secondShotKnockedPins: knockedPins })
+                    updateCurrentEntry({ thirdShotKnockedPins: knockedPins })
                   }
                 />
               </div>
@@ -1798,9 +2524,14 @@ function GameEntryPage({
               <p>
                 <strong>First Shot Count:</strong> {firstShotPinCount}
               </p>
-              {!isStrike && (
+              {shouldShowSecondShot && (
                 <p>
                   <strong>Second Shot Count:</strong> {secondShotPinCount}
+                </p>
+              )}
+              {shouldShowThirdShot && (
+                <p>
+                  <strong>Third Shot Count:</strong> {thirdShotPinCount}
                 </p>
               )}
               <p>
@@ -1929,6 +2660,13 @@ function GameEntryPage({
                 : "Choose whether to exit or start another game in the same session."}
             </p>
 
+            {eventLogKey && competitionType !== "Open" && (
+              <p className="helper-text">
+                Saving will lock {eventStageLabel} for this {competitionType.toLowerCase()}.
+                To log it again later, the original saved log will need to be deleted.
+              </p>
+            )}
+
             <div className="post-game-buttons">
               <button className="primary-button" onClick={handleSaveAndExit}>
                 Save and Exit
@@ -2027,16 +2765,68 @@ function BoardSelect({ label, value, options, onChange }: BoardSelectProps) {
 }
 
 function getPinsStanding(knockedPins: number[]) {
-  const allPins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  return allPins.filter((pin) => !knockedPins.includes(pin));
+  return ALL_PINS.filter((pin) => !knockedPins.includes(pin));
 }
 
-function getFrameResult(isStrike: boolean, pinsStandingAfterFrame: number[]) {
+function isSplitLeave(knockedPins: number[]) {
+  const standingPins = getPinsStanding(knockedPins);
+
+  if (!knockedPins.includes(1) || standingPins.length < 2) {
+    return false;
+  }
+
+  const adjacency: Record<number, number[]> = {
+    1: [2, 3],
+    2: [1, 3, 4, 5],
+    3: [1, 2, 5, 6],
+    4: [2, 5, 7, 8],
+    5: [2, 3, 4, 6, 8, 9],
+    6: [3, 5, 9, 10],
+    7: [4, 8],
+    8: [4, 5, 7, 9],
+    9: [5, 6, 8, 10],
+    10: [6, 9],
+  };
+
+  const unvisited = new Set(standingPins);
+  let groups = 0;
+
+  while (unvisited.size > 0) {
+    groups += 1;
+
+    const firstPin = Array.from(unvisited)[0];
+    const stack = [firstPin];
+    unvisited.delete(firstPin);
+
+    while (stack.length > 0) {
+      const currentPin = stack.pop();
+
+      if (currentPin === undefined) {
+        continue;
+      }
+
+      adjacency[currentPin]
+        .filter((neighbor) => unvisited.has(neighbor))
+        .forEach((neighbor) => {
+          unvisited.delete(neighbor);
+          stack.push(neighbor);
+        });
+    }
+  }
+
+  return groups > 1;
+}
+
+function getFrameResult(
+  isStrike: boolean,
+  pinsStandingAfterFrame: number[],
+  isSpare = false
+) {
   if (isStrike) {
     return "Strike";
   }
 
-  if (pinsStandingAfterFrame.length === 0) {
+  if (isSpare || pinsStandingAfterFrame.length === 0) {
     return "Spare";
   }
 
@@ -2074,16 +2864,29 @@ function calculateScoresForGame(
   });
 }
 
-function scoreBowlingFrames(frames: FrameEntry[]) {
-  const rolls = frames.flatMap((frame) => {
-    const firstShot = frame.firstShotKnockedPins.length;
+function getFrameRolls(frame: FrameEntry) {
+  const firstShot = frame.firstShotKnockedPins.length;
+  const secondShot = frame.secondShotKnockedPins.length;
+  const thirdShot = frame.thirdShotKnockedPins.length;
 
-    if (firstShot === 10) {
-      return [10];
+  if (frame.frameNumber === 10) {
+    if (firstShot === 10 || firstShot + secondShot === 10) {
+      return [firstShot, secondShot, thirdShot];
     }
 
-    return [firstShot, frame.secondShotKnockedPins.length];
-  });
+    return [firstShot, secondShot];
+  }
+
+  if (firstShot === 10) {
+    return [10];
+  }
+
+  return [firstShot, secondShot];
+}
+
+function scoreBowlingFrames(frames: FrameEntry[]) {
+  const sortedFrames = [...frames].sort((a, b) => a.frameNumber - b.frameNumber);
+  const rolls = sortedFrames.flatMap(getFrameRolls);
 
   let score = 0;
   let rollIndex = 0;
@@ -2108,6 +2911,207 @@ function scoreBowlingFrames(frames: FrameEntry[]) {
   return score;
 }
 
+function getCumulativeFrameScores(frames: FrameEntry[]) {
+  const sortedFrames = [...frames].sort((a, b) => a.frameNumber - b.frameNumber);
+  const rolls = sortedFrames.flatMap(getFrameRolls);
+  const cumulativeScores: (number | "")[] = [];
+
+  let score = 0;
+  let rollIndex = 0;
+
+  for (let frameIndex = 0; frameIndex < sortedFrames.length; frameIndex += 1) {
+    const frame = sortedFrames[frameIndex];
+    const firstRoll = rolls[rollIndex];
+    const secondRoll = rolls[rollIndex + 1];
+    const thirdRoll = rolls[rollIndex + 2];
+
+    if (firstRoll === undefined) {
+      cumulativeScores.push("");
+      break;
+    }
+
+    if (frame.frameNumber === 10) {
+      score += getFrameRolls(frame).reduce((sum, roll) => sum + roll, 0);
+      cumulativeScores.push(score);
+      break;
+    }
+
+    if (firstRoll === 10) {
+      if (secondRoll === undefined || thirdRoll === undefined) {
+        cumulativeScores.push("");
+      } else {
+        score += 10 + secondRoll + thirdRoll;
+        cumulativeScores.push(score);
+      }
+
+      rollIndex += 1;
+    } else if (secondRoll !== undefined && firstRoll + secondRoll === 10) {
+      if (thirdRoll === undefined) {
+        cumulativeScores.push("");
+      } else {
+        score += 10 + thirdRoll;
+        cumulativeScores.push(score);
+      }
+
+      rollIndex += 2;
+    } else {
+      score += firstRoll + (secondRoll ?? 0);
+      cumulativeScores.push(score);
+      rollIndex += 2;
+    }
+  }
+
+  return cumulativeScores;
+}
+
+function formatPinfallMark(value: number, options?: { isStrikeShot?: boolean }) {
+  if (options?.isStrikeShot && value === 10) {
+    return "X";
+  }
+
+  if (value === 0) {
+    return "-";
+  }
+
+  return String(value);
+}
+
+type ScoreMark = {
+  value: string;
+  isSplit?: boolean;
+};
+
+function createScoreMark(value: string, isSplit = false): ScoreMark {
+  return {
+    value,
+    isSplit,
+  };
+}
+
+function getFrameMarks(frame: FrameEntry): ScoreMark[] {
+  const first = frame.firstShotKnockedPins.length;
+  const second = frame.secondShotKnockedPins.length;
+  const third = frame.thirdShotKnockedPins.length;
+  const firstShotSplit = first < 10 && isSplitLeave(frame.firstShotKnockedPins);
+
+  if (frame.frameNumber === 10) {
+    const firstMark = createScoreMark(
+      first === 10 ? "X" : formatPinfallMark(first),
+      firstShotSplit
+    );
+    let secondMark = createScoreMark("");
+
+    if (first === 10) {
+      secondMark = createScoreMark(
+        second === 10 ? "X" : formatPinfallMark(second),
+        second < 10 && isSplitLeave(frame.secondShotKnockedPins)
+      );
+    } else {
+      secondMark = createScoreMark(
+        first + second === 10 ? "/" : formatPinfallMark(second)
+      );
+    }
+
+    let thirdMark = createScoreMark("");
+
+    if (first === 10 || first + second === 10) {
+      if (second === 10 || first + second === 10) {
+        thirdMark = createScoreMark(
+          third === 10 ? "X" : formatPinfallMark(third),
+          third < 10 && isSplitLeave(frame.thirdShotKnockedPins)
+        );
+      } else {
+        thirdMark = createScoreMark(
+          second + third === 10 ? "/" : formatPinfallMark(third)
+        );
+      }
+    }
+
+    return [firstMark, secondMark, thirdMark];
+  }
+
+  if (first === 10) {
+    return [createScoreMark(""), createScoreMark("X")];
+  }
+
+  return [
+    createScoreMark(formatPinfallMark(first), firstShotSplit),
+    createScoreMark(first + second === 10 ? "/" : formatPinfallMark(second)),
+  ];
+}
+
+function ScoreRollMark({ mark }: { mark?: ScoreMark }) {
+  return (
+    <span className={mark?.isSplit ? "split-score-mark" : ""}>
+      {mark?.value ?? ""}
+    </span>
+  );
+}
+
+function ScoreGrid({
+  title,
+  entries,
+}: {
+  title: string;
+  entries: FrameEntry[];
+}) {
+  const framesByNumber = new Map<number, FrameEntry>();
+
+  entries.forEach((entry) => {
+    framesByNumber.set(entry.frameNumber, entry);
+  });
+
+  const orderedFrames = Array.from(framesByNumber.values()).sort(
+    (a, b) => a.frameNumber - b.frameNumber
+  );
+  const cumulativeScores = getCumulativeFrameScores(orderedFrames);
+
+  return (
+    <section className="score-grid-card">
+      <h4>{title}</h4>
+
+      <div className="score-grid">
+        {Array.from({ length: 10 }, (_, index) => {
+          const frameNumber = index + 1;
+          const frame = framesByNumber.get(frameNumber);
+          const marks = frame ? getFrameMarks(frame) : [];
+          const cumulativeScore = cumulativeScores[index] ?? "";
+
+          return (
+            <div className="score-frame" key={frameNumber}>
+              <div className="score-frame-number">{frameNumber}</div>
+
+              <div
+                className={
+                  frameNumber === 10
+                    ? "score-rolls tenth-frame-rolls"
+                    : "score-rolls"
+                }
+              >
+                {frameNumber === 10 ? (
+                  <>
+                    <ScoreRollMark mark={marks[0]} />
+                    <ScoreRollMark mark={marks[1]} />
+                    <ScoreRollMark mark={marks[2]} />
+                  </>
+                ) : (
+                  <>
+                    <ScoreRollMark mark={marks[0]} />
+                    <ScoreRollMark mark={marks[1]} />
+                  </>
+                )}
+              </div>
+
+              <div className="score-total">{cumulativeScore}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+
 function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
   const pins = [
     { number: 7, left: 15, top: 15 },
@@ -2125,7 +3129,7 @@ function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
     { number: 1, left: 50, top: 84 },
   ];
 
-  const availablePinNumbers = availablePins ?? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const availablePinNumbers = availablePins ?? ALL_PINS;
 
   function togglePin(pinNumber: number) {
     if (!availablePinNumbers.includes(pinNumber)) {
@@ -2197,16 +3201,2586 @@ function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
   );
 }
 
-function StatsPage() {
+function StatsPage({
+  savedGames,
+  setSavedGames,
+  setSavedEventLogs,
+}: StatsPageProps) {
+  const [selectedBowler, setSelectedBowler] = useState("All");
+  const [selectedBakerBowler, setSelectedBakerBowler] = useState("All");
+  const [selectedBall, setSelectedBall] = useState("All");
+  const [selectedCompetition, setSelectedCompetition] = useState("All");
+  const [selectedCenter, setSelectedCenter] = useState("All");
+  const [selectedLane, setSelectedLane] = useState("All");
+  const [selectedPattern, setSelectedPattern] = useState("All");
+  const [selectedEventStage, setSelectedEventStage] = useState("All");
+
+  const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
+
+  function getEventStageLabelForGame(game: SavedGameRecord) {
+    return game.eventName && game.eventStageLabel
+      ? `${game.eventName} — ${game.eventStageLabel}`
+      : "";
+  }
+
+  function getBakerTeamLabelFromNames(names: string[]) {
+    const sortedNames = Array.from(new Set(names)).sort((a, b) =>
+      a.localeCompare(b)
+    );
+
+    return `Baker Team: ${sortedNames.join(", ")}`;
+  }
+
+  function getBakerTeamLabelForGame(game: SavedGameRecord) {
+    if (game.format !== "Baker") {
+      return "";
+    }
+
+    return getBakerTeamLabelFromNames(game.bowlerNames);
+  }
+
+  function gameMatchesCurrentFilters(
+    game: SavedGameRecord,
+    ignoredFilters: string[] = []
+  ) {
+    const ignores = new Set(ignoredFilters);
+    const bakerTeamLabel = getBakerTeamLabelForGame(game);
+
+    const matchesBowler =
+      ignores.has("bowler") ||
+      selectedBowler === "All" ||
+      (isBakerTeamSelection
+        ? game.format === "Baker" && bakerTeamLabel === selectedBowler
+        : game.format !== "Baker" &&
+          game.entries.some((entry) => entry.bowlerName === selectedBowler));
+
+    const matchesBakerBowler =
+      ignores.has("bakerBowler") ||
+      selectedBakerBowler === "All" ||
+      game.format !== "Baker" ||
+      game.entries.some((entry) => entry.bowlerName === selectedBakerBowler);
+
+    const matchesBall =
+      ignores.has("ball") ||
+      selectedBall === "All" ||
+      game.entries.some(
+        (entry) =>
+          entry.ballUsed === selectedBall &&
+          (selectedBowler === "All" ||
+            isBakerTeamSelection ||
+            entry.bowlerName === selectedBowler) &&
+          (selectedBakerBowler === "All" ||
+            game.format !== "Baker" ||
+            entry.bowlerName === selectedBakerBowler)
+      );
+
+    const matchesCompetition =
+      ignores.has("competition") ||
+      selectedCompetition === "All" ||
+      game.competitionType === selectedCompetition;
+
+    const matchesCenter =
+      ignores.has("center") ||
+      selectedCenter === "All" ||
+      game.centerName === selectedCenter;
+
+    const matchesLane =
+      ignores.has("lane") ||
+      selectedLane === "All" ||
+      game.laneLabel === selectedLane;
+
+    const matchesPattern =
+      ignores.has("pattern") ||
+      selectedPattern === "All" ||
+      game.patternName === selectedPattern;
+
+    const matchesEventStage =
+      ignores.has("eventStage") ||
+      selectedEventStage === "All" ||
+      getEventStageLabelForGame(game) === selectedEventStage;
+
+    return (
+      matchesBowler &&
+      matchesBakerBowler &&
+      matchesBall &&
+      matchesCompetition &&
+      matchesCenter &&
+      matchesLane &&
+      matchesPattern &&
+      matchesEventStage
+    );
+  }
+
+  const individualBowlerOptions = Array.from(
+    new Set(
+      savedGames
+        .filter(
+          (game) =>
+            game.format !== "Baker" &&
+            gameMatchesCurrentFilters(game, ["bowler", "ball"])
+        )
+        .flatMap((game) => game.entries.map((entry) => entry.bowlerName))
+    )
+  ).sort();
+
+  const bakerTeamOptions = Array.from(
+    new Set(
+      savedGames
+        .filter(
+          (game) =>
+            game.format === "Baker" &&
+            gameMatchesCurrentFilters(game, ["bowler", "bakerBowler", "ball"])
+        )
+        .map(getBakerTeamLabelForGame)
+        .filter(Boolean)
+    )
+  ).sort();
+
+  const selectedBakerGames = savedGames.filter(
+    (game) =>
+      game.format === "Baker" &&
+      selectedBowler !== "All" &&
+      getBakerTeamLabelForGame(game) === selectedBowler &&
+      gameMatchesCurrentFilters(game, ["bakerBowler", "ball"])
+  );
+
+  const bakerBowlerOptions = Array.from(
+    new Set(selectedBakerGames.flatMap((game) => game.bowlerNames))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const ballOptions = Array.from(
+    new Set(
+      savedGames
+        .filter((game) => gameMatchesCurrentFilters(game, ["ball"]))
+        .flatMap((game) => {
+          if (isBakerTeamSelection) {
+            if (game.format !== "Baker" || getBakerTeamLabelForGame(game) !== selectedBowler) {
+              return [];
+            }
+
+            return game.entries
+              .filter(
+                (entry) =>
+                  selectedBakerBowler === "All" ||
+                  entry.bowlerName === selectedBakerBowler
+              )
+              .map((entry) => entry.ballUsed)
+              .filter(Boolean);
+          }
+
+          if (game.format === "Baker") {
+            return [];
+          }
+
+          return game.entries
+            .filter(
+              (entry) =>
+                selectedBowler === "All" || entry.bowlerName === selectedBowler
+            )
+            .map((entry) => entry.ballUsed)
+            .filter(Boolean);
+        })
+    )
+  ).sort();
+
+  const competitionOptions = Array.from(
+    new Set(
+      savedGames
+        .filter((game) => gameMatchesCurrentFilters(game, ["competition"]))
+        .map((game) => game.competitionType)
+    )
+  ).sort();
+
+  const centerOptions = Array.from(
+    new Set(
+      savedGames
+        .filter((game) => gameMatchesCurrentFilters(game, ["center", "lane"]))
+        .map((game) => game.centerName)
+    )
+  ).sort();
+
+  const laneOptions =
+    selectedCenter === "All"
+      ? []
+      : Array.from(
+          new Set(
+            savedGames
+              .filter(
+                (game) =>
+                  game.centerName === selectedCenter &&
+                  gameMatchesCurrentFilters(game, ["lane"])
+              )
+              .map((game) => game.laneLabel)
+          )
+        ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const patternOptions = Array.from(
+    new Set(
+      savedGames
+        .filter((game) => gameMatchesCurrentFilters(game, ["pattern"]))
+        .map((game) => game.patternName)
+    )
+  ).sort();
+
+  const eventStageOptions = Array.from(
+    new Set(
+      savedGames
+        .filter((game) => gameMatchesCurrentFilters(game, ["eventStage"]))
+        .map(getEventStageLabelForGame)
+        .filter(Boolean)
+    )
+  ).sort();
+
+  const filteredGames = savedGames.filter((game) =>
+    gameMatchesCurrentFilters(game)
+  );
+
+  const bakerTeamGames = filteredGames.filter(
+    (game) =>
+      game.format === "Baker" &&
+      (selectedBowler === "All" ||
+        getBakerTeamLabelForGame(game) === selectedBowler)
+  );
+
+  const filteredEntries = filteredGames.flatMap((game) =>
+    game.entries.filter((entry) => {
+      if (game.format === "Baker") {
+        if (!isBakerTeamSelection) {
+          return false;
+        }
+
+        const matchesBakerBowler =
+          selectedBakerBowler === "All" ||
+          entry.bowlerName === selectedBakerBowler;
+        const matchesBall =
+          selectedBall === "All" || entry.ballUsed === selectedBall;
+
+        return matchesBakerBowler && matchesBall;
+      }
+
+      const matchesBowler =
+        selectedBowler === "All" || entry.bowlerName === selectedBowler;
+      const matchesBall =
+        selectedBall === "All" || entry.ballUsed === selectedBall;
+
+      return matchesBowler && matchesBall;
+    })
+  );
+
+  const totalScores = filteredGames.flatMap((game) => {
+    if (game.format === "Baker") {
+      if (!isBakerTeamSelection) {
+        return [];
+      }
+
+      return game.scores.map((score) => score.score);
+    }
+
+    return game.scores
+      .filter((score) => selectedBowler === "All" || score.label === selectedBowler)
+      .map((score) => score.score);
+  });
+
+  const overallAverage =
+    totalScores.length > 0
+      ? totalScores.reduce((sum, score) => sum + score, 0) / totalScores.length
+      : 0;
+
+  const strikeCount = filteredEntries.filter(isStrikeEntry).length;
+  const spareCount = filteredEntries.filter(isSpareEntry).length;
+  const openCount = filteredEntries.length - strikeCount - spareCount;
+  const cleanFrameCount = filteredEntries.filter(isCleanFrame).length;
+  const splitCount = filteredEntries.filter(isSplitEntry).length;
+  const cleanPercentage =
+    filteredEntries.length > 0
+      ? (cleanFrameCount / filteredEntries.length) * 100
+      : 0;
+  const splitPercentage =
+    filteredEntries.length > 0 ? (splitCount / filteredEntries.length) * 100 : 0;
+  const cleanGameCount = countCleanGames(
+    filteredGames,
+    isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
+    selectedBall
+  );
+
+  const sessionGroups = buildSessionGroups(filteredGames);
+  const detailedStats =
+    selectedBowler !== "All" && !isBakerTeamSelection
+      ? calculateDetailedBowlerStats(
+          selectedBowler,
+          selectedBall,
+          filteredGames.filter((game) => game.format !== "Baker"),
+          sessionGroups
+        )
+      : null;
+
+  const spareLeaveRows = calculateSpareLeaveRows(filteredEntries);
+  const boardStats = calculateBoardStats(filteredEntries);
+  const boardProgressionRows = calculateBoardProgressionRows(
+    filteredGames.filter((game) => game.format !== "Baker" || isBakerTeamSelection),
+    isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
+    selectedBall
+  );
+
+  const bowlerRows = individualBowlerOptions
+    .map((bowlerName) => {
+      const nonBakerGames = filteredGames.filter((game) => game.format !== "Baker");
+
+      const bowlerEntries = nonBakerGames.flatMap((game) =>
+        game.entries.filter((entry) => {
+          const matchesBowler = entry.bowlerName === bowlerName;
+          const matchesBall =
+            selectedBall === "All" || entry.ballUsed === selectedBall;
+
+          return matchesBowler && matchesBall;
+        })
+      );
+
+      const bowlerScores = nonBakerGames.flatMap((game) =>
+        game.scores
+          .filter((score) => score.label === bowlerName)
+          .map((score) => score.score)
+      );
+
+      const bowlerStrikes = bowlerEntries.filter(isStrikeEntry).length;
+      const bowlerSpares = bowlerEntries.filter(isSpareEntry).length;
+      const bowlerOpens = bowlerEntries.length - bowlerStrikes - bowlerSpares;
+      const bowlerCleanFrames = bowlerEntries.filter(isCleanFrame).length;
+      const bowlerSplits = bowlerEntries.filter(isSplitEntry).length;
+      const bowlerCleanGames = countCleanGames(
+        nonBakerGames,
+        bowlerName,
+        selectedBall
+      );
+
+      const bowlerAverage =
+        bowlerScores.length > 0
+          ? bowlerScores.reduce((sum, score) => sum + score, 0) /
+            bowlerScores.length
+          : 0;
+
+      return {
+        bowlerName,
+        games: bowlerScores.length,
+        frames: bowlerEntries.length,
+        average: bowlerAverage,
+        strikes: bowlerStrikes,
+        spares: bowlerSpares,
+        opens: bowlerOpens,
+        cleanGames: bowlerCleanGames,
+        strikeRate:
+          bowlerEntries.length > 0
+            ? (bowlerStrikes / bowlerEntries.length) * 100
+            : 0,
+        spareRate:
+          bowlerEntries.length > 0
+            ? (bowlerSpares / bowlerEntries.length) * 100
+            : 0,
+        cleanRate:
+          bowlerEntries.length > 0
+            ? (bowlerCleanFrames / bowlerEntries.length) * 100
+            : 0,
+        splitRate:
+          bowlerEntries.length > 0
+            ? (bowlerSplits / bowlerEntries.length) * 100
+            : 0,
+      };
+    })
+    .filter((row) => row.frames > 0 || row.games > 0);
+
+  function clearFilters() {
+    setSelectedBowler("All");
+    setSelectedBakerBowler("All");
+    setSelectedBall("All");
+    setSelectedCompetition("All");
+    setSelectedCenter("All");
+    setSelectedLane("All");
+    setSelectedPattern("All");
+    setSelectedEventStage("All");
+  }
+
+  function escapeCsv(value: string | number) {
+    const stringValue = String(value);
+
+    if (
+      stringValue.includes(",") ||
+      stringValue.includes('"') ||
+      stringValue.includes("\n")
+    ) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+
+    return stringValue;
+  }
+
+  function exportFilteredCsv() {
+    const rows = [
+      [
+        "Saved At",
+        "Competition",
+        "Event",
+        "Week/Day",
+        "Game",
+        "Center",
+        "Pattern",
+        "Format",
+        "Lane",
+        "Score Label",
+        "Score",
+      ],
+      ...filteredGames.flatMap((game) =>
+        game.scores.map((score) => [
+          new Date(game.savedAt).toLocaleString(),
+          game.competitionType,
+          game.eventName || "Open",
+          game.eventStageLabel || "",
+          game.gameNumber,
+          game.centerName,
+          game.patternName,
+          game.format,
+          game.laneLabel,
+          score.label,
+          score.score,
+        ])
+      ),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((cell) => escapeCsv(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = buildStatsExportFileName({
+      selectedBowler,
+      selectedBall,
+      selectedCompetition,
+      selectedCenter,
+      selectedLane,
+      selectedPattern,
+      selectedEventStage,
+    });
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function deleteSavedSet(sessionKey: string) {
+    const session = sessionGroups.find((group) => group.sessionKey === sessionKey);
+
+    if (!session) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete saved set: ${session.title}?`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    const idsToDelete = new Set(session.games.map((game) => game.id));
+    const eventKeysToCheck = Array.from(
+      new Set(session.games.map((game) => game.eventLogKey).filter(Boolean))
+    );
+
+    const remainingGames = savedGames.filter((game) => !idsToDelete.has(game.id));
+
+    setSavedGames(remainingGames);
+
+    eventKeysToCheck.forEach((eventLogKey) => {
+      const stillHasEventLogRecords = remainingGames.some(
+        (game) => game.eventLogKey === eventLogKey
+      );
+
+      if (!stillHasEventLogRecords) {
+        setSavedEventLogs((currentLogs) =>
+          currentLogs.filter((log) => log.key !== eventLogKey)
+        );
+      }
+    });
+  }
+
+  function handleBowlerChange(value: string) {
+    setSelectedBowler(value);
+    setSelectedBakerBowler("All");
+    setSelectedBall("All");
+  }
+
+  function handleBakerBowlerChange(value: string) {
+    setSelectedBakerBowler(value);
+    setSelectedBall("All");
+  }
+
+  function handleBallChange(value: string) {
+    setSelectedBall(value);
+  }
+
+  function handleCompetitionChange(value: string) {
+    setSelectedCompetition(value);
+    setSelectedLane("All");
+    setSelectedEventStage("All");
+  }
+
+  function handleCenterChange(value: string) {
+    setSelectedCenter(value);
+    setSelectedLane("All");
+    setSelectedPattern("All");
+    setSelectedEventStage("All");
+  }
+
+  function handlePatternChange(value: string) {
+    setSelectedPattern(value);
+    setSelectedEventStage("All");
+  }
+
   return (
     <>
       <h2>Stats</h2>
       <p>
-        View averages, strike percentage, spare percentage, ball stats, pattern
-        stats, filters, tables, graphs, and exports.
+        Review saved sets, filter by bowler/session info, export CSV, and delete
+        saved logs when a league/tournament week or day needs to be re-entered.
       </p>
+
+      {savedGames.length === 0 ? (
+        <section className="empty-state-card">
+          <h3>No Saved Sets Yet</h3>
+          <p>
+            Complete a game in Log Games, then choose Save and Exit. Saved sets
+            will appear here for filtering, deeper analysis, and export.
+          </p>
+        </section>
+      ) : (
+        <>
+          <details className="stats-filter-card stats-collapsible-card">
+            <summary className="stats-section-summary">
+              <div>
+                <strong>Filters</strong>
+                <p>
+                  Filter dropdowns only show choices that still have matching
+                  saved data based on the other active filters.
+                </p>
+              </div>
+              <span className="summary-hint">Open Section</span>
+            </summary>
+
+            <div className="stats-collapsible-content">
+              <div className="form-grid">
+              <label>
+                Bowler / Baker Team
+                <select
+                  value={selectedBowler}
+                  onChange={(event) => handleBowlerChange(event.target.value)}
+                >
+                  <option>All</option>
+
+                  {individualBowlerOptions.length > 0 && (
+                    <optgroup label="Individual Bowlers">
+                      {individualBowlerOptions.map((bowlerName) => (
+                        <option key={bowlerName}>{bowlerName}</option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {bakerTeamOptions.length > 0 && (
+                    <optgroup label="Baker Teams">
+                      {bakerTeamOptions.map((teamName) => (
+                        <option key={teamName}>{teamName}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </label>
+
+              {isBakerTeamSelection && (
+                <label>
+                  Baker Bowler
+                  <select
+                    value={selectedBakerBowler}
+                    onChange={(event) =>
+                      handleBakerBowlerChange(event.target.value)
+                    }
+                  >
+                    <option>All</option>
+                    {bakerBowlerOptions.map((bowlerName) => (
+                      <option key={bowlerName}>{bowlerName}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {selectedBowler !== "All" && (
+                <label>
+                  Ball
+                  <select
+                    value={selectedBall}
+                    onChange={(event) => handleBallChange(event.target.value)}
+                  >
+                    <option>All</option>
+                    {ballOptions.map((ballName) => (
+                      <option key={ballName}>{ballName}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label>
+                Competition
+                <select
+                  value={selectedCompetition}
+                  onChange={(event) =>
+                    handleCompetitionChange(event.target.value)
+                  }
+                >
+                  <option>All</option>
+                  {competitionOptions.map((competition) => (
+                    <option key={competition}>{competition}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Bowling Center
+                <select
+                  value={selectedCenter}
+                  onChange={(event) => handleCenterChange(event.target.value)}
+                >
+                  <option>All</option>
+                  {centerOptions.map((center) => (
+                    <option key={center}>{center}</option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedCenter !== "All" && (
+                <label>
+                  Lane / Pair
+                  <select
+                    value={selectedLane}
+                    onChange={(event) => setSelectedLane(event.target.value)}
+                  >
+                    <option>All</option>
+                    {laneOptions.map((lane) => (
+                      <option key={lane}>{lane}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label>
+                Pattern
+                <select
+                  value={selectedPattern}
+                  onChange={(event) => handlePatternChange(event.target.value)}
+                >
+                  <option>All</option>
+                  {patternOptions.map((pattern) => (
+                    <option key={pattern}>{pattern}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                League/Tournament Week or Day
+                <select
+                  value={selectedEventStage}
+                  onChange={(event) =>
+                    setSelectedEventStage(event.target.value)
+                  }
+                >
+                  <option>All</option>
+                  {eventStageOptions.map((eventStage) => (
+                    <option key={eventStage}>{eventStage}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+              <div className="stats-action-row">
+                <button className="secondary-button" onClick={clearFilters}>
+                  Clear Filters
+                </button>
+
+                <button
+                  className="primary-button"
+                  disabled={filteredGames.length === 0}
+                  onClick={exportFilteredCsv}
+                >
+                  Export Filtered CSV
+                </button>
+              </div>
+            </div>
+          </details>
+
+          <details className="stats-collapsible-card">
+            <summary className="stats-section-summary">
+              <div>
+                <strong>Overview</strong>
+                <p>Quick summary of the saved sets matching the current filters.</p>
+              </div>
+              <span className="summary-hint">Open Section</span>
+            </summary>
+
+            <div className="stats-collapsible-content stats-summary-grid">
+            <div className="stat-card">
+              <strong>{sessionGroups.length}</strong>
+              <span>Saved Sets</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{filteredGames.length}</strong>
+              <span>Games</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{overallAverage.toFixed(1)}</strong>
+              <span>Score Average</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{strikeCount}</strong>
+              <span>Strikes</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{spareCount}</strong>
+              <span>Spares</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{openCount}</strong>
+              <span>Opens</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{spareLeaveRows.reduce((sum, row) => sum + row.attempts, 0)}</strong>
+              <span>Spare Attempts</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{cleanPercentage.toFixed(1)}%</strong>
+              <span>Clean Frame %</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{splitPercentage.toFixed(1)}%</strong>
+              <span>Split %</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{cleanGameCount}</strong>
+              <span>Clean Games</span>
+            </div>
+            </div>
+          </details>
+
+          <details className="stats-table-card stats-collapsible-card">
+            <summary className="stats-section-summary">
+              <div>
+                <strong>Bowler Breakdown</strong>
+                <p>Per-bowler games, frames, average, strike rate, spare rate, and opens.</p>
+              </div>
+              <span className="summary-hint">Open Section</span>
+            </summary>
+
+            <div className="stats-collapsible-content">
+              {bowlerRows.length === 0 ? (
+              <p className="helper-text">No rows match the current filters.</p>
+            ) : (
+              <div className="table-scroll">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      <th>Bowler</th>
+                      <th>Games</th>
+                      <th>Frames</th>
+                      <th>Average</th>
+                      <th>Strikes</th>
+                      <th>Spares</th>
+                      <th>Opens</th>
+                      <th>Strike %</th>
+                      <th>Spare %</th>
+                      <th>Clean %</th>
+                      <th>Split %</th>
+                      <th>Clean Games</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bowlerRows.map((row) => (
+                      <tr key={row.bowlerName}>
+                        <td>{row.bowlerName}</td>
+                        <td>{row.games}</td>
+                        <td>{row.frames}</td>
+                        <td>{row.average ? row.average.toFixed(1) : "—"}</td>
+                        <td>{row.strikes}</td>
+                        <td>{row.spares}</td>
+                        <td>{row.opens}</td>
+                        <td>{row.strikeRate.toFixed(1)}%</td>
+                        <td>{row.spareRate.toFixed(1)}%</td>
+                        <td>{row.cleanRate.toFixed(1)}%</td>
+                        <td>{row.splitRate.toFixed(1)}%</td>
+                        <td>{row.cleanGames}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              )}
+              {detailedStats && (
+                <section className="deep-stats-card inner-stats-card">
+                  <h3>
+                    Detailed Bowler Analysis — {selectedBowler}
+                    {selectedBall !== "All" ? ` with ${selectedBall}` : ""}
+                  </h3>
+                  <p className="helper-text">
+                    Deeper bowler metrics, including pocket, carry, doubles,
+                    makeable spares, fill frames, clean frames, splits, and
+                    transition phase.
+                  </p>
+                <p className="helper-text">
+                  Pocket-related values use first-ball pin count as the current
+                  proxy: 9-counts and strikes are treated as pocket hits, and
+                  pocket strikes feed carry and double calculations.
+                </p>
+
+                <div className="deep-stats-grid">
+                <div className="stat-card">
+                  <strong>{detailedStats.numGames}</strong>
+                  <span>Number of Games</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.average.toFixed(1)}</strong>
+                  <span>Average</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>
+                    {detailedStats.highThreeGameSeries > 0
+                      ? detailedStats.highThreeGameSeries
+                      : "—"}
+                  </strong>
+                  <span>High 3-Game Series</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>
+                    {detailedStats.highFourGameSeries > 0
+                      ? detailedStats.highFourGameSeries
+                      : "—"}
+                  </strong>
+                  <span>High 4-Game Series</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.pocketPercentage.toFixed(1)}%</strong>
+                  <span>Pocket Percentage</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.carryPercentage.toFixed(1)}%</strong>
+                  <span>Carry Percentage</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.doublePercentage.toFixed(1)}%</strong>
+                  <span>Double Percentage</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>
+                    {detailedStats.makeableSpareConversion.toFixed(1)}%
+                  </strong>
+                  <span>Makeable Spare Conversion</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.fillFramesPercentage.toFixed(1)}%</strong>
+                  <span>Fill Frames Percentage</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.cleanPercentage.toFixed(1)}%</strong>
+                  <span>Clean Percentage</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.splitPercentage.toFixed(1)}%</strong>
+                  <span>Split Percentage</span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>{detailedStats.cleanGames}</strong>
+                  <span>Clean Games</span>
+                </div>
+              </div>
+
+              {selectedBall !== "All" && (
+                <section className="ball-stats-card">
+                  <h4>Ball Stats — {selectedBall}</h4>
+                  <p>
+                    <strong>Frames Tracked:</strong> {detailedStats.frames}
+                  </p>
+                  <p>
+                    <strong>Strike Rate:</strong>{" "}
+                    {detailedStats.frames > 0
+                      ? ((detailedStats.strikes / detailedStats.frames) * 100).toFixed(1)
+                      : "0.0"}
+                    %
+                  </p>
+                  <p>
+                    <strong>Spare Rate:</strong>{" "}
+                    {detailedStats.frames > 0
+                      ? ((detailedStats.spares / detailedStats.frames) * 100).toFixed(1)
+                      : "0.0"}
+                    %
+                  </p>
+                  <p>
+                    <strong>Open Rate:</strong>{" "}
+                    {detailedStats.frames > 0
+                      ? ((detailedStats.opens / detailedStats.frames) * 100).toFixed(1)
+                      : "0.0"}
+                    %
+                  </p>
+                </section>
+              )}
+
+              <section className="transition-card">
+                <h4>Transitional Phase Breakdown</h4>
+                <p className="helper-text">
+                  Phase is estimated using first-shot frame count per lane,
+                  adjusted by the session's Bowlers Per Team value:
+                  Fresh ≤55, Early Transition 56–110, Early Middle 111–165,
+                  Late Middle 166–220, Late Transition 221–275, Burn ≥276.
+                </p>
+
+                <div className="table-scroll">
+                  <table className="stats-table">
+                    <thead>
+                      <tr>
+                        <th>Phase</th>
+                        <th>Frames</th>
+                        <th>Strikes</th>
+                        <th>Spares</th>
+                        <th>Opens</th>
+                        <th>Pocket %</th>
+                        <th>Carry %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailedStats.transitionRows.map((row) => (
+                        <tr key={row.phase}>
+                          <td>{row.phase}</td>
+                          <td>{row.frames}</td>
+                          <td>{row.strikes}</td>
+                          <td>{row.spares}</td>
+                          <td>{row.opens}</td>
+                          <td>{row.splits}</td>
+                          <td>{row.pocketPercentage.toFixed(1)}%</td>
+                          <td>{row.carryPercentage.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+                </section>
+              )}
+
+            </div>
+          </details>
+
+          {bakerTeamGames.length > 0 && (
+            <BakerStatsSection
+              games={bakerTeamGames}
+              selectedBakerBowler={selectedBakerBowler}
+              selectedBall={selectedBall}
+            />
+          )}
+
+          <details className="spare-leave-card stats-collapsible-card">
+            <summary className="stats-section-summary">
+              <div>
+                <strong>Spare Leave Breakdown</strong>
+                <p>
+                  Most common leaves, attempts, conversions, misses, and pickup
+                  percentages.
+                </p>
+              </div>
+              <span className="summary-hint">Open Section</span>
+            </summary>
+
+            <div className="stats-collapsible-content">
+              <p className="helper-text">
+                This is a display table, not a filter. Attempts are grouped by
+                first-ball leaves, and pickup percentage is calculated as converted
+                spares divided by attempts for that leave.
+              </p>
+
+              {spareLeaveRows.length === 0 ? (
+              <p className="helper-text">
+                No spare attempts match the current filters.
+              </p>
+            ) : (
+              <div className="table-scroll">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      <th>Leave</th>
+                      <th>Attempts</th>
+                      <th>Conversions</th>
+                      <th>Misses</th>
+                      <th>Pickup %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {spareLeaveRows.map((row) => (
+                      <tr key={row.leave}>
+                        <td>{row.leave}</td>
+                        <td>{row.attempts}</td>
+                        <td>{row.conversions}</td>
+                        <td>{row.misses}</td>
+                        <td>{row.conversionPercentage.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              )}
+            </div>
+          </details>
+
+          <details className="board-analysis-card stats-collapsible-card">
+            <summary className="stats-section-summary">
+              <div>
+                <strong>Targeting / Board Analysis</strong>
+                <p>
+                  Foot board, target arrow, actual arrow, breakpoint, miss
+                  averages, and progression over filtered sets.
+                </p>
+              </div>
+              <span className="summary-hint">Open Section</span>
+            </summary>
+
+            <div className="stats-collapsible-content">
+              <p className="helper-text">
+                This uses the foot board, target arrow, actual arrow, target
+                breakpoint, and actual breakpoint saved on each shot. Miss values
+                are calculated as actual minus target, so positive means farther
+                right on the board scale and negative means farther left.
+              </p>
+
+              {boardStats.trackedShots === 0 ? (
+              <p className="helper-text">
+                No board/targeting data matches the current filters yet.
+              </p>
+            ) : (
+              <>
+                <div className="stats-summary-grid">
+                  <div className="stat-card">
+                    <strong>{boardStats.trackedShots}</strong>
+                    <span>Tracked Shots</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageFootBoard)}</strong>
+                    <span>Avg Foot Board</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageTargetArrow)}</strong>
+                    <span>Avg Target Arrow</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageActualArrow)}</strong>
+                    <span>Avg Actual Arrow</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatSignedNumber(boardStats.averageArrowMiss)}</strong>
+                    <span>Avg Arrow Miss</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageAbsoluteArrowMiss)}</strong>
+                    <span>Avg Abs Arrow Miss</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatPercentValue(boardStats.arrowHitRate)}</strong>
+                    <span>Arrow ±1 Board</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageTargetBreakpoint)}</strong>
+                    <span>Avg Target Breakpoint</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageActualBreakpoint)}</strong>
+                    <span>Avg Actual Breakpoint</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatSignedNumber(boardStats.averageBreakpointMiss)}</strong>
+                    <span>Avg Breakpoint Miss</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatMaybeNumber(boardStats.averageAbsoluteBreakpointMiss)}</strong>
+                    <span>Avg Abs BP Miss</span>
+                  </div>
+
+                  <div className="stat-card">
+                    <strong>{formatPercentValue(boardStats.breakpointHitRate)}</strong>
+                    <span>Breakpoint ±1 Board</span>
+                  </div>
+                </div>
+
+                <section className="board-table-section">
+                  <h4>Board Stats by Ball</h4>
+
+                  <div className="table-scroll">
+                    <table className="stats-table">
+                      <thead>
+                        <tr>
+                          <th>Ball</th>
+                          <th>Shots</th>
+                          <th>Avg Foot</th>
+                          <th>Avg Target Arrow</th>
+                          <th>Avg Actual Arrow</th>
+                          <th>Avg Arrow Miss</th>
+                          <th>Avg Abs Arrow Miss</th>
+                          <th>Arrow ±1</th>
+                          <th>Avg Target BP</th>
+                          <th>Avg Actual BP</th>
+                          <th>Avg BP Miss</th>
+                          <th>Avg Abs BP Miss</th>
+                          <th>BP ±1</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {boardStats.byBallRows.map((row) => (
+                          <tr key={row.ball}>
+                            <td>{row.ball}</td>
+                            <td>{row.shots}</td>
+                            <td>{formatMaybeNumber(row.averageFootBoard)}</td>
+                            <td>{formatMaybeNumber(row.averageTargetArrow)}</td>
+                            <td>{formatMaybeNumber(row.averageActualArrow)}</td>
+                            <td>{formatSignedNumber(row.averageArrowMiss)}</td>
+                            <td>
+                              {formatMaybeNumber(row.averageAbsoluteArrowMiss)}
+                            </td>
+                            <td>{formatPercentValue(row.arrowHitRate)}</td>
+                            <td>
+                              {formatMaybeNumber(row.averageTargetBreakpoint)}
+                            </td>
+                            <td>
+                              {formatMaybeNumber(row.averageActualBreakpoint)}
+                            </td>
+                            <td>
+                              {formatSignedNumber(row.averageBreakpointMiss)}
+                            </td>
+                            <td>
+                              {formatMaybeNumber(row.averageAbsoluteBreakpointMiss)}
+                            </td>
+                            <td>{formatPercentValue(row.breakpointHitRate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section className="board-table-section">
+                  <h4>Progression Over Filtered Sets</h4>
+                  <p className="helper-text">
+                    This shows how feet, arrows, and breakpoints progress by
+                    game/set under the current filters.
+                  </p>
+
+                  {boardProgressionRows.length === 0 ? (
+                    <p className="helper-text">
+                      No progression rows match the current filters.
+                    </p>
+                  ) : (
+                    <div className="table-scroll">
+                      <table className="stats-table">
+                        <thead>
+                          <tr>
+                            <th>Set</th>
+                            <th>Game</th>
+                            <th>Lane</th>
+                            <th>Shots</th>
+                            <th>Avg Foot</th>
+                            <th>Avg Target Arrow</th>
+                            <th>Avg Actual Arrow</th>
+                            <th>Avg Arrow Miss</th>
+                            <th>Avg Target BP</th>
+                            <th>Avg Actual BP</th>
+                            <th>Avg BP Miss</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {boardProgressionRows.map((row) => (
+                            <tr key={`${row.sessionTitle}-${row.gameNumber}-${row.laneLabel}`}>
+                              <td>{row.sessionTitle}</td>
+                              <td>{row.gameNumber}</td>
+                              <td>{row.laneLabel}</td>
+                              <td>{row.shots}</td>
+                              <td>{formatMaybeNumber(row.averageFootBoard)}</td>
+                              <td>
+                                {formatMaybeNumber(row.averageTargetArrow)}
+                              </td>
+                              <td>
+                                {formatMaybeNumber(row.averageActualArrow)}
+                              </td>
+                              <td>{formatSignedNumber(row.averageArrowMiss)}</td>
+                              <td>
+                                {formatMaybeNumber(row.averageTargetBreakpoint)}
+                              </td>
+                              <td>
+                                {formatMaybeNumber(row.averageActualBreakpoint)}
+                              </td>
+                              <td>
+                                {formatSignedNumber(row.averageBreakpointMiss)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="board-table-section">
+                  <h4>Recent Board Data</h4>
+
+                  <div className="table-scroll">
+                    <table className="stats-table">
+                      <thead>
+                        <tr>
+                          <th>Bowler</th>
+                          <th>Frame</th>
+                          <th>Ball</th>
+                          <th>Foot</th>
+                          <th>Target Arrow</th>
+                          <th>Actual Arrow</th>
+                          <th>Arrow Miss</th>
+                          <th>Target BP</th>
+                          <th>Actual BP</th>
+                          <th>BP Miss</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {boardStats.recentRows.map((row, index) => (
+                          <tr key={`${row.bowlerName}-${row.frameNumber}-${index}`}>
+                            <td>{row.bowlerName}</td>
+                            <td>{row.frameNumber}</td>
+                            <td>{row.ballUsed || "No ball"}</td>
+                            <td>{formatMaybeNumber(row.footBoard)}</td>
+                            <td>{formatMaybeNumber(row.targetArrow)}</td>
+                            <td>{formatMaybeNumber(row.actualArrow)}</td>
+                            <td>{formatSignedNumber(row.arrowMiss)}</td>
+                            <td>{formatMaybeNumber(row.targetBreakpoint)}</td>
+                            <td>{formatMaybeNumber(row.actualBreakpoint)}</td>
+                            <td>{formatSignedNumber(row.breakpointMiss)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </>
+              )}
+            </div>
+          </details>
+
+          <details className="saved-sets-list stats-collapsible-card">
+            <summary className="stats-section-summary">
+              <div>
+                <strong>Filtered Saved Sets</strong>
+                <p>Expandable saved sets matching the active filters.</p>
+              </div>
+              <span className="summary-hint">Open Section</span>
+            </summary>
+
+            <div className="stats-collapsible-content">
+              {sessionGroups.length === 0 ? (
+              <p className="helper-text">No saved sets match the current filters.</p>
+            ) : (
+              sessionGroups.map((session) => (
+                <details className="saved-set-card" key={session.sessionKey}>
+                  <summary className="saved-set-summary">
+                    <div>
+                      <strong>{session.title}</strong>
+                      <p>
+                        {session.games.length} game
+                        {session.games.length === 1 ? "" : "s"} •{" "}
+                        {session.centerName} • {session.patternName}
+                      </p>
+                    </div>
+
+                    <span className="summary-hint">Open Details</span>
+                  </summary>
+
+                  <div className="saved-set-details">
+                    <div className="saved-set-actions-row">
+                      <button
+                        className="danger-button"
+                        onClick={() => deleteSavedSet(session.sessionKey)}
+                      >
+                        Delete Saved Set
+                      </button>
+                    </div>
+
+                    {selectedBowler !== "All" && (
+                      <SetSpecificStats
+                        bowlerName={selectedBowler}
+                        selectedBall={selectedBall}
+                        session={session}
+                      />
+                    )}
+
+                    {session.games.some((game) => game.format === "Baker") && (
+                      <BakerSetBreakdown session={session} />
+                    )}
+
+                    {session.games.map((game) => (
+                      <article className="saved-game-detail-card" key={game.id}>
+                        <h4>Game {game.gameNumber}</h4>
+                        <p>
+                          <strong>Lane:</strong> {game.laneLabel}
+                        </p>
+                        <p>
+                          <strong>Scores:</strong>{" "}
+                          {game.scores
+                            .map((score) => `${score.label}: ${score.score}`)
+                            .join(" • ")}
+                        </p>
+
+                        {game.format === "Baker" && (
+                          <>
+                            <ScoreGrid
+                              title={`Baker Team Game ${game.gameNumber}`}
+                              entries={game.entries}
+                            />
+                            <BakerFrameTable game={game} />
+                          </>
+                        )}
+
+                        {selectedBowler !== "All" && game.format !== "Baker" && (
+                          <ScoreGrid
+                            title={`${selectedBowler} Game ${game.gameNumber}`}
+                            entries={game.entries.filter(
+                              (entry) =>
+                                entry.bowlerName === selectedBowler &&
+                                (selectedBall === "All" ||
+                                  entry.ballUsed === selectedBall)
+                            )}
+                          />
+                        )}
+
+                        <p>
+                          <strong>Saved:</strong>{" "}
+                          {new Date(game.savedAt).toLocaleString()}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                </details>
+              ))
+            )}
+            </div>
+          </details>
+        </>
+      )}
     </>
   );
+}
+
+
+type BoardStatRow = {
+  ball: string;
+  shots: number;
+  averageFootBoard: number | null;
+  averageTargetArrow: number | null;
+  averageActualArrow: number | null;
+  averageArrowMiss: number | null;
+  averageAbsoluteArrowMiss: number | null;
+  arrowHitRate: number | null;
+  averageTargetBreakpoint: number | null;
+  averageActualBreakpoint: number | null;
+  averageBreakpointMiss: number | null;
+  averageAbsoluteBreakpointMiss: number | null;
+  breakpointHitRate: number | null;
+};
+
+type BoardShotRow = {
+  bowlerName: string;
+  frameNumber: number;
+  ballUsed: string;
+  footBoard: number | null;
+  targetArrow: number | null;
+  actualArrow: number | null;
+  arrowMiss: number | null;
+  targetBreakpoint: number | null;
+  actualBreakpoint: number | null;
+  breakpointMiss: number | null;
+};
+
+function parseBoardValue(value: string) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function averageValues(values: Array<number | null>) {
+  const validValues = values.filter((value): value is number => value !== null);
+
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  return validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
+}
+
+function calculateMiss(actual: number | null, target: number | null) {
+  if (actual === null || target === null) {
+    return null;
+  }
+
+  return actual - target;
+}
+
+function formatMaybeNumber(value: number | null) {
+  return value === null ? "—" : value.toFixed(1);
+}
+
+function formatSignedNumber(value: number | null) {
+  if (value === null) {
+    return "—";
+  }
+
+  if (value > 0) {
+    return `+${value.toFixed(1)}`;
+  }
+
+  return value.toFixed(1);
+}
+
+function formatPercentValue(value: number | null) {
+  return value === null ? "—" : `${value.toFixed(1)}%`;
+}
+
+function calculateBoardHitRate(values: Array<number | null>, tolerance = 1) {
+  const validValues = values.filter((value): value is number => value !== null);
+
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  const hits = validValues.filter((value) => Math.abs(value) <= tolerance).length;
+
+  return (hits / validValues.length) * 100;
+}
+
+function createBoardShotRow(entry: FrameEntry): BoardShotRow {
+  const footBoard = parseBoardValue(entry.footBoard);
+  const targetArrow = parseBoardValue(entry.targetArrow);
+  const actualArrow = parseBoardValue(entry.actualArrow);
+  const targetBreakpoint = parseBoardValue(entry.targetBreakpoint);
+  const actualBreakpoint = parseBoardValue(entry.actualBreakpoint);
+
+  return {
+    bowlerName: entry.bowlerName,
+    frameNumber: entry.frameNumber,
+    ballUsed: entry.ballUsed,
+    footBoard,
+    targetArrow,
+    actualArrow,
+    arrowMiss: calculateMiss(actualArrow, targetArrow),
+    targetBreakpoint,
+    actualBreakpoint,
+    breakpointMiss: calculateMiss(actualBreakpoint, targetBreakpoint),
+  };
+}
+
+function hasBoardData(row: BoardShotRow) {
+  return (
+    row.footBoard !== null ||
+    row.targetArrow !== null ||
+    row.actualArrow !== null ||
+    row.targetBreakpoint !== null ||
+    row.actualBreakpoint !== null
+  );
+}
+
+function summarizeBoardRows(rows: BoardShotRow[]): Omit<BoardStatRow, "ball" | "shots"> {
+  return {
+    averageFootBoard: averageValues(rows.map((row) => row.footBoard)),
+    averageTargetArrow: averageValues(rows.map((row) => row.targetArrow)),
+    averageActualArrow: averageValues(rows.map((row) => row.actualArrow)),
+    averageArrowMiss: averageValues(rows.map((row) => row.arrowMiss)),
+    averageAbsoluteArrowMiss: averageValues(
+      rows.map((row) =>
+        row.arrowMiss === null ? null : Math.abs(row.arrowMiss)
+      )
+    ),
+    arrowHitRate: calculateBoardHitRate(rows.map((row) => row.arrowMiss)),
+    averageTargetBreakpoint: averageValues(
+      rows.map((row) => row.targetBreakpoint)
+    ),
+    averageActualBreakpoint: averageValues(
+      rows.map((row) => row.actualBreakpoint)
+    ),
+    averageBreakpointMiss: averageValues(
+      rows.map((row) => row.breakpointMiss)
+    ),
+    averageAbsoluteBreakpointMiss: averageValues(
+      rows.map((row) =>
+        row.breakpointMiss === null ? null : Math.abs(row.breakpointMiss)
+      )
+    ),
+    breakpointHitRate: calculateBoardHitRate(
+      rows.map((row) => row.breakpointMiss)
+    ),
+  };
+}
+
+function calculateBoardStats(entries: FrameEntry[]) {
+  const boardRows = entries.map(createBoardShotRow).filter(hasBoardData);
+  const overall = summarizeBoardRows(boardRows);
+  const rowsByBall = new Map<string, BoardShotRow[]>();
+
+  boardRows.forEach((row) => {
+    const ballName = row.ballUsed || "No ball";
+    const currentRows = rowsByBall.get(ballName) ?? [];
+    rowsByBall.set(ballName, [...currentRows, row]);
+  });
+
+  const byBallRows: BoardStatRow[] = Array.from(rowsByBall.entries())
+    .map(([ball, rows]) => ({
+      ball,
+      shots: rows.length,
+      ...summarizeBoardRows(rows),
+    }))
+    .sort((a, b) => b.shots - a.shots || a.ball.localeCompare(b.ball));
+
+  return {
+    trackedShots: boardRows.length,
+    ...overall,
+    byBallRows,
+    recentRows: boardRows.slice(-12).reverse(),
+  };
+}
+
+function calculateBoardProgressionRows(
+  games: SavedGameRecord[],
+  selectedBowler: string,
+  selectedBall: string
+) {
+  return games
+    .map((game) => {
+      const boardRows = game.entries
+        .filter((entry) => {
+          const matchesBowler =
+            selectedBowler === "All" || entry.bowlerName === selectedBowler;
+          const matchesBall =
+            selectedBall === "All" || entry.ballUsed === selectedBall;
+
+          return matchesBowler && matchesBall;
+        })
+        .map(createBoardShotRow)
+        .filter(hasBoardData);
+
+      if (boardRows.length === 0) {
+        return null;
+      }
+
+      const sessionTitle = [
+        game.eventName || game.competitionType,
+        game.eventStageLabel,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+      return {
+        sessionTitle,
+        gameNumber: game.gameNumber,
+        laneLabel: game.laneLabel,
+        shots: boardRows.length,
+        ...summarizeBoardRows(boardRows),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+}
+
+function buildStatsExportFileName(filters: {
+  selectedBowler: string;
+  selectedBall: string;
+  selectedCompetition: string;
+  selectedCenter: string;
+  selectedLane: string;
+  selectedPattern: string;
+  selectedEventStage: string;
+}) {
+  const activeFilterParts = [
+    "pin-sighter-stats",
+    filters.selectedBowler !== "All" ? filters.selectedBowler : "",
+    filters.selectedBall !== "All" ? filters.selectedBall : "",
+    filters.selectedCompetition !== "All" ? filters.selectedCompetition : "",
+    filters.selectedCenter !== "All" ? filters.selectedCenter : "",
+    filters.selectedLane !== "All" ? filters.selectedLane : "",
+    filters.selectedPattern !== "All" ? filters.selectedPattern : "",
+    filters.selectedEventStage !== "All" ? filters.selectedEventStage : "",
+  ]
+    .filter(Boolean)
+    .map((part) =>
+      part
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+    );
+
+  return `${activeFilterParts.join("_") || "pin-sighter-stats"}.csv`;
+}
+
+function SetSpecificStats({
+  bowlerName,
+  selectedBall,
+  session,
+}: {
+  bowlerName: string;
+  selectedBall: string;
+  session: ReturnType<typeof buildSessionGroups>[number];
+}) {
+  const sessionStats = calculateDetailedBowlerStats(
+    bowlerName,
+    selectedBall,
+    session.games,
+    [session]
+  );
+
+  return (
+    <section className="set-specific-stats-card">
+      <h4>
+        Set Stats — {bowlerName}
+        {selectedBall !== "All" ? ` with ${selectedBall}` : ""}
+      </h4>
+
+      <div className="deep-stats-grid">
+        <div className="stat-card">
+          <strong>{sessionStats.numGames}</strong>
+          <span>Games</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.average.toFixed(1)}</strong>
+          <span>Average</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.pocketPercentage.toFixed(1)}%</strong>
+          <span>Pocket %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.carryPercentage.toFixed(1)}%</strong>
+          <span>Carry %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.doublePercentage.toFixed(1)}%</strong>
+          <span>Double %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.makeableSpareConversion.toFixed(1)}%</strong>
+          <span>Makeable Spare %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.fillFramesPercentage.toFixed(1)}%</strong>
+          <span>Fill Frames %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.cleanPercentage.toFixed(1)}%</strong>
+          <span>Clean %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.splitPercentage.toFixed(1)}%</strong>
+          <span>Split %</span>
+        </div>
+
+        <div className="stat-card">
+          <strong>{sessionStats.cleanGames}</strong>
+          <span>Clean Games</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function calculateBakerTeamSummaryRows(games: SavedGameRecord[]) {
+  const gamesByTeam = new Map<string, SavedGameRecord[]>();
+
+  games.forEach((game) => {
+    const teamName = `Baker Team: ${Array.from(new Set(game.bowlerNames))
+      .sort((a, b) => a.localeCompare(b))
+      .join(", ")}`;
+    const currentGames = gamesByTeam.get(teamName) ?? [];
+    gamesByTeam.set(teamName, [...currentGames, game]);
+  });
+
+  return Array.from(gamesByTeam.entries()).map(([teamName, teamGames]) => {
+    const scores = teamGames.flatMap((game) =>
+      game.scores.map((score) => score.score)
+    );
+    const entries = teamGames.flatMap((game) => game.entries);
+    const strikes = entries.filter(isStrikeEntry).length;
+    const spares = entries.filter(isSpareEntry).length;
+    const cleanFrames = entries.filter(isCleanFrame).length;
+    const splits = entries.filter(isSplitEntry).length;
+
+    return {
+      teamName,
+      games: teamGames.length,
+      average:
+        scores.length > 0
+          ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+          : 0,
+      highGame: scores.length > 0 ? Math.max(...scores) : 0,
+      frames: entries.length,
+      strikes,
+      spares,
+      opens: entries.length - strikes - spares,
+      cleanRate:
+        entries.length > 0 ? (cleanFrames / entries.length) * 100 : 0,
+      splitRate: entries.length > 0 ? (splits / entries.length) * 100 : 0,
+      cleanGames: teamGames.filter((game) => isCleanGameForEntries(game.entries))
+        .length,
+    };
+  });
+}
+
+function calculateBakerPositionRows(
+  games: SavedGameRecord[],
+  selectedBakerBowler: string,
+  selectedBall: string
+) {
+  const rowsByPosition = new Map<
+    number,
+    {
+      position: number;
+      bowlerNames: Set<string>;
+      entries: FrameEntry[];
+    }
+  >();
+
+  games.forEach((game) => {
+    game.entries.forEach((entry) => {
+      const matchesBakerBowler =
+        selectedBakerBowler === "All" ||
+        entry.bowlerName === selectedBakerBowler;
+      const matchesBall = selectedBall === "All" || entry.ballUsed === selectedBall;
+
+      if (!matchesBakerBowler || !matchesBall) {
+        return;
+      }
+
+      const position = ((entry.frameNumber - 1) % Math.max(1, game.bowlersPerTeam)) + 1;
+      const currentRow =
+        rowsByPosition.get(position) ?? {
+          position,
+          bowlerNames: new Set<string>(),
+          entries: [],
+        };
+
+      currentRow.bowlerNames.add(entry.bowlerName);
+      currentRow.entries.push(entry);
+      rowsByPosition.set(position, currentRow);
+    });
+  });
+
+  return Array.from(rowsByPosition.values())
+    .map((row) => {
+      const strikes = row.entries.filter(isStrikeEntry).length;
+      const spares = row.entries.filter(isSpareEntry).length;
+      const cleanFrames = row.entries.filter(isCleanFrame).length;
+      const splits = row.entries.filter(isSplitEntry).length;
+
+      return {
+        position: row.position,
+        bowlers: Array.from(row.bowlerNames).sort().join(", "),
+        frames: row.entries.length,
+        strikes,
+        spares,
+        opens: row.entries.length - strikes - spares,
+        cleanRate:
+          row.entries.length > 0 ? (cleanFrames / row.entries.length) * 100 : 0,
+        splitRate:
+          row.entries.length > 0 ? (splits / row.entries.length) * 100 : 0,
+      };
+    })
+    .sort((a, b) => a.position - b.position);
+}
+
+function BakerStatsSection({
+  games,
+  selectedBakerBowler,
+  selectedBall,
+}: {
+  games: SavedGameRecord[];
+  selectedBakerBowler: string;
+  selectedBall: string;
+}) {
+  const teamRows = calculateBakerTeamSummaryRows(games);
+  const positionRows = calculateBakerPositionRows(
+    games,
+    selectedBakerBowler,
+    selectedBall
+  );
+  const bowlerRows = calculateBakerBowlerRows(games).filter((row) => {
+    const matchesBakerBowler =
+      selectedBakerBowler === "All" || row.bowlerName === selectedBakerBowler;
+    const matchesBall =
+      selectedBall === "All" ||
+      row.balls.split(", ").some((ballName) => ballName === selectedBall);
+
+    return matchesBakerBowler && matchesBall;
+  });
+
+  return (
+    <details className="baker-stats-card stats-collapsible-card">
+      <summary className="stats-section-summary">
+        <div>
+          <strong>Baker Team Stats</strong>
+          <p>
+            Baker games are separated from individual bowler stats. Use this
+            section for team score, lineup position, and frame responsibility.
+          </p>
+        </div>
+        <span className="summary-hint">Open Section</span>
+      </summary>
+
+      <div className="stats-collapsible-content">
+        <section className="baker-breakdown-card">
+          <h4>Team Summary</h4>
+
+          <div className="table-scroll">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Baker Team</th>
+                  <th>Games</th>
+                  <th>Average</th>
+                  <th>High Game</th>
+                  <th>Frames</th>
+                  <th>Strikes</th>
+                  <th>Spares</th>
+                  <th>Opens</th>
+                  <th>Clean %</th>
+                  <th>Split %</th>
+                  <th>Clean Games</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamRows.map((row) => (
+                  <tr key={row.teamName}>
+                    <td>{row.teamName}</td>
+                    <td>{row.games}</td>
+                    <td>{row.average.toFixed(1)}</td>
+                    <td>{row.highGame}</td>
+                    <td>{row.frames}</td>
+                    <td>{row.strikes}</td>
+                    <td>{row.spares}</td>
+                    <td>{row.opens}</td>
+                    <td>{row.cleanRate.toFixed(1)}%</td>
+                    <td>{row.splitRate.toFixed(1)}%</td>
+                    <td>{row.cleanGames}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="baker-breakdown-card">
+          <h4>Stats by Baker Position</h4>
+          <p className="helper-text">
+            Position is calculated from the frame number and team size. For a
+            five-person lineup, position 1 bowls frames 1 and 6, position 2
+            bowls frames 2 and 7, and so on.
+          </p>
+
+          <div className="table-scroll">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Position</th>
+                  <th>Bowler(s)</th>
+                  <th>Frames</th>
+                  <th>Strikes</th>
+                  <th>Spares</th>
+                  <th>Opens</th>
+                  <th>Clean %</th>
+                  <th>Split %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positionRows.map((row) => (
+                  <tr key={row.position}>
+                    <td>{row.position}</td>
+                    <td>{row.bowlers}</td>
+                    <td>{row.frames}</td>
+                    <td>{row.strikes}</td>
+                    <td>{row.spares}</td>
+                    <td>{row.opens}</td>
+                    <td>{row.cleanRate.toFixed(1)}%</td>
+                    <td>{row.splitRate.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="baker-breakdown-card">
+          <h4>Baker Bowler Contribution</h4>
+
+          <div className="table-scroll">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Bowler</th>
+                  <th>Frames</th>
+                  <th>Strikes</th>
+                  <th>Spares</th>
+                  <th>Opens</th>
+                  <th>Clean %</th>
+                  <th>Split %</th>
+                  <th>Balls Used</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bowlerRows.map((row) => (
+                  <tr key={row.bowlerName}>
+                    <td>{row.bowlerName}</td>
+                    <td>{row.frames}</td>
+                    <td>{row.strikes}</td>
+                    <td>{row.spares}</td>
+                    <td>{row.opens}</td>
+                    <td>{row.cleanRate.toFixed(1)}%</td>
+                    <td>{row.splitRate.toFixed(1)}%</td>
+                    <td>{row.balls}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </details>
+  );
+}
+
+function calculateBakerBowlerRows(games: SavedGameRecord[]) {
+  const entryMap = new Map<string, FrameEntry[]>();
+
+  games
+    .filter((game) => game.format === "Baker")
+    .flatMap((game) => game.entries)
+    .forEach((entry) => {
+      const currentEntries = entryMap.get(entry.bowlerName) ?? [];
+      entryMap.set(entry.bowlerName, [...currentEntries, entry]);
+    });
+
+  return Array.from(entryMap.entries())
+    .map(([bowlerName, entries]) => {
+      const strikes = entries.filter(isStrikeEntry).length;
+      const spares = entries.filter(isSpareEntry).length;
+      const cleanFrames = entries.filter(isCleanFrame).length;
+      const splits = entries.filter(isSplitEntry).length;
+      const balls = Array.from(
+        new Set(entries.map((entry) => entry.ballUsed).filter(Boolean))
+      ).join(", ");
+
+      return {
+        bowlerName,
+        frames: entries.length,
+        strikes,
+        spares,
+        opens: entries.length - strikes - spares,
+        cleanRate:
+          entries.length > 0 ? (cleanFrames / entries.length) * 100 : 0,
+        splitRate: entries.length > 0 ? (splits / entries.length) * 100 : 0,
+        balls: balls || "No ball",
+      };
+    })
+    .sort((a, b) => a.bowlerName.localeCompare(b.bowlerName));
+}
+
+function BakerSetBreakdown({
+  session,
+}: {
+  session: ReturnType<typeof buildSessionGroups>[number];
+}) {
+  const rows = calculateBakerBowlerRows(session.games);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="baker-breakdown-card">
+      <h4>Baker Rotation Breakdown</h4>
+      <p className="helper-text">
+        Baker keeps the team score as one score while still tracking who bowled
+        each frame. This table shows each bowler’s frame responsibility inside
+        the team set.
+      </p>
+
+      <div className="table-scroll">
+        <table className="stats-table">
+          <thead>
+            <tr>
+              <th>Bowler</th>
+              <th>Frames</th>
+              <th>Strikes</th>
+              <th>Spares</th>
+              <th>Opens</th>
+              <th>Clean %</th>
+              <th>Split %</th>
+              <th>Balls Used</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.bowlerName}>
+                <td>{row.bowlerName}</td>
+                <td>{row.frames}</td>
+                <td>{row.strikes}</td>
+                <td>{row.spares}</td>
+                <td>{row.opens}</td>
+                <td>{row.cleanRate.toFixed(1)}%</td>
+                <td>{row.splitRate.toFixed(1)}%</td>
+                <td>{row.balls}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function getEntryResultLabel(entry: FrameEntry) {
+  if (isStrikeEntry(entry)) {
+    return "Strike";
+  }
+
+  if (isSpareEntry(entry)) {
+    return "Spare";
+  }
+
+  return "Open";
+}
+
+function BakerFrameTable({ game }: { game: SavedGameRecord }) {
+  return (
+    <section className="baker-frame-card">
+      <h4>Baker Frame Responsibility</h4>
+
+      <div className="table-scroll">
+        <table className="stats-table">
+          <thead>
+            <tr>
+              <th>Frame</th>
+              <th>Bowler</th>
+              <th>Ball</th>
+              <th>Marks</th>
+              <th>Leave</th>
+              <th>Result</th>
+              <th>Frame Pinfall</th>
+            </tr>
+          </thead>
+          <tbody>
+            {game.entries
+              .sort((a, b) => a.frameNumber - b.frameNumber)
+              .map((entry) => (
+                <tr key={`${game.id}-${entry.frameNumber}`}>
+                  <td>{entry.frameNumber}</td>
+                  <td>{entry.bowlerName}</td>
+                  <td>{entry.ballUsed || "No ball"}</td>
+                  <td>
+                    {getFrameMarks(entry)
+                      .map((mark) => mark.value)
+                      .filter(Boolean)
+                      .join(" ")}
+                  </td>
+                  <td>{isStrikeEntry(entry) ? "—" : getSpareLeaveKey(entry)}</td>
+                  <td>{getEntryResultLabel(entry)}</td>
+                  <td>
+                    {getFrameRolls(entry).reduce(
+                      (sum, roll) => sum + roll,
+                      0
+                    )}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function buildSessionGroups(games: SavedGameRecord[]) {
+  const groups = new Map<
+    string,
+    {
+      sessionKey: string;
+      title: string;
+      centerName: string;
+      patternName: string;
+      games: SavedGameRecord[];
+    }
+  >();
+
+  games.forEach((game) => {
+    const sessionKey =
+      game.sessionId ||
+      game.eventLogKey ||
+      `${game.savedAt}-${game.centerName}-${game.patternName}-${game.format}`;
+
+    const titleParts = [
+      game.eventName || game.competitionType,
+      game.eventStageLabel,
+      game.format,
+    ].filter(Boolean);
+
+    if (!groups.has(sessionKey)) {
+      groups.set(sessionKey, {
+        sessionKey,
+        title: titleParts.join(" — "),
+        centerName: game.centerName,
+        patternName: game.patternName,
+        games: [],
+      });
+    }
+
+    groups.get(sessionKey)?.games.push(game);
+  });
+
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    games: group.games.sort((a, b) => a.gameNumber - b.gameNumber),
+  }));
+}
+
+function isStrikeEntry(entry: FrameEntry) {
+  return entry.firstShotKnockedPins.length === 10;
+}
+
+function isSplitEntry(entry: FrameEntry) {
+  return !isStrikeEntry(entry) && isSplitLeave(entry.firstShotKnockedPins);
+}
+
+function isCleanGameForEntries(entries: FrameEntry[]) {
+  const frames = entries.filter(
+    (entry) => entry.frameNumber >= 1 && entry.frameNumber <= 10
+  );
+
+  return frames.length === 10 && frames.every(isCleanFrame);
+}
+
+function countCleanGames(
+  games: SavedGameRecord[],
+  selectedBowler: string,
+  selectedBall: string
+) {
+  return games.filter((game) => {
+    const relevantEntries = game.entries.filter((entry) => {
+      const matchesBowler =
+        selectedBowler === "All" || entry.bowlerName === selectedBowler;
+      const matchesBall =
+        selectedBall === "All" || entry.ballUsed === selectedBall;
+
+      return matchesBowler && matchesBall;
+    });
+
+    if (selectedBowler === "All") {
+      if (game.format === "Baker") {
+        return isCleanGameForEntries(relevantEntries);
+      }
+
+      const entriesByBowler = new Map<string, FrameEntry[]>();
+
+      relevantEntries.forEach((entry) => {
+        const currentEntries = entriesByBowler.get(entry.bowlerName) ?? [];
+        entriesByBowler.set(entry.bowlerName, [...currentEntries, entry]);
+      });
+
+      return Array.from(entriesByBowler.values()).some(isCleanGameForEntries);
+    }
+
+    return isCleanGameForEntries(relevantEntries);
+  }).length;
+}
+
+function isSpareAttemptEntry(entry: FrameEntry) {
+  return !isStrikeEntry(entry);
+}
+
+function getSpareLeavePins(entry: FrameEntry) {
+  if (!isSpareAttemptEntry(entry)) {
+    return [];
+  }
+
+  return getPinsStanding(entry.firstShotKnockedPins);
+}
+
+function getSpareLeaveKey(entry: FrameEntry) {
+  const leavePins = getSpareLeavePins(entry);
+
+  return leavePins.length > 0 ? leavePins.join("-") : "None";
+}
+
+function calculateSpareLeaveRows(entries: FrameEntry[]) {
+  const rowMap = new Map<
+    string,
+    {
+      leave: string;
+      attempts: number;
+      conversions: number;
+      misses: number;
+      conversionPercentage: number;
+    }
+  >();
+
+  entries
+    .filter(isSpareAttemptEntry)
+    .forEach((entry) => {
+      const leave = getSpareLeaveKey(entry);
+      const currentRow =
+        rowMap.get(leave) ?? {
+          leave,
+          attempts: 0,
+          conversions: 0,
+          misses: 0,
+          conversionPercentage: 0,
+        };
+
+      currentRow.attempts += 1;
+
+      if (isSpareEntry(entry)) {
+        currentRow.conversions += 1;
+      } else {
+        currentRow.misses += 1;
+      }
+
+      currentRow.conversionPercentage =
+        currentRow.attempts > 0
+          ? (currentRow.conversions / currentRow.attempts) * 100
+          : 0;
+
+      rowMap.set(leave, currentRow);
+    });
+
+  return Array.from(rowMap.values()).sort((a, b) => {
+    if (b.attempts !== a.attempts) {
+      return b.attempts - a.attempts;
+    }
+
+    return a.leave.localeCompare(b.leave, undefined, { numeric: true });
+  });
+}
+
+function isSpareEntry(entry: FrameEntry) {
+  if (isStrikeEntry(entry)) {
+    return false;
+  }
+
+  const firstShotStandingPins = getPinsStanding(entry.firstShotKnockedPins);
+  const pinsStandingAfterFrame = firstShotStandingPins.filter(
+    (pin) => !entry.secondShotKnockedPins.includes(pin)
+  );
+
+  return pinsStandingAfterFrame.length === 0;
+}
+
+function isCleanFrame(entry: FrameEntry) {
+  return isStrikeEntry(entry) || isSpareEntry(entry);
+}
+
+function isPocketHit(entry: FrameEntry) {
+  return entry.firstShotKnockedPins.length >= 9;
+}
+
+function isPocketStrike(entry: FrameEntry) {
+  return isPocketHit(entry) && isStrikeEntry(entry);
+}
+
+function isMakeableSpareAttempt(entry: FrameEntry) {
+  if (isStrikeEntry(entry)) {
+    return false;
+  }
+
+  const standingPins = getPinsStanding(entry.firstShotKnockedPins);
+
+  return standingPins.length <= 3;
+}
+
+function getTransitionPhase(firstShotCount: number) {
+  if (firstShotCount <= 55) {
+    return "Fresh";
+  }
+
+  if (firstShotCount <= 110) {
+    return "Early Transition";
+  }
+
+  if (firstShotCount <= 165) {
+    return "Early Middle Transition";
+  }
+
+  if (firstShotCount <= 220) {
+    return "Late Middle Transition";
+  }
+
+  if (firstShotCount <= 275) {
+    return "Late Transition";
+  }
+
+  return "Burn";
+}
+
+function calculateDetailedBowlerStats(
+  bowlerName: string,
+  selectedBall: string,
+  games: SavedGameRecord[],
+  sessionGroups: ReturnType<typeof buildSessionGroups>
+) {
+  const entries = games.flatMap((game) =>
+    game.entries.filter((entry) => {
+      const matchesBowler = entry.bowlerName === bowlerName;
+      const matchesBall = selectedBall === "All" || entry.ballUsed === selectedBall;
+
+      return matchesBowler && matchesBall;
+    })
+  );
+
+  const scores = games.flatMap((game) =>
+    game.scores
+      .filter((score) => score.label === bowlerName)
+      .map((score) => score.score)
+  );
+
+  const numGames = scores.length;
+  const average =
+    scores.length > 0
+      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+      : 0;
+
+  const highThreeGameSeries = getHighSeries(sessionGroups, bowlerName, 3);
+  const highFourGameSeries = getHighSeries(sessionGroups, bowlerName, 4);
+
+  const firstShots = entries.length;
+  const pocketHits = entries.filter(isPocketHit).length;
+  const pocketStrikes = entries.filter(isPocketStrike).length;
+  const strikes = entries.filter(isStrikeEntry).length;
+  const spares = entries.filter(isSpareEntry).length;
+  const opens = entries.length - strikes - spares;
+  const cleanFrames = entries.filter(isCleanFrame).length;
+  const splits = entries.filter(isSplitEntry).length;
+  const cleanGames = countCleanGames(games, bowlerName, selectedBall);
+
+  let pocketStrikesAfterStrike = 0;
+  let previousEntryWasStrike = false;
+
+  entries.forEach((entry) => {
+    if (previousEntryWasStrike && isPocketStrike(entry)) {
+      pocketStrikesAfterStrike += 1;
+    }
+
+    previousEntryWasStrike = isStrikeEntry(entry);
+  });
+
+  const makeableAttempts = entries.filter(isMakeableSpareAttempt);
+  const convertedMakeableSpares = makeableAttempts.filter(isSpareEntry).length;
+  const transitionBuckets = new Map<
+    string,
+    {
+      phase: string;
+      frames: number;
+      strikes: number;
+      spares: number;
+      opens: number;
+      splits: number;
+      pocketHits: number;
+      pocketStrikes: number;
+    }
+  >();
+
+  const phaseOrder = [
+    "Fresh",
+    "Early Transition",
+    "Early Middle Transition",
+    "Late Middle Transition",
+    "Late Transition",
+    "Burn",
+  ];
+
+  phaseOrder.forEach((phase) => {
+    transitionBuckets.set(phase, {
+      phase,
+      frames: 0,
+      strikes: 0,
+      spares: 0,
+      opens: 0,
+      splits: 0,
+      pocketHits: 0,
+      pocketStrikes: 0,
+    });
+  });
+
+  let laneFrameCounter = 0;
+
+  games.forEach((game) => {
+    const entriesByFrame = new Map<number, FrameEntry[]>();
+
+    game.entries.forEach((entry) => {
+      const existingEntries = entriesByFrame.get(entry.frameNumber) ?? [];
+      entriesByFrame.set(entry.frameNumber, [...existingEntries, entry]);
+    });
+
+    Array.from(entriesByFrame.entries())
+      .sort(([frameA], [frameB]) => frameA - frameB)
+      .forEach(([, frameEntries]) => {
+        laneFrameCounter += Math.max(1, game.bowlersPerTeam ?? 1);
+
+        frameEntries.forEach((entry) => {
+          if (entry.bowlerName !== bowlerName) {
+            return;
+          }
+
+          if (selectedBall !== "All" && entry.ballUsed !== selectedBall) {
+            return;
+          }
+
+          const phase = getTransitionPhase(laneFrameCounter);
+          const bucket = transitionBuckets.get(phase);
+
+          if (!bucket) {
+            return;
+          }
+
+          bucket.frames += 1;
+
+          if (isStrikeEntry(entry)) {
+            bucket.strikes += 1;
+          } else if (isSpareEntry(entry)) {
+            bucket.spares += 1;
+          } else {
+            bucket.opens += 1;
+          }
+
+          if (isSplitEntry(entry)) {
+            bucket.splits += 1;
+          }
+
+          if (isPocketHit(entry)) {
+            bucket.pocketHits += 1;
+          }
+
+          if (isPocketStrike(entry)) {
+            bucket.pocketStrikes += 1;
+          }
+        });
+      });
+  });
+
+  const transitionRows = Array.from(transitionBuckets.values()).map((bucket) => ({
+    ...bucket,
+    pocketPercentage:
+      bucket.frames > 0 ? (bucket.pocketHits / bucket.frames) * 100 : 0,
+    carryPercentage:
+      bucket.pocketHits > 0
+        ? (bucket.pocketStrikes / bucket.pocketHits) * 100
+        : 0,
+  }));
+
+  return {
+    numGames,
+    average,
+    highThreeGameSeries,
+    highFourGameSeries,
+    frames: entries.length,
+    strikes,
+    spares,
+    opens,
+    pocketPercentage:
+      firstShots > 0 ? (pocketHits / firstShots) * 100 : 0,
+    carryPercentage:
+      pocketHits > 0 ? (pocketStrikes / pocketHits) * 100 : 0,
+    doublePercentage:
+      pocketStrikes > 0 ? (pocketStrikesAfterStrike / pocketStrikes) * 100 : 0,
+    makeableSpareConversion:
+      makeableAttempts.length > 0
+        ? (convertedMakeableSpares / makeableAttempts.length) * 100
+        : 0,
+    fillFramesPercentage:
+      firstShots > 0 ? (cleanFrames / firstShots) * 100 : 0,
+    cleanPercentage:
+      firstShots > 0 ? (cleanFrames / firstShots) * 100 : 0,
+    splitPercentage:
+      firstShots > 0 ? (splits / firstShots) * 100 : 0,
+    cleanGames,
+    transitionRows,
+  };
+}
+
+function getHighSeries(
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  bowlerName: string,
+  seriesLength: number
+) {
+  let highSeries = 0;
+
+  sessionGroups.forEach((session) => {
+    const leagueOrTournamentGames = session.games.filter(
+      (game) => game.competitionType !== "Open"
+    );
+
+    const bowlerScores = leagueOrTournamentGames
+      .sort((a, b) => a.gameNumber - b.gameNumber)
+      .map((game) =>
+        game.scores.find((score) => score.label === bowlerName)?.score ?? null
+      )
+      .filter((score): score is number => score !== null);
+
+    if (bowlerScores.length < seriesLength) {
+      return;
+    }
+
+    for (let index = 0; index <= bowlerScores.length - seriesLength; index += 1) {
+      const series = bowlerScores
+        .slice(index, index + seriesLength)
+        .reduce((sum, score) => sum + score, 0);
+
+      highSeries = Math.max(highSeries, series);
+    }
+  });
+
+  return highSeries;
 }
 
 function CentersPage({ centers, setCenters }: CentersPageProps) {
@@ -2355,10 +5929,14 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
         generate single-lane and pair dropdowns automatically.
       </p>
 
-      <section className="center-form-card">
-        <h3>Add Bowling Center</h3>
+      <details className="center-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add Bowling Center</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
 
-        <div className="form-grid">
+        <div className="add-form-content">
+          <div className="form-grid">
           <label>
             Name <span className="required">*</span>
             <input
@@ -2390,14 +5968,15 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
           </label>
         </div>
 
-        <button
-          className="primary-button"
-          disabled={!newCenterName.trim() || Number(newCenterLaneCount) < 1}
-          onClick={addCenter}
-        >
-          Add Center
-        </button>
-      </section>
+          <button
+            className="primary-button"
+            disabled={!newCenterName.trim() || Number(newCenterLaneCount) < 1}
+            onClick={addCenter}
+          >
+            Add Center
+          </button>
+        </div>
+      </details>
 
       <section className="center-list">
         {centers.map((center) => {
@@ -2511,7 +6090,9 @@ function EventsPage({
   const [newEventType, setNewEventType] = useState<"League" | "Tournament">(
     "League"
   );
+  const [newEventFormat, setNewEventFormat] = useState<BowlingFormat>("Singles");
   const [newSeriesGameCount, setNewSeriesGameCount] = useState("3");
+  const [newBowlersPerPair, setNewBowlersPerPair] = useState("10");
   const [newScheduleUnit, setNewScheduleUnit] =
     useState<EventScheduleUnit>("Weeks");
   const [newScheduleCount, setNewScheduleCount] = useState("12");
@@ -2572,6 +6153,11 @@ function EventsPage({
       return;
     }
 
+    if (!Number.isFinite(draft.bowlersPerPair) || draft.bowlersPerPair < 1) {
+      window.alert("Bowlers per pair must be at least 1.");
+      return;
+    }
+
     if (!centers.some((center) => center.id === draft.centerId)) {
       window.alert("Choose a valid bowling center.");
       return;
@@ -2598,6 +6184,7 @@ function EventsPage({
                 1,
                 Math.floor(draft.seriesGameCount)
               ),
+              bowlersPerPair: Math.max(1, Math.floor(draft.bowlersPerPair)),
               scheduleCount: Math.max(1, Math.floor(draft.scheduleCount)),
               startDate: draft.startDate,
               endDate: draft.endDate,
@@ -2617,6 +6204,7 @@ function EventsPage({
   function addEvent() {
     const trimmedName = newEventName.trim();
     const seriesGameCount = Number(newSeriesGameCount);
+    const bowlersPerPair = Number(newBowlersPerPair);
     const scheduleCount = Number(newScheduleCount);
     const centerId = Number(newCenterId);
     const patternId = Number(newPatternId);
@@ -2625,6 +6213,8 @@ function EventsPage({
       !trimmedName ||
       !Number.isFinite(seriesGameCount) ||
       seriesGameCount < 1 ||
+      !Number.isFinite(bowlersPerPair) ||
+      bowlersPerPair < 1 ||
       !Number.isFinite(scheduleCount) ||
       scheduleCount < 1 ||
       !Number.isFinite(centerId)
@@ -2647,7 +6237,9 @@ function EventsPage({
         id: Date.now(),
         name: trimmedName,
         eventType: newEventType,
+        format: newEventFormat,
         seriesGameCount: Math.floor(seriesGameCount),
+        bowlersPerPair: Math.floor(bowlersPerPair),
         scheduleUnit: newScheduleUnit,
         scheduleCount: Math.floor(scheduleCount),
         startDate: newStartDate,
@@ -2660,7 +6252,9 @@ function EventsPage({
 
     setNewEventName("");
     setNewEventType("League");
+    setNewEventFormat("Singles");
     setNewSeriesGameCount("3");
+    setNewBowlersPerPair("10");
     setNewScheduleUnit("Weeks");
     setNewScheduleCount("12");
     setNewStartDate("");
@@ -2714,14 +6308,15 @@ function EventsPage({
   }
 
   function formatEventSummary(event: EventSetup) {
-    return `${event.eventType} • ${event.seriesGameCount} game${
+    return `${event.eventType} • ${event.format} • ${event.seriesGameCount} game${
       event.seriesGameCount === 1 ? "" : "s"
-    } • ${getScheduleLabel(event)} • ${getCenterName(event.centerId)}`;
+    } • ${event.bowlersPerPair} per pair • ${getScheduleLabel(event)} • ${getCenterName(event.centerId)}`;
   }
 
   const canAddEvent =
     newEventName.trim() !== "" &&
     Number(newSeriesGameCount) >= 1 &&
+    Number(newBowlersPerPair) >= 1 &&
     Number(newScheduleCount) >= 1 &&
     newCenterId !== "";
 
@@ -2733,10 +6328,14 @@ function EventsPage({
         number of games in the set/block, and exact week/day automatically.
       </p>
 
-      <section className="event-form-card">
-        <h3>Add League / Tournament</h3>
+      <details className="event-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add League / Tournament</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
 
-        <div className="form-grid">
+        <div className="add-form-content">
+          <div className="form-grid">
           <label>
             Name <span className="required">*</span>
             <input
@@ -2763,6 +6362,23 @@ function EventsPage({
           </label>
 
           <label>
+            Format
+            <select
+              value={newEventFormat}
+              onChange={(event) =>
+                setNewEventFormat(event.target.value as BowlingFormat)
+              }
+            >
+              <option>Singles</option>
+              <option>Doubles</option>
+              <option>Trios</option>
+              <option>Fours</option>
+              <option>Fives</option>
+              <option>Baker</option>
+            </select>
+          </label>
+
+          <label>
             Games in Series/Block <span className="required">*</span>
             <input
               type="number"
@@ -2770,6 +6386,17 @@ function EventsPage({
               value={newSeriesGameCount}
               onChange={(event) => setNewSeriesGameCount(event.target.value)}
               placeholder="Example: 3"
+            />
+          </label>
+
+          <label>
+            Bowlers Per Pair <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newBowlersPerPair}
+              onChange={(event) => setNewBowlersPerPair(event.target.value)}
+              placeholder="Example: 10"
             />
           </label>
 
@@ -2855,14 +6482,15 @@ function EventsPage({
           </label>
         </div>
 
-        <button
-          className="primary-button"
-          disabled={!canAddEvent}
-          onClick={addEvent}
-        >
-          Add Event
-        </button>
-      </section>
+          <button
+            className="primary-button"
+            disabled={!canAddEvent}
+            onClick={addEvent}
+          >
+            Add Event
+          </button>
+        </div>
+      </details>
 
       <section className="event-list">
         {events.map((event) => {
@@ -2934,6 +6562,25 @@ function EventsPage({
                   </label>
 
                   <label>
+                    Format
+                    <select
+                      value={draftEvent.format}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          format: inputEvent.target.value as BowlingFormat,
+                        })
+                      }
+                    >
+                      <option>Singles</option>
+                      <option>Doubles</option>
+                      <option>Trios</option>
+                      <option>Fours</option>
+                      <option>Fives</option>
+                      <option>Baker</option>
+                    </select>
+                  </label>
+
+                  <label>
                     Games in Series/Block
                     <input
                       type="number"
@@ -2942,6 +6589,23 @@ function EventsPage({
                       onChange={(inputEvent) =>
                         updateEventDraft(event, {
                           seriesGameCount: Math.max(
+                            1,
+                            Math.floor(Number(inputEvent.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Bowlers Per Pair
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftEvent.bowlersPerPair}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          bowlersPerPair: Math.max(
                             1,
                             Math.floor(Number(inputEvent.target.value))
                           ),
@@ -3066,8 +6730,14 @@ function EventsPage({
                     <strong>Type:</strong> {draftEvent.eventType}
                   </p>
                   <p>
+                    <strong>Format:</strong> {draftEvent.format}
+                  </p>
+                  <p>
                     <strong>Games in Series/Block:</strong>{" "}
                     {draftEvent.seriesGameCount}
+                  </p>
+                  <p>
+                    <strong>Bowlers Per Pair:</strong> {draftEvent.bowlersPerPair}
                   </p>
                   <p>
                     <strong>Schedule:</strong> {getScheduleLabel(draftEvent)}
@@ -3245,10 +6915,14 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
         notes. Log Games will use this list when selecting a pattern.
       </p>
 
-      <section className="pattern-form-card">
-        <h3>Add Pattern</h3>
+      <details className="pattern-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add Pattern</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
 
-        <div className="form-grid">
+        <div className="add-form-content">
+          <div className="form-grid">
           <label>
             Name <span className="required">*</span>
             <input
@@ -3314,14 +6988,15 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
           </label>
         </div>
 
-        <button
-          className="primary-button"
-          disabled={!newPatternName.trim()}
-          onClick={addPattern}
-        >
-          Add Pattern
-        </button>
-      </section>
+          <button
+            className="primary-button"
+            disabled={!newPatternName.trim()}
+            onClick={addPattern}
+          >
+            Add Pattern
+          </button>
+        </div>
+      </details>
 
       <section className="pattern-list">
         {patterns.map((pattern) => {
