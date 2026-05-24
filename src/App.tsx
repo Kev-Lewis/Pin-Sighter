@@ -147,6 +147,7 @@ type SavedGameRecord = {
   gameNumber: number;
   laneLabel: string;
   setNotes?: string;
+  gameNotes?: string;
   bowlerNames: string[];
   scores: CompletedGameScore[];
   entries: FrameEntry[];
@@ -235,6 +236,10 @@ type SetMetadataDraft = {
   patternName: string;
   gameLaneLabels: Record<string, string>;
   setNotes: string;
+};
+
+type GameMetadataDraft = {
+  gameNotes: string;
 };
 
 type GameEntryPageProps = {
@@ -4931,6 +4936,12 @@ function GameEntryPage({
           </div>
         </div>
 
+        <p className="helper-text frame-edit-warning-text">
+          Saving frame edits recalculates this game's saved score and updates
+          the stats that use this game. Closing with unsaved changes will ask
+          before discarding and reverting the edits.
+        </p>
+
         <div className="frame-navigation">
           <button
             className="secondary-button"
@@ -5602,6 +5613,19 @@ function StatsPage({
   const [editingSetMetadataKey, setEditingSetMetadataKey] = useState<
     string | null
   >(null);
+  const [gameMetadataDrafts, setGameMetadataDrafts] = useState<
+    Record<string, GameMetadataDraft>
+  >({});
+  const [editingGameMetadataId, setEditingGameMetadataId] = useState<
+    string | null
+  >(null);
+  const [frameEditorGameId, setFrameEditorGameId] = useState<string | null>(
+    null
+  );
+  const [frameEditorEntries, setFrameEditorEntries] = useState<FrameEntry[]>(
+    []
+  );
+  const [frameEditorIndex, setFrameEditorIndex] = useState(0);
 
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
   const usesEventFilter =
@@ -5627,6 +5651,10 @@ function StatsPage({
       ),
     [bowlers]
   );
+  const frameEditorGame =
+    frameEditorGameId !== null
+      ? savedGames.find((game) => game.id === frameEditorGameId) ?? null
+      : null;
 
   function getEventStageLabelForGame(game: SavedGameRecord) {
     return game.eventName && game.eventStageLabel
@@ -6112,6 +6140,15 @@ function StatsPage({
     );
   }
 
+  function hasSetMetadataChanges(
+    session: ReturnType<typeof buildSessionGroups>[number]
+  ) {
+    return (
+      JSON.stringify(getSetMetadataDraft(session)) !==
+      JSON.stringify(createSetMetadataDraft(session))
+    );
+  }
+
   function updateSetMetadataDraft(
     session: ReturnType<typeof buildSessionGroups>[number],
     field: keyof SetMetadataDraft,
@@ -6184,6 +6221,110 @@ function StatsPage({
     setEditingSetMetadataKey(null);
   }
 
+  function getGameMetadataDraft(game: SavedGameRecord) {
+    return gameMetadataDrafts[game.id] ?? createGameMetadataDraft(game);
+  }
+
+  function hasGameNotesChanges(game: SavedGameRecord) {
+    return (
+      getGameMetadataDraft(game).gameNotes !==
+      createGameMetadataDraft(game).gameNotes
+    );
+  }
+
+  function updateGameNotesDraft(game: SavedGameRecord, gameNotes: string) {
+    setGameMetadataDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [game.id]: {
+        ...getGameMetadataDraft(game),
+        gameNotes,
+      },
+    }));
+  }
+
+  function resetGameMetadataDraft(game: SavedGameRecord) {
+    setGameMetadataDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+
+      delete updatedDrafts[game.id];
+
+      return updatedDrafts;
+    });
+  }
+
+  function saveGameMetadata(gameToUpdate: SavedGameRecord) {
+    const draft = getGameMetadataDraft(gameToUpdate);
+
+    setSavedGames((currentGames) =>
+      currentGames.map((game) =>
+        game.id === gameToUpdate.id
+          ? {
+              ...game,
+              gameNotes: draft.gameNotes.trim(),
+            }
+          : game
+      )
+    );
+
+    resetGameMetadataDraft(gameToUpdate);
+    setEditingGameMetadataId(null);
+  }
+
+  function openFrameEditor(game: SavedGameRecord) {
+    setEditingGameMetadataId(null);
+    setFrameEditorGameId(game.id);
+    setFrameEditorEntries(
+      game.entries.map((entry) => cloneFrameEntryForEditing(entry))
+    );
+    setFrameEditorIndex(0);
+  }
+
+  function closeFrameEditor() {
+    setFrameEditorGameId(null);
+    setFrameEditorEntries([]);
+    setFrameEditorIndex(0);
+  }
+
+  function updateFrameEditorEntry(
+    entryIndex: number,
+    updatedFields: Partial<FrameEntry>
+  ) {
+    setFrameEditorEntries((currentEntries) =>
+      currentEntries.map((entry, index) =>
+        index === entryIndex ? { ...entry, ...updatedFields } : entry
+      )
+    );
+  }
+
+  function saveFrameEdits(gameToUpdate: SavedGameRecord) {
+    const editedEntries = frameEditorEntries.map((entry) => ({
+      ...entry,
+      firstShotKnockedPins: [...entry.firstShotKnockedPins],
+      secondShotKnockedPins: [...entry.secondShotKnockedPins],
+      thirdShotKnockedPins: [...entry.thirdShotKnockedPins],
+      isComplete: true,
+    }));
+    const recalculatedScores = calculateScoresForGame(
+      editedEntries,
+      gameToUpdate.bowlerNames,
+      gameToUpdate.format
+    );
+
+    setSavedGames((currentGames) =>
+      currentGames.map((game) =>
+        game.id === gameToUpdate.id
+          ? {
+              ...game,
+              entries: editedEntries,
+              scores: recalculatedScores,
+            }
+          : game
+      )
+    );
+    resetGameMetadataDraft(gameToUpdate);
+    closeFrameEditor();
+  }
+
   function exportFilteredCsv() {
     const rows = [
       [
@@ -6197,6 +6338,7 @@ function StatsPage({
         "Format",
         "Lane",
         "Set Notes",
+        "Game Notes",
         "Score Label",
         "Score",
       ],
@@ -6212,6 +6354,7 @@ function StatsPage({
           game.format,
           game.laneLabel,
           game.setNotes ?? "",
+          game.gameNotes ?? "",
           score.label,
           score.score,
         ])
@@ -6279,6 +6422,95 @@ function StatsPage({
         );
       }
     });
+  }
+
+  function deleteSavedGame(
+    session: ReturnType<typeof buildSessionGroups>[number],
+    gameToDelete: SavedGameRecord
+  ) {
+    const shouldDelete = window.confirm(
+      `Delete Game ${gameToDelete.gameNumber} from this saved set?`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    const remainingGames = savedGames.filter(
+      (game) => game.id !== gameToDelete.id
+    );
+    const remainingSessionGames = remainingGames.filter(
+      (game) => game.sessionId === session.sessionKey
+    );
+
+    setSavedGames(remainingGames);
+    setSetMetadataDrafts((currentDrafts) => {
+      const currentDraft = currentDrafts[session.sessionKey];
+
+      if (!currentDraft) {
+        return currentDrafts;
+      }
+
+      const updatedDrafts = { ...currentDrafts };
+      const updatedGameLaneLabels = { ...currentDraft.gameLaneLabels };
+
+      delete updatedGameLaneLabels[gameToDelete.id];
+
+      if (remainingSessionGames.length === 0) {
+        delete updatedDrafts[session.sessionKey];
+      } else {
+        updatedDrafts[session.sessionKey] = {
+          ...currentDraft,
+          gameLaneLabels: updatedGameLaneLabels,
+        };
+      }
+
+      return updatedDrafts;
+    });
+    setGameMetadataDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+
+      delete updatedDrafts[gameToDelete.id];
+
+      return updatedDrafts;
+    });
+
+    if (editingGameMetadataId === gameToDelete.id) {
+      setEditingGameMetadataId(null);
+    }
+
+    if (frameEditorGameId === gameToDelete.id) {
+      closeFrameEditor();
+    }
+
+    if (selectedGameNumber === String(gameToDelete.gameNumber)) {
+      setSelectedGameNumber("All");
+    }
+
+    if (remainingSessionGames.length === 0) {
+      setSelectedSetKey("All");
+      setEditingSetMetadataKey(null);
+    }
+
+    if (gameToDelete.eventLogKey) {
+      const stillHasEventLogRecords = remainingGames.some(
+        (game) => game.eventLogKey === gameToDelete.eventLogKey
+      );
+
+      if (!stillHasEventLogRecords) {
+        setSavedEventLogs((currentLogs) =>
+          currentLogs.filter((log) => log.key !== gameToDelete.eventLogKey)
+        );
+      }
+    }
+  }
+
+  function updateSavedGameNotes(gameId: string, gameNotes: string) {
+    setSavedGames((currentGames) =>
+      currentGames.map((game) =>
+        game.id === gameId ? { ...game, gameNotes } : game
+      )
+    );
   }
 
   function handleBowlerChange(value: string) {
@@ -7402,6 +7634,49 @@ function StatsPage({
                   </summary>
 
                   <div className="saved-set-details">
+                    <div className="saved-set-top-actions">
+                      <button
+                        className="secondary-button"
+                        onClick={() =>
+                          setEditingSetMetadataKey(
+                            editingSetMetadataKey === session.sessionKey
+                              ? null
+                              : session.sessionKey
+                          )
+                        }
+                      >
+                        {editingSetMetadataKey === session.sessionKey
+                          ? "Close Edit Set Data"
+                          : "Edit Set Data"}
+                      </button>
+                      <button
+                        className="danger-button"
+                        onClick={() => deleteSavedSet(session.sessionKey)}
+                      >
+                        Delete Saved Set
+                      </button>
+                    </div>
+
+                    {editingSetMetadataKey === session.sessionKey && (
+                      <SavedSetMetadataEditor
+                        session={session}
+                        centers={centers}
+                        patterns={patterns}
+                        draft={getSetMetadataDraft(session)}
+                        hasChanges={hasSetMetadataChanges(session)}
+                        onChange={(field, value) =>
+                          updateSetMetadataDraft(session, field, value)
+                        }
+                        onLaneChange={(gameId, laneLabel) =>
+                          updateSetGameLaneDraft(session, gameId, laneLabel)
+                        }
+                        onSave={() => saveSetMetadata(session)}
+                        onReset={() => resetSetMetadataDraft(session)}
+                        onClose={() => setEditingSetMetadataKey(null)}
+                      />
+                    )}
+
+                    <div className="saved-set-content-divider" />
 
                     {selectedBowler !== "All" && (
                       <SetSpecificStats
@@ -7455,49 +7730,60 @@ function StatsPage({
                           <strong>Saved:</strong>{" "}
                           {new Date(game.savedAt).toLocaleString()}
                         </p>
+
+                        {game.gameNotes && (
+                          <p>
+                            <strong>Game Notes:</strong> {game.gameNotes}
+                          </p>
+                        )}
+
+                        <div className="saved-game-actions-row">
+                          <button
+                            className="secondary-button"
+                            onClick={() =>
+                              setEditingGameMetadataId(
+                                editingGameMetadataId === game.id
+                                  ? null
+                                  : game.id
+                              )
+                            }
+                          >
+                            {editingGameMetadataId === game.id
+                              ? "Close Notes"
+                              : game.gameNotes
+                              ? "Edit Notes"
+                              : "Add Notes"}
+                          </button>
+                          <button
+                            className="secondary-button"
+                            onClick={() => openFrameEditor(game)}
+                          >
+                            Edit Frames
+                          </button>
+                          <button
+                            className="danger-button"
+                            onClick={() => deleteSavedGame(session, game)}
+                          >
+                            Delete Game {game.gameNumber}
+                          </button>
+                        </div>
+
+                        {editingGameMetadataId === game.id && (
+                          <SavedGameNotesEditor
+                            draft={getGameMetadataDraft(game)}
+                            hasExistingNotes={Boolean(game.gameNotes)}
+                            hasChanges={hasGameNotesChanges(game)}
+                            onNotesChange={(gameNotes) =>
+                              updateGameNotesDraft(game, gameNotes)
+                            }
+                            onSave={() => saveGameMetadata(game)}
+                            onReset={() => resetGameMetadataDraft(game)}
+                            onClose={() => setEditingGameMetadataId(null)}
+                          />
+                        )}
                       </article>
                     ))}
 
-                    <div className="saved-set-actions-row">
-                      <button
-                        className="secondary-button"
-                        onClick={() =>
-                          setEditingSetMetadataKey(
-                            editingSetMetadataKey === session.sessionKey
-                              ? null
-                              : session.sessionKey
-                          )
-                        }
-                      >
-                        {editingSetMetadataKey === session.sessionKey
-                          ? "Close Edit Data"
-                          : "Edit Data"}
-                      </button>
-                      <button
-                        className="danger-button"
-                        onClick={() => deleteSavedSet(session.sessionKey)}
-                      >
-                        Delete Saved Set
-                      </button>
-                    </div>
-
-                    {editingSetMetadataKey === session.sessionKey && (
-                      <SavedSetMetadataEditor
-                        session={session}
-                        centers={centers}
-                        patterns={patterns}
-                        draft={getSetMetadataDraft(session)}
-                        onChange={(field, value) =>
-                          updateSetMetadataDraft(session, field, value)
-                        }
-                        onLaneChange={(gameId, laneLabel) =>
-                          updateSetGameLaneDraft(session, gameId, laneLabel)
-                        }
-                        onSave={() => saveSetMetadata(session)}
-                        onReset={() => resetSetMetadataDraft(session)}
-                        onClose={() => setEditingSetMetadataKey(null)}
-                      />
-                    )}
                   </div>
                 </details>
               ))
@@ -7505,6 +7791,19 @@ function StatsPage({
             </div>
           </details>
         </>
+      )}
+
+      {frameEditorGame && (
+        <SavedFrameEditModal
+          game={frameEditorGame}
+          bowlers={bowlers}
+          entries={frameEditorEntries}
+          currentIndex={frameEditorIndex}
+          onIndexChange={setFrameEditorIndex}
+          onEntryChange={updateFrameEditorEntry}
+          onSave={() => saveFrameEdits(frameEditorGame)}
+          onClose={closeFrameEditor}
+        />
       )}
     </>
   );
@@ -7907,6 +8206,7 @@ function SavedSetMetadataEditor({
   centers,
   patterns,
   draft,
+  hasChanges,
   onChange,
   onLaneChange,
   onSave,
@@ -7917,6 +8217,7 @@ function SavedSetMetadataEditor({
   centers: Center[];
   patterns: Pattern[];
   draft: SetMetadataDraft;
+  hasChanges: boolean;
   onChange: (field: keyof SetMetadataDraft, value: string) => void;
   onLaneChange: (gameId: string, laneLabel: string) => void;
   onSave: () => void;
@@ -8056,14 +8357,475 @@ function SavedSetMetadataEditor({
         <button className="primary-button" onClick={onSave}>
           Save Set Data
         </button>
-        <button className="secondary-button" onClick={onReset}>
-          Reset Draft
+        <button
+          className="secondary-button"
+          disabled={!hasChanges}
+          onClick={onReset}
+        >
+          Reset Changes
         </button>
         <button className="secondary-button" onClick={onClose}>
           Cancel
         </button>
       </div>
     </section>
+  );
+}
+
+function createGameMetadataDraft(game: SavedGameRecord): GameMetadataDraft {
+  return {
+    gameNotes: game.gameNotes ?? "",
+  };
+}
+
+function SavedGameNotesEditor({
+  draft,
+  hasExistingNotes,
+  hasChanges,
+  onNotesChange,
+  onSave,
+  onReset,
+  onClose,
+}: {
+  draft: GameMetadataDraft;
+  hasExistingNotes: boolean;
+  hasChanges: boolean;
+  onNotesChange: (gameNotes: string) => void;
+  onSave: () => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <section className="game-notes-card">
+      <h4>{hasExistingNotes ? "Edit Game Notes" : "Add Game Notes"}</h4>
+      <p>
+        Add notes for this specific game. Use Edit Frames for score, pinfall,
+        ball, and board corrections.
+      </p>
+
+      <label className="full-width-field">
+        Game Notes
+        <textarea
+          rows={3}
+          value={draft.gameNotes}
+          placeholder="Add notes for this specific game."
+          onChange={(event) => onNotesChange(event.target.value)}
+        />
+      </label>
+
+      <div className="saved-game-actions-row">
+        <button className="primary-button" onClick={onSave}>
+          Save Notes
+        </button>
+        <button
+          className="secondary-button"
+          disabled={!hasChanges}
+          onClick={onReset}
+        >
+          Reset Changes
+        </button>
+        <button className="secondary-button" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function cloneFrameEntryForEditing(entry: FrameEntry): FrameEntry {
+  return {
+    ...entry,
+    firstShotKnockedPins: [...entry.firstShotKnockedPins],
+    secondShotKnockedPins: [...entry.secondShotKnockedPins],
+    thirdShotKnockedPins: [...entry.thirdShotKnockedPins],
+  };
+}
+
+function normalizeFrameEntryForComparison(entry: FrameEntry) {
+  return {
+    ...entry,
+    firstShotKnockedPins: [...entry.firstShotKnockedPins].sort((a, b) => a - b),
+    secondShotKnockedPins: [...entry.secondShotKnockedPins].sort(
+      (a, b) => a - b
+    ),
+    thirdShotKnockedPins: [...entry.thirdShotKnockedPins].sort((a, b) => a - b),
+  };
+}
+
+function frameEntriesHaveChanges(
+  editedEntries: FrameEntry[],
+  originalEntries: FrameEntry[]
+) {
+  return (
+    JSON.stringify(editedEntries.map(normalizeFrameEntryForComparison)) !==
+    JSON.stringify(originalEntries.map(normalizeFrameEntryForComparison))
+  );
+}
+
+function SavedFrameEditModal({
+  game,
+  bowlers,
+  entries,
+  currentIndex,
+  onIndexChange,
+  onEntryChange,
+  onSave,
+  onClose,
+}: {
+  game: SavedGameRecord;
+  bowlers: Bowler[];
+  entries: FrameEntry[];
+  currentIndex: number;
+  onIndexChange: (index: number) => void;
+  onEntryChange: (entryIndex: number, updatedFields: Partial<FrameEntry>) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const currentEntry = entries[currentIndex];
+  const previewScores = calculateScoresForGame(
+    entries,
+    game.bowlerNames,
+    game.format
+  );
+  const hasFrameChanges = frameEntriesHaveChanges(entries, game.entries);
+
+  function handleCloseFrameEditor() {
+    if (
+      hasFrameChanges &&
+      !window.confirm(
+        "Discard unsaved frame edits and close? The saved game will revert to the previous frame data."
+      )
+    ) {
+      return;
+    }
+
+    onClose();
+  }
+
+  function handleSaveFrameEdits() {
+    const shouldSave = window.confirm(
+      "Save frame edits? This will recalculate the saved score and update stats for this game."
+    );
+
+    if (!shouldSave) {
+      return;
+    }
+
+    onSave();
+  }
+
+  if (!currentEntry) {
+    return null;
+  }
+
+  const currentBowler = bowlers.find(
+    (bowler) => bowler.name === currentEntry.bowlerName
+  );
+  const currentBowlerBalls = currentBowler?.arsenal ?? [];
+  const isTenthFrame = currentEntry.frameNumber === 10;
+  const firstShotStandingPins = getPinsStanding(
+    currentEntry.firstShotKnockedPins
+  );
+  const firstShotPinCount = currentEntry.firstShotKnockedPins.length;
+  const isStrike = firstShotPinCount === 10;
+  const secondShotAvailablePins =
+    isTenthFrame && isStrike ? ALL_PINS : firstShotStandingPins;
+  const secondShotPinCount = currentEntry.secondShotKnockedPins.length;
+  const secondShotStandingPins =
+    isTenthFrame && isStrike
+      ? getPinsStanding(currentEntry.secondShotKnockedPins)
+      : firstShotStandingPins.filter(
+          (pin) => !currentEntry.secondShotKnockedPins.includes(pin)
+        );
+  const isSpare =
+    !isStrike && firstShotPinCount + secondShotPinCount === 10;
+  const shouldShowSecondShot = isTenthFrame || !isStrike;
+  const shouldShowThirdShot = isTenthFrame && (isStrike || isSpare);
+  const thirdShotAvailablePins =
+    isTenthFrame && isStrike
+      ? secondShotPinCount === 10
+        ? ALL_PINS
+        : secondShotStandingPins
+      : isTenthFrame && isSpare
+      ? ALL_PINS
+      : [];
+  const thirdShotPinCount = currentEntry.thirdShotKnockedPins.length;
+  const pinsStandingAfterFrame =
+    shouldShowThirdShot && thirdShotAvailablePins.length > 0
+      ? thirdShotAvailablePins.filter(
+          (pin) => !currentEntry.thirdShotKnockedPins.includes(pin)
+        )
+      : secondShotStandingPins;
+  const totalFramePinCount =
+    firstShotPinCount +
+    (shouldShowSecondShot ? secondShotPinCount : 0) +
+    (shouldShowThirdShot ? thirdShotPinCount : 0);
+  const frameResult = getFrameResult(isStrike, pinsStandingAfterFrame, isSpare);
+
+  function updateCurrentEntry(updatedFields: Partial<FrameEntry>) {
+    onEntryChange(currentIndex, updatedFields);
+  }
+
+  function updateFirstShotPins(knockedPins: number[]) {
+    const newStandingPins = getPinsStanding(knockedPins);
+    const firstShotIsStrike = knockedPins.length === 10;
+
+    if (currentEntry.frameNumber === 10) {
+      if (firstShotIsStrike) {
+        updateCurrentEntry({
+          firstShotKnockedPins: knockedPins,
+          secondShotKnockedPins: [...ALL_PINS],
+          thirdShotKnockedPins: [...ALL_PINS],
+        });
+        return;
+      }
+
+      updateCurrentEntry({
+        firstShotKnockedPins: knockedPins,
+        secondShotKnockedPins: [...newStandingPins],
+        thirdShotKnockedPins: [...ALL_PINS],
+      });
+      return;
+    }
+
+    updateCurrentEntry({
+      firstShotKnockedPins: knockedPins,
+      secondShotKnockedPins: [...newStandingPins],
+      thirdShotKnockedPins: [],
+    });
+  }
+
+  function updateSecondShotPins(knockedPins: number[]) {
+    if (currentEntry.frameNumber !== 10) {
+      updateCurrentEntry({ secondShotKnockedPins: knockedPins });
+      return;
+    }
+
+    if (isStrike) {
+      updateCurrentEntry({
+        secondShotKnockedPins: knockedPins,
+        thirdShotKnockedPins:
+          knockedPins.length === 10 ? [...ALL_PINS] : getPinsStanding(knockedPins),
+      });
+      return;
+    }
+
+    const secondShotMakesSpare = firstShotPinCount + knockedPins.length === 10;
+
+    updateCurrentEntry({
+      secondShotKnockedPins: knockedPins,
+      thirdShotKnockedPins: secondShotMakesSpare ? [...ALL_PINS] : [],
+    });
+  }
+
+  return (
+    <div className="frame-editor-overlay">
+      <section className="frame-editor-modal">
+        <div className="frame-editor-header">
+          <div>
+            <p className="eyebrow">Editing Saved Game</p>
+            <h3>
+              Game {game.gameNumber} • Frame {currentEntry.frameNumber}
+            </h3>
+            <p>
+              Original saved frame data is loaded here. Move through each frame
+              and save when the correction is complete.
+            </p>
+          </div>
+
+          <button className="secondary-button" onClick={handleCloseFrameEditor}>
+            Close
+          </button>
+        </div>
+
+        <div className="frame-editor-progress">
+          {entries.map((entry, index) => (
+            <button
+              key={`${entry.bowlerName}-${entry.frameNumber}-${index}`}
+              className={`small-button ${
+                index === currentIndex ? "active-frame-button" : ""
+              }`}
+              onClick={() => onIndexChange(index)}
+            >
+              {entry.frameNumber}
+              {game.format === "Baker" ? ` • ${entry.bowlerName}` : ""}
+            </button>
+          ))}
+        </div>
+
+        <div className="form-grid compact-grid">
+          <label>
+            Bowler
+            <input value={currentEntry.bowlerName} disabled />
+          </label>
+
+          <label>
+            Ball Used
+            <select
+              value={currentEntry.ballUsed}
+              onChange={(event) =>
+                updateCurrentEntry({ ballUsed: event.target.value })
+              }
+            >
+              <option value="">No ball</option>
+              {getUniqueMetadataOptions(
+                currentEntry.ballUsed,
+                currentBowlerBalls.map((ball) => ball.name)
+              ).map((ballName) => (
+                <option key={ballName} value={ballName}>
+                  {ballName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <BoardSelect
+            label="Foot Board"
+            value={currentEntry.footBoard}
+            options={footBoardOptions}
+            onChange={(value) => updateCurrentEntry({ footBoard: value })}
+          />
+
+          <BoardSelect
+            label="Target Arrow"
+            value={currentEntry.targetArrow}
+            options={laneBoardOptions}
+            onChange={(value) => updateCurrentEntry({ targetArrow: value })}
+          />
+
+          <BoardSelect
+            label="Target Breakpoint"
+            value={currentEntry.targetBreakpoint}
+            options={laneBoardOptions}
+            onChange={(value) =>
+              updateCurrentEntry({ targetBreakpoint: value })
+            }
+          />
+
+          <BoardSelect
+            label="Actual Arrow"
+            value={currentEntry.actualArrow}
+            options={laneBoardOptions}
+            onChange={(value) => updateCurrentEntry({ actualArrow: value })}
+          />
+
+          <BoardSelect
+            label="Actual Breakpoint"
+            value={currentEntry.actualBreakpoint}
+            options={laneBoardOptions}
+            onChange={(value) =>
+              updateCurrentEntry({ actualBreakpoint: value })
+            }
+          />
+        </div>
+
+        <div className="pin-entry-layout frame-editor-pin-layout">
+          <div className="shot-decks">
+            <div>
+              <h3>First Ball Pin Deck</h3>
+              <p className="helper-text">
+                Select pins knocked down on the first ball.
+              </p>
+              <PinDeck
+                knockedPins={currentEntry.firstShotKnockedPins}
+                onChange={updateFirstShotPins}
+              />
+            </div>
+
+            {shouldShowSecondShot && (
+              <div className="second-shot-card">
+                <h3>Second Ball Pin Deck</h3>
+                <p className="helper-text">
+                  {isTenthFrame && isStrike
+                    ? "Tenth-frame bonus shot. Select pins knocked down."
+                    : "Select pins knocked down on the spare attempt."}
+                </p>
+                <PinDeck
+                  knockedPins={currentEntry.secondShotKnockedPins}
+                  availablePins={secondShotAvailablePins}
+                  onChange={updateSecondShotPins}
+                />
+              </div>
+            )}
+
+            {shouldShowThirdShot && (
+              <div className="second-shot-card">
+                <h3>Third Ball Pin Deck</h3>
+                <p className="helper-text">
+                  Tenth-frame fill shot. Select pins knocked down.
+                </p>
+                <PinDeck
+                  knockedPins={currentEntry.thirdShotKnockedPins}
+                  availablePins={thirdShotAvailablePins}
+                  onChange={(knockedPins) =>
+                    updateCurrentEntry({ thirdShotKnockedPins: knockedPins })
+                  }
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="shot-summary">
+            <p>
+              <strong>First Shot Count:</strong> {firstShotPinCount}
+            </p>
+            {shouldShowSecondShot && (
+              <p>
+                <strong>Second Shot Count:</strong> {secondShotPinCount}
+              </p>
+            )}
+            {shouldShowThirdShot && (
+              <p>
+                <strong>Third Shot Count:</strong> {thirdShotPinCount}
+              </p>
+            )}
+            <p>
+              <strong>Frame Pin Count:</strong> {totalFramePinCount}
+            </p>
+            <p>
+              <strong>Pins Standing After Frame:</strong>{" "}
+              {pinsStandingAfterFrame.length === 0
+                ? "None"
+                : pinsStandingAfterFrame.join("-")}
+            </p>
+            <p>
+              <strong>Result:</strong> {frameResult}
+            </p>
+          </div>
+        </div>
+
+        <section className="frame-editor-score-preview">
+          <strong>Preview Scores</strong>
+          <div className="score-list">
+            {previewScores.map((score) => (
+              <p key={score.label}>
+                <strong>{score.label}:</strong> {score.score}
+              </p>
+            ))}
+          </div>
+        </section>
+
+        <div className="frame-navigation">
+          <button
+            className="secondary-button"
+            disabled={currentIndex === 0}
+            onClick={() => onIndexChange(currentIndex - 1)}
+          >
+            Previous Frame
+          </button>
+          <button
+            className="secondary-button"
+            disabled={currentIndex === entries.length - 1}
+            onClick={() => onIndexChange(currentIndex + 1)}
+          >
+            Next Frame
+          </button>
+          <button className="primary-button" onClick={handleSaveFrameEdits}>
+            Save Frame Edits
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

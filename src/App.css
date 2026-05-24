@@ -134,9 +134,15 @@ Forms
 }
 
 label {
-  display: grid;
-  gap: 6px;
+  display: block;
   font-weight: 600;
+}
+
+label > input,
+label > select,
+label > textarea {
+  display: block;
+  margin-top: 6px;
 }
 
 input,
@@ -150,6 +156,8 @@ textarea {
 
 .required {
   color: #b91c1c;
+  display: inline;
+  margin-left: 2px;
 }
 
 /*
@@ -416,6 +424,14 @@ Pin Deck
 
 .compact-grid {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+
+.frame-edit-warning-text {
+  border: 2px solid #111827;
+  background: #fff7ed;
+  padding: 12px;
+  margin-top: 18px;
 }
 
 .frame-navigation {
@@ -1092,7 +1108,150 @@ Stats Summary Cards
 .deep-stats-card,
 .ball-stats-card,
 .transition-card,
-.saved-set-card,
+.saved-set-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+/*
+Full Frame Editing
+==================
+*/
+
+.frame-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.68);
+  padding: 28px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.frame-editor-modal {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  border: 3px solid #111827;
+  background: #ffffff;
+  padding: 24px;
+}
+
+.frame-editor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.frame-editor-header h3 {
+  margin-top: 0;
+}
+
+.frame-editor-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.active-frame-button {
+  background: #111827;
+  color: #ffffff;
+}
+
+.frame-editor-pin-layout {
+  margin-top: 18px;
+}
+
+.frame-editor-score-preview {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 14px;
+  margin-top: 18px;
+}
+
+.frame-editor-score-preview > strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+  .frame-editor-overlay {
+    padding: 12px;
+  }
+
+  .frame-editor-header {
+    display: block;
+  }
+}
+
+/*
+Saved Game Notes
+==================
+*/
+
+.game-notes-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 18px;
+  margin-top: 16px;
+}
+
+.game-notes-card h4 {
+  margin: 0 0 8px;
+}
+
+.game-notes-card p {
+  margin-top: 0;
+}
+
+.game-notes-form {
+  margin-top: 16px;
+}
+
+
+
+.game-score-card > strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.game-score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+
+.frame-ball-card > strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.frame-ball-table select {
+  min-width: 180px;
+}
+
+/*
+Saved Game Notes
+==================
+*/
+
+.saved-game-notes-field {
+  margin-top: 14px;
+}
+
+.saved-game-notes-field textarea {
+  margin-top: 6px;
+}
+
+.saved-game-actions-row {
+  margin-top: 14px;
+}
 
 /*
 Saved Set Metadata
@@ -1153,10 +1312,55 @@ Saved Set Metadata
   grid-column: 1 / -1;
 }
 
+
+/*
+Equal Action Buttons
+==================
+*/
+
+.saved-set-top-actions,
+.saved-set-actions-row,
+.saved-game-actions-row,
+.data-button-row,
+.setup-button-row,
+.frame-navigation {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: stretch;
+  gap: 10px;
+}
+
+.saved-set-top-actions > button,
+.saved-set-actions-row > button,
+.saved-game-actions-row > button,
+.data-button-row > button,
+.data-card > .import-button,
+.setup-button-row > button,
+.frame-navigation > button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 /*
 Saved Set Details
 ==================
 */
+
+
+.saved-set-top-actions {
+  margin-bottom: 18px;
+}
+
+.saved-set-content-divider {
+  border-top: 2px solid #111827;
+  margin: 18px 0;
+}
+
 
 .saved-game-detail-card {
   border: 2px solid #111827;
@@ -1840,9 +2044,6 @@ First Launch Setup
 }
 
 .setup-button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
   margin-top: 20px;
 }
 
@@ -1876,9 +2077,6 @@ Data Management
 }
 
 .data-button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .import-button {
@@ -1888,7 +2086,11 @@ Data Management
   font-weight: 700;
   cursor: pointer;
   text-align: center;
-  width: fit-content;
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .import-button:hover {
