@@ -428,9 +428,162 @@ textarea {
   gap: 12px;
 }
 
+.bowler-form-card,
+.bowler-card,
+.add-ball-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.bowler-form-card h3,
+.bowler-card h3,
+.add-ball-card h4 {
+  margin-top: 0;
+}
+
+.bowler-list {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.card-header h3 {
+  margin: 0;
+}
+
+.card-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+}
+
+.danger-button {
+  border: 3px solid #991b1b;
+  background: white;
+  color: #991b1b;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.danger-button:hover {
+  background: #fee2e2;
+}
+
+.small-button {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.arsenal-section {
+  margin-top: 20px;
+}
+
+.arsenal-section h4 {
+  margin-bottom: 10px;
+}
+
+.arsenal-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ball-card {
+  border: 2px solid #111827;
+  background: white;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.ball-card p {
+  margin: 4px 0;
+  color: #4b5563;
+}
+
+.bowler-summary,
+.add-ball-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.bowler-summary::-webkit-details-marker,
+.add-ball-summary::-webkit-details-marker {
+  display: none;
+}
+
+.bowler-summary::after,
+.add-ball-summary::after {
+  content: "+";
+  border: 2px solid #111827;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.bowler-card[open] > .bowler-summary::after,
+.add-ball-card[open] > .add-ball-summary::after {
+  content: "−";
+}
+
+.bowler-summary strong {
+  font-size: 1.25rem;
+}
+
+.bowler-summary p {
+  margin: 4px 0 0;
+  color: #6b7280;
+}
+
+.summary-hint {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-left: auto;
+}
+
+.bowler-details-content {
+  border-top: 2px solid #111827;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.add-ball-content {
+  border-top: 2px solid #111827;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
 @media (max-width: 800px) {
   .pin-entry-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .card-header,
+  .ball-card {
+    display: grid;
   }
 }
 
@@ -447,4 +600,92 @@ textarea {
   .frame-header {
     display: grid;
   }
+}
+
+.bowler-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.center-form-card,
+.center-card,
+.lane-preview-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.center-form-card h3,
+.center-card h3,
+.lane-preview-card h4 {
+  margin-top: 0;
+}
+
+.center-list {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.center-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.center-summary::-webkit-details-marker {
+  display: none;
+}
+
+.center-summary::after {
+  content: "+";
+  border: 2px solid #111827;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.center-card[open] > .center-summary::after {
+  content: "−";
+}
+
+.center-summary strong {
+  font-size: 1.25rem;
+}
+
+.center-summary p {
+  margin: 4px 0 0;
+  color: #6b7280;
+}
+
+.center-details-content {
+  border-top: 2px solid #111827;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.center-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.lane-preview-card {
+  background: #ffffff;
+}
+
+.lane-preview-card p {
+  margin: 4px 0;
 }

@@ -1,4 +1,9 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import "./App.css";
 
 type Tab =
@@ -20,10 +25,30 @@ type BowlingFormat =
   | "Fives"
   | "Baker";
 
+type Handedness = "Right" | "Left";
+
+type BowlingBall = {
+  id: number;
+  name: string;
+  brand: string;
+  surface: string;
+  layout: string;
+  notes: string;
+};
+
+type Bowler = {
+  id: number;
+  name: string;
+  handedness: Handedness;
+  notes: string;
+  arsenal: BowlingBall[];
+};
+
 type Center = {
   id: number;
   name: string;
   laneCount: number;
+  notes: string;
 };
 
 type Pattern = {
@@ -73,7 +98,23 @@ type CompletedGameSummary = {
   scores: CompletedGameScore[];
 };
 
+type LogGamesPageProps = {
+  bowlers: Bowler[];
+  centers: Center[];
+};
+
+type BowlersPageProps = {
+  bowlers: Bowler[];
+  setBowlers: Dispatch<SetStateAction<Bowler[]>>;
+};
+
+type CentersPageProps = {
+  centers: Center[];
+  setCenters: Dispatch<SetStateAction<Center[]>>;
+};
+
 type GameEntryPageProps = {
+  bowlers: Bowler[];
   bowlerNames: string[];
   competitionType: CompetitionType;
   format: BowlingFormat;
@@ -99,6 +140,14 @@ type BoardSelectProps = {
   onChange: (value: string) => void;
 };
 
+type NewBallFormState = {
+  name: string;
+  brand: string;
+  surface: string;
+  layout: string;
+  notes: string;
+};
+
 const tabs: { id: Tab; label: string }[] = [
   { id: "log-games", label: "Log Games" },
   { id: "stats", label: "Stats" },
@@ -108,10 +157,10 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "patterns", label: "Patterns" },
 ];
 
-const temporaryCenters: Center[] = [
-  { id: 1, name: "Titan Bowl", laneCount: 8 },
-  { id: 2, name: "Bowlero Fullerton", laneCount: 40 },
-  { id: 3, name: "Temporary 24 Lane Center", laneCount: 24 },
+const defaultCenters: Center[] = [
+  { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
+  { id: 2, name: "Bowlero Fullerton", laneCount: 40, notes: "" },
+  { id: 3, name: "Temporary 24 Lane Center", laneCount: 24, notes: "" },
 ];
 
 const temporaryPatterns: Pattern[] = [
@@ -155,21 +204,90 @@ const temporaryEvents: EventSetup[] = [
   },
 ];
 
-const temporaryBowlers = [
-  "Kevin",
-  "Bowler 2",
-  "Bowler 3",
-  "Bowler 4",
-  "Bowler 5",
+const defaultBowlers: Bowler[] = [
+  {
+    id: 1,
+    name: "Kevin",
+    handedness: "Right",
+    notes: "",
+    arsenal: [
+      {
+        id: 101,
+        name: "Venom Shock",
+        brand: "Motiv",
+        surface: "2K",
+        layout: "",
+        notes: "Benchmark ball",
+      },
+      {
+        id: 102,
+        name: "IQ Tour",
+        brand: "Storm",
+        surface: "",
+        layout: "",
+        notes: "",
+      },
+      {
+        id: 103,
+        name: "Spare Ball",
+        brand: "",
+        surface: "",
+        layout: "",
+        notes: "",
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: "Bowler 2",
+    handedness: "Right",
+    notes: "",
+    arsenal: [
+      {
+        id: 201,
+        name: "House Ball",
+        brand: "",
+        surface: "",
+        layout: "",
+        notes: "",
+      },
+    ],
+  },
+  {
+    id: 3,
+    name: "Bowler 3",
+    handedness: "Right",
+    notes: "",
+    arsenal: [
+      {
+        id: 301,
+        name: "House Ball",
+        brand: "",
+        surface: "",
+        layout: "",
+        notes: "",
+      },
+    ],
+  },
 ];
 
-const temporaryBalls = ["Venom Shock", "IQ Tour", "Spare Ball"];
+const handednessOptions: Handedness[] = ["Right", "Left"];
 
 const footBoardOptions = Array.from({ length: 81 }, (_, index) => index - 20);
 const laneBoardOptions = Array.from({ length: 39 }, (_, index) => index + 1);
 
+const emptyBallForm: NewBallFormState = {
+  name: "",
+  brand: "",
+  surface: "",
+  layout: "",
+  notes: "",
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [bowlers, setBowlers] = useState<Bowler[]>(defaultBowlers);
+  const [centers, setCenters] = useState<Center[]>(defaultCenters);
 
   return (
     <main className="app-shell">
@@ -196,10 +314,16 @@ function App() {
             ← Back
           </button>
 
-          {activeTab === "log-games" && <LogGamesPage />}
+          {activeTab === "log-games" && (
+            <LogGamesPage bowlers={bowlers} centers={centers} />
+          )}
           {activeTab === "stats" && <StatsPage />}
-          {activeTab === "bowlers" && <BowlersPage />}
-          {activeTab === "centers" && <CentersPage />}
+          {activeTab === "bowlers" && (
+            <BowlersPage bowlers={bowlers} setBowlers={setBowlers} />
+          )}
+          {activeTab === "centers" && (
+            <CentersPage centers={centers} setCenters={setCenters} />
+          )}
           {activeTab === "events" && <EventsPage />}
           {activeTab === "patterns" && <PatternsPage />}
         </section>
@@ -208,7 +332,7 @@ function App() {
   );
 }
 
-function LogGamesPage() {
+function LogGamesPage({ bowlers, centers }: LogGamesPageProps) {
   const [showGameEntry, setShowGameEntry] = useState(false);
 
   const [competitionType, setCompetitionType] =
@@ -233,8 +357,8 @@ function LogGamesPage() {
   );
 
   const selectedCenter = isOpen
-    ? temporaryCenters.find((center) => String(center.id) === selectedCenterId)
-    : temporaryCenters.find((center) => center.id === selectedEvent?.centerId);
+    ? centers.find((center) => String(center.id) === selectedCenterId)
+    : centers.find((center) => center.id === selectedEvent?.centerId);
 
   const selectedPattern = isOpen
     ? temporaryPatterns.find(
@@ -353,6 +477,7 @@ function LogGamesPage() {
   if (showGameEntry) {
     return (
       <GameEntryPage
+        bowlers={bowlers}
         bowlerNames={bowlersForGame}
         competitionType={competitionType}
         format={format}
@@ -436,7 +561,7 @@ function LogGamesPage() {
               >
                 <option value="">Select bowling center</option>
 
-                {temporaryCenters.map((center) => (
+                {centers.map((center) => (
                   <option key={center.id} value={center.id}>
                     {center.name} — {center.laneCount} lanes
                   </option>
@@ -549,16 +674,16 @@ function LogGamesPage() {
                 >
                   <option value="">Select bowler</option>
 
-                  {temporaryBowlers.map((bowler) => (
+                  {bowlers.map((bowler) => (
                     <option
-                      key={bowler}
-                      value={bowler}
+                      key={bowler.id}
+                      value={bowler.name}
                       disabled={
-                        selectedBowlers.includes(bowler) &&
-                        selectedBowlers[index] !== bowler
+                        selectedBowlers.includes(bowler.name) &&
+                        selectedBowlers[index] !== bowler.name
                       }
                     >
-                      {bowler}
+                      {bowler.name}
                     </option>
                   ))}
                 </select>
@@ -654,7 +779,425 @@ function BakerRotationPreview({
   );
 }
 
+function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
+  const [newBowlerName, setNewBowlerName] = useState("");
+  const [newBowlerHandedness, setNewBowlerHandedness] =
+    useState<Handedness>("Right");
+  const [newBowlerNotes, setNewBowlerNotes] = useState("");
+  const [newBallForms, setNewBallForms] = useState<
+    Record<number, NewBallFormState>
+  >({});
+
+  function addBowler() {
+    const trimmedName = newBowlerName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const nameAlreadyExists = bowlers.some(
+      (bowler) => bowler.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A bowler with that name already exists.");
+      return;
+    }
+
+    setBowlers((currentBowlers) => [
+      ...currentBowlers,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        handedness: newBowlerHandedness,
+        notes: newBowlerNotes.trim(),
+        arsenal: [],
+      },
+    ]);
+
+    setNewBowlerName("");
+    setNewBowlerHandedness("Right");
+    setNewBowlerNotes("");
+  }
+
+  function deleteBowler(bowlerId: number) {
+    const bowler = bowlers.find(
+      (currentBowler) => currentBowler.id === bowlerId
+    );
+
+    if (!bowler) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${bowler.name}? This will also remove their arsenal.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setBowlers((currentBowlers) =>
+      currentBowlers.filter((currentBowler) => currentBowler.id !== bowlerId)
+    );
+  }
+
+  function updateBowler(bowlerId: number, updates: Partial<Bowler>) {
+    setBowlers((currentBowlers) =>
+      currentBowlers.map((bowler) =>
+        bowler.id === bowlerId ? { ...bowler, ...updates } : bowler
+      )
+    );
+  }
+
+  function getBallForm(bowlerId: number) {
+    return newBallForms[bowlerId] ?? emptyBallForm;
+  }
+
+  function updateBallForm(
+    bowlerId: number,
+    updates: Partial<NewBallFormState>
+  ) {
+    setNewBallForms((currentForms) => ({
+      ...currentForms,
+      [bowlerId]: {
+        ...getBallForm(bowlerId),
+        ...updates,
+      },
+    }));
+  }
+
+  function addBallToBowler(bowlerId: number) {
+    const form = getBallForm(bowlerId);
+    const trimmedName = form.name.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    setBowlers((currentBowlers) =>
+      currentBowlers.map((bowler) => {
+        if (bowler.id !== bowlerId) {
+          return bowler;
+        }
+
+        return {
+          ...bowler,
+          arsenal: [
+            ...bowler.arsenal,
+            {
+              id: Date.now(),
+              name: trimmedName,
+              brand: form.brand.trim(),
+              surface: form.surface.trim(),
+              layout: form.layout.trim(),
+              notes: form.notes.trim(),
+            },
+          ],
+        };
+      })
+    );
+
+    setNewBallForms((currentForms) => ({
+      ...currentForms,
+      [bowlerId]: emptyBallForm,
+    }));
+  }
+
+  function deleteBall(bowlerId: number, ballId: number) {
+    const bowler = bowlers.find(
+      (currentBowler) => currentBowler.id === bowlerId
+    );
+    const ball = bowler?.arsenal.find((currentBall) => currentBall.id === ballId);
+
+    if (!bowler || !ball) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Remove ${ball.name} from ${bowler.name}'s arsenal?`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setBowlers((currentBowlers) =>
+      currentBowlers.map((currentBowler) => {
+        if (currentBowler.id !== bowlerId) {
+          return currentBowler;
+        }
+
+        return {
+          ...currentBowler,
+          arsenal: currentBowler.arsenal.filter(
+            (currentBall) => currentBall.id !== ballId
+          ),
+        };
+      })
+    );
+  }
+
+  return (
+    <>
+      <h2>Bowlers</h2>
+      <p>
+        Add bowlers, set handedness, manage notes, and build each bowler’s
+        arsenal for shot logging.
+      </p>
+
+      <section className="bowler-form-card">
+        <h3>Add Bowler</h3>
+
+        <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newBowlerName}
+              onChange={(event) => setNewBowlerName(event.target.value)}
+              placeholder="Example: Kevin"
+            />
+          </label>
+
+          <label>
+            Handedness
+            <select
+              value={newBowlerHandedness}
+              onChange={(event) =>
+                setNewBowlerHandedness(event.target.value as Handedness)
+              }
+            >
+              {handednessOptions.map((handedness) => (
+                <option key={handedness} value={handedness}>
+                  {handedness}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newBowlerNotes}
+              onChange={(event) => setNewBowlerNotes(event.target.value)}
+              placeholder="Optional notes"
+              rows={3}
+            />
+          </label>
+        </div>
+
+        <button
+          className="primary-button"
+          disabled={!newBowlerName.trim()}
+          onClick={addBowler}
+        >
+          Add Bowler
+        </button>
+      </section>
+
+      <section className="bowler-list">
+        {bowlers.map((bowler) => {
+          const ballForm = getBallForm(bowler.id);
+
+          return (
+            <details className="bowler-card" key={bowler.id}>
+              <summary className="bowler-summary">
+                <div>
+                  <strong>{bowler.name}</strong>
+                  <p>
+                    {bowler.handedness} • {bowler.arsenal.length} ball
+                    {bowler.arsenal.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="bowler-details-content">
+                <div className="bowler-actions-row">
+                  <button
+                    className="danger-button"
+                    onClick={() => deleteBowler(bowler.id)}
+                  >
+                    Delete Bowler
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={bowler.name}
+                      onChange={(event) =>
+                        updateBowler(bowler.id, { name: event.target.value })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Handedness
+                    <select
+                      value={bowler.handedness}
+                      onChange={(event) =>
+                        updateBowler(bowler.id, {
+                          handedness: event.target.value as Handedness,
+                        })
+                      }
+                    >
+                      {handednessOptions.map((handedness) => (
+                        <option key={handedness} value={handedness}>
+                          {handedness}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={bowler.notes}
+                      onChange={(event) =>
+                        updateBowler(bowler.id, { notes: event.target.value })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="arsenal-section">
+                  <h4>Arsenal</h4>
+
+                  {bowler.arsenal.length === 0 ? (
+                    <p className="helper-text">No balls added yet.</p>
+                  ) : (
+                    <div className="arsenal-list">
+                      {bowler.arsenal.map((ball) => (
+                        <div className="ball-card" key={ball.id}>
+                          <div>
+                            <strong>{ball.name}</strong>
+                            <p>
+                              {[ball.brand, ball.surface]
+                                .filter(Boolean)
+                                .join(" • ") || "No brand/surface entered"}
+                            </p>
+
+                            {ball.layout && (
+                              <p>
+                                <strong>Layout:</strong> {ball.layout}
+                              </p>
+                            )}
+
+                            {ball.notes && <p>{ball.notes}</p>}
+                          </div>
+
+                          <button
+                            className="danger-button small-button"
+                            onClick={() => deleteBall(bowler.id, ball.id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <details className="add-ball-card">
+                    <summary className="add-ball-summary">
+                      <strong>Add Ball</strong>
+                      <span className="summary-hint">Open Form</span>
+                    </summary>
+
+                    <div className="add-ball-content">
+                      <div className="form-grid">
+                        <label>
+                          Ball Name <span className="required">*</span>
+                          <input
+                            value={ballForm.name}
+                            onChange={(event) =>
+                              updateBallForm(bowler.id, {
+                                name: event.target.value,
+                              })
+                            }
+                            placeholder="Example: Venom Shock"
+                          />
+                        </label>
+
+                        <label>
+                          Brand
+                          <input
+                            value={ballForm.brand}
+                            onChange={(event) =>
+                              updateBallForm(bowler.id, {
+                                brand: event.target.value,
+                              })
+                            }
+                            placeholder="Optional"
+                          />
+                        </label>
+
+                        <label>
+                          Surface
+                          <input
+                            value={ballForm.surface}
+                            onChange={(event) =>
+                              updateBallForm(bowler.id, {
+                                surface: event.target.value,
+                              })
+                            }
+                            placeholder="Example: 2K, box, polish"
+                          />
+                        </label>
+
+                        <label>
+                          Layout
+                          <input
+                            value={ballForm.layout}
+                            onChange={(event) =>
+                              updateBallForm(bowler.id, {
+                                layout: event.target.value,
+                              })
+                            }
+                            placeholder="Optional, example: 5 x 4 x 2"
+                          />
+                        </label>
+
+                        <label>
+                          Notes
+                          <textarea
+                            value={ballForm.notes}
+                            onChange={(event) =>
+                              updateBallForm(bowler.id, {
+                                notes: event.target.value,
+                              })
+                            }
+                            rows={3}
+                            placeholder="Optional notes"
+                          />
+                        </label>
+                      </div>
+
+                      <button
+                        className="secondary-button"
+                        disabled={!ballForm.name.trim()}
+                        onClick={() => addBallToBowler(bowler.id)}
+                      >
+                        Add Ball
+                      </button>
+                    </div>
+                  </details>
+                </section>
+              </div>
+            </details>
+          );
+        })}
+      </section>
+    </>
+  );
+}
+
 function GameEntryPage({
+  bowlers,
   bowlerNames,
   competitionType,
   format,
@@ -733,6 +1276,11 @@ function GameEntryPage({
   const currentEntry = entries[currentEntryIndex];
   const isLastEntry = currentEntryIndex === entries.length - 1;
   const isGameComplete = entries.every((entry) => entry.isComplete);
+
+  const currentBowler = bowlers.find(
+    (bowler) => bowler.name === currentEntry.bowlerName
+  );
+  const currentBowlerBalls = currentBowler?.arsenal ?? [];
 
   const isLimitedSeries = seriesGameCount !== null;
   const isLastGameInSeries =
@@ -1056,9 +1604,17 @@ function GameEntryPage({
                   }
                 >
                   <option value="">Select ball</option>
-                  {temporaryBalls.map((ball) => (
-                    <option key={ball} value={ball}>
-                      {ball}
+
+                  {currentBowlerBalls.length === 0 && (
+                    <option value="" disabled>
+                      No balls in arsenal
+                    </option>
+                  )}
+
+                  {currentBowlerBalls.map((ball) => (
+                    <option key={ball.id} value={ball.name}>
+                      {ball.name}
+                      {ball.brand ? ` — ${ball.brand}` : ""}
                     </option>
                   ))}
                 </select>
@@ -1428,23 +1984,204 @@ function StatsPage() {
   );
 }
 
-function BowlersPage() {
-  return (
-    <>
-      <h2>Bowlers</h2>
-      <p>Add bowlers, handedness, arsenal, and notes.</p>
-    </>
-  );
-}
+function CentersPage({ centers, setCenters }: CentersPageProps) {
+  const [newCenterName, setNewCenterName] = useState("");
+  const [newCenterLaneCount, setNewCenterLaneCount] = useState("8");
+  const [newCenterNotes, setNewCenterNotes] = useState("");
 
-function CentersPage() {
+  function addCenter() {
+    const trimmedName = newCenterName.trim();
+    const laneCount = Number(newCenterLaneCount);
+
+    if (!trimmedName || !Number.isFinite(laneCount) || laneCount < 1) {
+      return;
+    }
+
+    const nameAlreadyExists = centers.some(
+      (center) => center.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A bowling center with that name already exists.");
+      return;
+    }
+
+    setCenters((currentCenters) => [
+      ...currentCenters,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        laneCount: Math.floor(laneCount),
+        notes: newCenterNotes.trim(),
+      },
+    ]);
+
+    setNewCenterName("");
+    setNewCenterLaneCount("8");
+    setNewCenterNotes("");
+  }
+
+  function updateCenter(centerId: number, updates: Partial<Center>) {
+    setCenters((currentCenters) =>
+      currentCenters.map((center) =>
+        center.id === centerId ? { ...center, ...updates } : center
+      )
+    );
+  }
+
+  function deleteCenter(centerId: number) {
+    const center = centers.find((currentCenter) => currentCenter.id === centerId);
+
+    if (!center) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${center.name}? This will remove it from center selection.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setCenters((currentCenters) =>
+      currentCenters.filter((currentCenter) => currentCenter.id !== centerId)
+    );
+  }
+
   return (
     <>
       <h2>Bowling Centers</h2>
       <p>
-        Add centers and lane counts so lane choices can be generated
-        automatically.
+        Add bowling centers and lane counts. Log Games uses this lane count to
+        generate single-lane and pair dropdowns automatically.
       </p>
+
+      <section className="center-form-card">
+        <h3>Add Bowling Center</h3>
+
+        <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newCenterName}
+              onChange={(event) => setNewCenterName(event.target.value)}
+              placeholder="Example: Titan Bowl"
+            />
+          </label>
+
+          <label>
+            Number of Lanes <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newCenterLaneCount}
+              onChange={(event) => setNewCenterLaneCount(event.target.value)}
+              placeholder="Example: 8"
+            />
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newCenterNotes}
+              onChange={(event) => setNewCenterNotes(event.target.value)}
+              placeholder="Optional notes"
+              rows={3}
+            />
+          </label>
+        </div>
+
+        <button
+          className="primary-button"
+          disabled={!newCenterName.trim() || Number(newCenterLaneCount) < 1}
+          onClick={addCenter}
+        >
+          Add Center
+        </button>
+      </section>
+
+      <section className="center-list">
+        {centers.map((center) => (
+          <details className="center-card" key={center.id}>
+            <summary className="center-summary">
+              <div>
+                <strong>{center.name}</strong>
+                <p>
+                  {center.laneCount} lane{center.laneCount === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <span className="summary-hint">Open Details</span>
+            </summary>
+
+            <div className="center-details-content">
+              <div className="center-actions-row">
+                <button
+                  className="danger-button"
+                  onClick={() => deleteCenter(center.id)}
+                >
+                  Delete Center
+                </button>
+              </div>
+
+              <div className="form-grid">
+                <label>
+                  Name
+                  <input
+                    value={center.name}
+                    onChange={(event) =>
+                      updateCenter(center.id, { name: event.target.value })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Number of Lanes
+                  <input
+                    type="number"
+                    min="1"
+                    value={center.laneCount}
+                    onChange={(event) =>
+                      updateCenter(center.id, {
+                        laneCount: Math.max(1, Math.floor(Number(event.target.value))),
+                      })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Notes
+                  <textarea
+                    value={center.notes}
+                    onChange={(event) =>
+                      updateCenter(center.id, { notes: event.target.value })
+                    }
+                    rows={3}
+                    placeholder="Optional notes"
+                  />
+                </label>
+              </div>
+
+              <section className="lane-preview-card">
+                <h4>Generated Lane Options</h4>
+                <p>
+                  <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
+                  {center.laneCount}
+                </p>
+                <p>
+                  <strong>Pair Mode:</strong>{" "}
+                  {Math.floor(center.laneCount / 2) > 0
+                    ? `Pairs 1/2 through ${
+                        Math.floor(center.laneCount / 2) * 2 - 1
+                      }/${Math.floor(center.laneCount / 2) * 2}`
+                    : "No pairs available"}
+                </p>
+              </section>
+            </div>
+          </details>
+        ))}
+      </section>
     </>
   );
 }
