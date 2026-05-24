@@ -1,3 +1,8 @@
+/*
+Base
+==================
+*/
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   color: #111827;
@@ -22,11 +27,21 @@ textarea {
   font: inherit;
 }
 
+/*
+App Shell
+==================
+*/
+
 .app-shell {
   width: min(960px, 100%);
   margin: 0 auto;
   padding: 32px 20px;
 }
+
+/*
+Home Screen
+==================
+*/
 
 .logo-card {
   border: 3px solid #111827;
@@ -54,6 +69,11 @@ textarea {
   justify-content: center;
 }
 
+/*
+Navigation Buttons
+==================
+*/
+
 .nav-button {
   min-width: 260px;
   border: 3px solid #111827;
@@ -68,6 +88,11 @@ textarea {
 .secondary-button:hover {
   background: #e5e7eb;
 }
+
+/*
+Page Layout
+==================
+*/
 
 .page-card {
   border: 3px solid #111827;
@@ -96,6 +121,11 @@ p {
   line-height: 1.6;
 }
 
+/*
+Forms
+==================
+*/
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -121,6 +151,11 @@ textarea {
 .required {
   color: #b91c1c;
 }
+
+/*
+Buttons
+==================
+*/
 
 .primary-button {
   border: 3px solid #111827;
@@ -152,6 +187,11 @@ textarea {
   cursor: not-allowed;
 }
 
+/*
+Text States
+==================
+*/
+
 .helper-text {
   color: #6b7280;
   margin-top: 10px;
@@ -166,6 +206,11 @@ textarea {
   color: #047857;
   font-weight: 700;
 }
+
+/*
+Log Games
+==================
+*/
 
 .session-summary {
   border: 2px solid #111827;
@@ -204,6 +249,11 @@ textarea {
   margin-top: 0;
 }
 
+/*
+Baker Rotation
+==================
+*/
+
 .baker-rotation-card {
   border: 2px solid #111827;
   background: #ffffff;
@@ -223,6 +273,11 @@ textarea {
 .baker-rotation-list p {
   margin: 0;
 }
+
+/*
+Game Entry Frames
+==================
+*/
 
 .frame-card {
   border: 2px solid #111827;
@@ -271,6 +326,11 @@ textarea {
   background: #f9fafb;
 }
 
+/*
+Pin Entry Layout
+==================
+*/
+
 .pin-entry-layout {
   display: grid;
   grid-template-columns: minmax(280px, 380px) 1fr;
@@ -288,6 +348,11 @@ textarea {
   border-top: 2px dashed #111827;
   padding-top: 18px;
 }
+
+/*
+Pin Deck
+==================
+*/
 
 .pin-deck {
   position: relative;
@@ -392,6 +457,11 @@ textarea {
   margin-top: 16px;
 }
 
+/*
+Completed Games
+==================
+*/
+
 .completed-games-card {
   border: 2px solid #111827;
   background: #ffffff;
@@ -430,6 +500,11 @@ textarea {
 
 .bowler-form-card,
 .bowler-card,
+/*
+Bowler Arsenal
+==================
+*/
+
 .add-ball-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -442,6 +517,11 @@ textarea {
 .add-ball-card h4 {
   margin-top: 0;
 }
+
+/*
+Bowlers
+==================
+*/
 
 .bowler-list {
   display: grid;
@@ -574,6 +654,11 @@ textarea {
   padding-top: 14px;
 }
 
+/*
+Responsive Layout
+==================
+*/
+
 @media (max-width: 800px) {
   .pin-entry-layout {
     grid-template-columns: 1fr;
@@ -613,6 +698,11 @@ textarea {
 
 .center-form-card,
 .center-card,
+/*
+Bowling Centers
+==================
+*/
+
 .lane-preview-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -694,6 +784,11 @@ textarea {
 
 .pattern-form-card,
 .pattern-card,
+/*
+Patterns
+==================
+*/
+
 .pattern-preview-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -798,6 +893,11 @@ textarea {
 
 .event-form-card,
 .event-card,
+/*
+Tournaments / Leagues
+==================
+*/
+
 .event-preview-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -880,6 +980,11 @@ textarea {
 .empty-state-card,
 .stats-filter-card,
 .stats-table-card,
+/*
+Stats Saved Games
+==================
+*/
+
 .saved-game-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -894,6 +999,11 @@ textarea {
   margin-top: 0;
 }
 
+/*
+Stats Actions
+==================
+*/
+
 .stats-action-row {
   display: flex;
   flex-wrap: wrap;
@@ -905,6 +1015,11 @@ textarea {
 .stats-action-row .primary-button {
   margin-top: 0;
 }
+
+/*
+Stats Summary Cards
+==================
+*/
 
 .stats-summary-grid {
   display: grid;
@@ -978,6 +1093,11 @@ textarea {
 .ball-stats-card,
 .transition-card,
 .saved-set-card,
+/*
+Saved Set Details
+==================
+*/
+
 .saved-game-detail-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -1075,6 +1195,11 @@ textarea {
   margin: 0 0 10px;
 }
 
+/*
+Score Grid
+==================
+*/
+
 .score-grid {
   display: grid;
   grid-template-columns: repeat(10, minmax(76px, 1fr));
@@ -1162,6 +1287,11 @@ textarea {
   pointer-events: none;
 }
 
+/*
+Spare Leave Breakdown
+==================
+*/
+
 .spare-leave-card {
   border: 2px solid #111827;
   background: #f9fafb;
@@ -1172,6 +1302,11 @@ textarea {
 .spare-leave-card h3 {
   margin-top: 0;
 }
+
+/*
+Targeting Analysis
+==================
+*/
 
 .board-analysis-card {
   border: 2px solid #111827;
@@ -1195,6 +1330,11 @@ textarea {
 .board-analysis-card .stats-summary-grid {
   margin-bottom: 8px;
 }
+
+/*
+Collapsed Add Forms
+==================
+*/
 
 .add-form-card {
   background: #f9fafb;
@@ -1237,6 +1377,11 @@ textarea {
   margin-top: 16px;
   padding-top: 16px;
 }
+
+/*
+Stats Collapsible Sections
+==================
+*/
 
 .stats-collapsible-card {
   border: 2px solid #111827;
@@ -1298,6 +1443,11 @@ textarea {
 }
 
 .baker-breakdown-card,
+/*
+Baker Stats
+==================
+*/
+
 .baker-frame-card {
   border: 2px solid #111827;
   background: #ffffff;
@@ -1330,4 +1480,296 @@ textarea {
   width: auto;
   min-height: auto;
   transform: scale(1.2);
+}
+
+/* Stats section buttons: darker than normal form inputs/dropdowns */
+.stats-collapsible-card {
+  background: #f9fafb;
+}
+
+.stats-section-summary {
+  background: #e5e7eb;
+  border: 2px solid #111827;
+  padding: 14px 16px;
+  margin: -2px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.stats-section-summary:hover {
+  background: #d1d5db;
+}
+
+.stats-collapsible-card[open] > .stats-section-summary {
+  background: #d1d5db;
+}
+
+.stats-section-summary .summary-hint {
+  background: #f3f4f6;
+  border: 2px solid #111827;
+  color: #111827;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+
+.stats-section-summary::after {
+  background: #f3f4f6;
+}
+
+.stats-collapsible-content {
+  margin-top: 18px;
+}
+
+/* Only the Stats Filters dropdown should use the darker button treatment. */
+.stats-collapsible-card:not(.stats-filter-card) > .stats-section-summary {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  transition: none;
+}
+
+.stats-collapsible-card:not(.stats-filter-card) > .stats-section-summary:hover,
+.stats-collapsible-card:not(.stats-filter-card)[open] > .stats-section-summary {
+  background: transparent;
+}
+
+.stats-collapsible-card:not(.stats-filter-card) > .stats-section-summary .summary-hint {
+  background: transparent;
+  border: 0;
+  color: #6b7280;
+  padding: 0;
+  font-weight: 600;
+}
+
+/* Add forms should use the darker button treatment. */
+.add-form-summary {
+  background: #e5e7eb;
+  border: 2px solid #111827;
+  padding: 14px 16px;
+  margin: -2px;
+  transition: background 0.15s ease;
+}
+
+.add-form-summary:hover {
+  background: #d1d5db;
+}
+
+.add-form-card[open] > .add-form-summary {
+  background: #d1d5db;
+}
+
+.add-form-summary .summary-hint {
+  background: #f3f4f6;
+  border: 2px solid #111827;
+  color: #111827;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+
+.add-form-summary::after {
+  background: #f3f4f6;
+}
+
+/*
+Team / Set Breakdown
+==================
+*/
+
+.team-set-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.overview-default-note {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+}
+
+/*
+Spare Leave Pin Deck
+==================
+*/
+
+.mini-pin-deck {
+  position: relative;
+  width: 104px;
+  height: 88px;
+  border: 2px solid #111827;
+  background: #f9fafb;
+}
+
+.mini-pin {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #111827;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 0.7rem;
+  font-weight: 800;
+  transform: translate(-50%, -50%);
+}
+
+.mini-pin.standing {
+  background: #111827;
+  color: #ffffff;
+}
+
+.spare-summary-grid {
+  margin-bottom: 16px;
+}
+
+.frame-score-card,
+/*
+Average By Game
+==================
+*/
+
+.average-game-card {
+  border: 2px solid #111827;
+  background: #ffffff;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.frame-score-card h4,
+.average-game-card h4 {
+  margin-top: 0;
+}
+
+/*
+Average Frame Score
+==================
+*/
+
+.frame-score-chart {
+  display: grid;
+  gap: 10px;
+}
+
+.frame-score-bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 56px;
+  gap: 12px;
+  align-items: center;
+}
+
+.frame-score-label {
+  font-weight: 800;
+}
+
+.frame-score-track {
+  height: 22px;
+  border: 2px solid #111827;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.frame-score-bar {
+  height: 100%;
+  background: #cfe8ff;
+  border-right: 2px solid #111827;
+}
+
+/*
+Score Distribution
+==================
+*/
+
+.score-distribution-card {
+  border: 2px solid #111827;
+  background: #ffffff;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.score-distribution-card h4 {
+  margin-top: 0;
+}
+
+.score-distribution-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 20px;
+}
+
+.score-distribution-grid h5 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.distribution-table td,
+.distribution-table th {
+  text-align: center;
+}
+
+.distribution-table td:first-child,
+.distribution-table th:first-child {
+  text-align: left;
+}
+
+@media (max-width: 900px) {
+  .score-distribution-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.leave-pin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 90px;
+}
+
+.leave-pin {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #111827;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.leave-only-deck {
+  background: #f9fafb;
+}
+
+.leave-only-deck .mini-pin {
+  background: #111827;
+  color: #ffffff;
+}
+
+/*
+Links
+==================
+*/
+
+.helper-text a {
+  color: #111827;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+/*
+Close Button
+==================
+*/
+
+.close-app-button {
+  background: #111827;
+  color: #ffffff;
+}
+
+.close-app-button:hover {
+  background: #374151;
 }

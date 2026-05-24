@@ -1,3 +1,6 @@
+// Imports
+// ==================
+
 import {
   useMemo,
   useState,
@@ -5,6 +8,9 @@ import {
   type SetStateAction,
 } from "react";
 import "./App.css";
+
+// Types
+// ==================
 
 type Tab =
   | "home"
@@ -76,7 +82,6 @@ type EventSetup = {
   startDate: string;
   endDate: string;
   centerId: number;
-  patternId: number;
   notes: string;
 };
 
@@ -172,10 +177,10 @@ type EventsPageProps = {
   events: EventSetup[];
   setEvents: Dispatch<SetStateAction<EventSetup[]>>;
   centers: Center[];
-  patterns: Pattern[];
 };
 
 type StatsPageProps = {
+  bowlers: Bowler[];
   savedGames: SavedGameRecord[];
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
   savedEventLogs: SavedEventLog[];
@@ -223,6 +228,9 @@ type NewBallFormState = {
   layout: string;
   notes: string;
 };
+
+// Default Data
+// ==================
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "log-games", label: "Log Games" },
@@ -285,7 +293,6 @@ const defaultEvents: EventSetup[] = [
     startDate: "",
     endDate: "",
     centerId: 1,
-    patternId: 0,
     notes: "",
   },
   {
@@ -300,7 +307,6 @@ const defaultEvents: EventSetup[] = [
     startDate: "",
     endDate: "",
     centerId: 2,
-    patternId: 1,
     notes: "",
   },
   {
@@ -315,7 +321,6 @@ const defaultEvents: EventSetup[] = [
     startDate: "",
     endDate: "",
     centerId: 2,
-    patternId: 2,
     notes: "",
   },
   {
@@ -330,7 +335,6 @@ const defaultEvents: EventSetup[] = [
     startDate: "",
     endDate: "",
     centerId: 3,
-    patternId: 0,
     notes: "",
   },
 ];
@@ -447,6 +451,9 @@ const emptyBallForm: NewBallFormState = {
   layout: "",
   notes: "",
 };
+
+// Sample Data
+// ==================
 
 function createSampleFrameEntry(
   frameNumber: number,
@@ -769,6 +776,9 @@ function createSampleSavedEventLogs(): SavedEventLog[] {
 }
 
 
+// App Shell
+// ==================
+
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [bowlers, setBowlers] = useState<Bowler[]>(defaultBowlers);
@@ -782,11 +792,31 @@ function App() {
     createSampleSavedGames()
   );
 
+  async function handleCloseApp() {
+    try {
+      const tauriWindowApi = (await import("@tauri-apps/api/window")) as {
+        getCurrentWindow?: () => { close: () => Promise<void> };
+        appWindow?: { close: () => Promise<void> };
+      };
+      const currentWindow =
+        tauriWindowApi.getCurrentWindow?.() ?? tauriWindowApi.appWindow;
+
+      if (currentWindow?.close) {
+        await currentWindow.close();
+        return;
+      }
+    } catch (error) {
+      console.warn("Tauri close unavailable; using browser close fallback.", error);
+    }
+
+    window.close();
+  }
+
   return (
     <main className="app-shell">
       <section className="logo-card" onClick={() => setActiveTab("home")}>
         <h1>Pin-Sighter</h1>
-        <p>Bowling stats, shot tracking, and analytics</p>
+        <p>Bowling Game Logger, Shot Tracker, stats, and analytics</p>
       </section>
 
       {activeTab === "home" ? (
@@ -800,6 +830,14 @@ function App() {
               {tab.label}
             </button>
           ))}
+
+          <button
+            type="button"
+            className="nav-button close-app-button"
+            onClick={handleCloseApp}
+          >
+            Close App
+          </button>
         </nav>
       ) : (
         <section className="page-card">
@@ -820,6 +858,7 @@ function App() {
           )}
           {activeTab === "stats" && (
             <StatsPage
+              bowlers={bowlers}
               savedGames={savedGames}
               setSavedGames={setSavedGames}
               savedEventLogs={savedEventLogs}
@@ -837,7 +876,6 @@ function App() {
               events={events}
               setEvents={setEvents}
               centers={centers}
-              patterns={patterns}
             />
           )}
           {activeTab === "patterns" && (
@@ -848,6 +886,9 @@ function App() {
     </main>
   );
 }
+
+// Log Games
+// ==================
 
 function LogGamesPage({
   bowlers,
@@ -889,13 +930,9 @@ function LogGamesPage({
     ? centers.find((center) => String(center.id) === selectedCenterId)
     : centers.find((center) => center.id === selectedEvent?.centerId);
 
-  const selectedPattern = isOpen
-    ? patterns.find(
-        (pattern) => String(pattern.id) === selectedPatternId
-      )
-    : patterns.find(
-        (pattern) => pattern.id === selectedEvent?.patternId
-      );
+  const selectedPattern = patterns.find(
+    (pattern) => String(pattern.id) === selectedPatternId
+  );
 
   const activeFormat = selectedEvent?.format ?? format;
   const enteredBowlersPerPair = Math.max(
@@ -1057,6 +1094,7 @@ function LogGamesPage({
     hasRequiredEvent &&
     hasRequiredEventStage &&
     selectedCenter !== undefined &&
+    selectedPattern !== undefined &&
     startingLaneOrPair !== "" &&
     hasEnoughBowlers &&
     !hasDuplicateBowlers &&
@@ -1191,38 +1229,36 @@ function LogGamesPage({
         )}
 
         {isOpen && (
-          <>
-            <label>
-              Bowling Center <span className="required">*</span>
-              <select
-                value={selectedCenterId}
-                onChange={(event) => handleCenterChange(event.target.value)}
-              >
-                <option value="">Select bowling center</option>
+          <label>
+            Bowling Center <span className="required">*</span>
+            <select
+              value={selectedCenterId}
+              onChange={(event) => handleCenterChange(event.target.value)}
+            >
+              <option value="">Select bowling center</option>
 
-                {centers.map((center) => (
-                  <option key={center.id} value={center.id}>
-                    {center.name} — {center.laneCount} lanes
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Pattern
-              <select
-                value={selectedPatternId}
-                onChange={(event) => setSelectedPatternId(event.target.value)}
-              >
-                {patterns.map((pattern) => (
-                  <option key={pattern.id} value={pattern.id}>
-                    {pattern.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
+              {centers.map((center) => (
+                <option key={center.id} value={center.id}>
+                  {center.name} — {center.laneCount} lanes
+                </option>
+              ))}
+            </select>
+          </label>
         )}
+
+        <label>
+          Pattern
+          <select
+            value={selectedPatternId}
+            onChange={(event) => setSelectedPatternId(event.target.value)}
+          >
+            {patterns.map((pattern) => (
+              <option key={pattern.id} value={pattern.id}>
+                {pattern.name}
+              </option>
+            ))}
+          </select>
+        </label>
 
         {selectedEvent && eventStageOptions.length > 0 && (
           <label>
@@ -1313,7 +1349,7 @@ function LogGamesPage({
             <strong>Bowling Center:</strong> {selectedCenter?.name}
           </p>
           <p>
-            <strong>Pattern:</strong> {selectedPattern?.name}
+            <strong>Pattern:</strong> {selectedPattern?.name} for this {eventStageSingular.toLowerCase()}
           </p>
         </section>
       )}
@@ -1391,13 +1427,16 @@ function LogGamesPage({
             : activeFormat === "Baker"
             ? "Select at least 2 Baker bowlers, a starting pair/lane, and any required event setup to begin."
             : isOpen
-            ? "Select a bowling center, bowlers per pair, starting pair/lane, and at least one bowler to begin."
-            : `Select a ${competitionType.toLowerCase()}, week/day, starting pair/lane, and at least one bowler to begin.`}
+            ? "Select a bowling center, pattern, bowlers per pair, starting pair/lane, and at least one bowler to begin."
+            : `Select a ${competitionType.toLowerCase()}, week/day, pattern, starting pair/lane, and at least one bowler to begin.`}
         </p>
       )}
     </>
   );
 }
+
+// Log Games Helpers
+// ==================
 
 function getBowlerSlotCount(format: BowlingFormat) {
   switch (format) {
@@ -1476,6 +1515,9 @@ function BakerRotationPreview({
     </section>
   );
 }
+
+// Bowlers
+// ==================
 
 function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
   const [newBowlerName, setNewBowlerName] = useState("");
@@ -1972,6 +2014,1351 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     </>
   );
 }
+
+// Bowling Centers
+// ==================
+
+function CentersPage({ centers, setCenters }: CentersPageProps) {
+  const [newCenterName, setNewCenterName] = useState("");
+  const [newCenterLaneCount, setNewCenterLaneCount] = useState("8");
+  const [newCenterNotes, setNewCenterNotes] = useState("");
+  const [centerDrafts, setCenterDrafts] = useState<Record<number, Center>>({});
+
+  function getCenterDraft(center: Center) {
+    return centerDrafts[center.id] ?? center;
+  }
+
+  function hasCenterChanged(center: Center) {
+    const draft = centerDrafts[center.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return JSON.stringify(draft) !== JSON.stringify(center);
+  }
+
+  function updateCenterDraft(center: Center, updates: Partial<Center>) {
+    setCenterDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [center.id]: {
+        ...getCenterDraft(center),
+        ...updates,
+      },
+    }));
+  }
+
+  function saveCenter(centerId: number) {
+    const draft = centerDrafts[centerId];
+
+    if (!draft) {
+      return;
+    }
+
+    const trimmedName = draft.name.trim();
+
+    if (!trimmedName) {
+      window.alert("Center name cannot be empty.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.laneCount) || draft.laneCount < 1) {
+      window.alert("Lane count must be at least 1.");
+      return;
+    }
+
+    const nameAlreadyExists = centers.some(
+      (center) =>
+        center.id !== centerId &&
+        center.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A bowling center with that name already exists.");
+      return;
+    }
+
+    setCenters((currentCenters) =>
+      currentCenters.map((center) =>
+        center.id === centerId
+          ? {
+              ...draft,
+              name: trimmedName,
+              laneCount: Math.max(1, Math.floor(draft.laneCount)),
+              notes: draft.notes.trim(),
+            }
+          : center
+      )
+    );
+
+    setCenterDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[centerId];
+      return updatedDrafts;
+    });
+  }
+
+  function addCenter() {
+    const trimmedName = newCenterName.trim();
+    const laneCount = Number(newCenterLaneCount);
+
+    if (!trimmedName || !Number.isFinite(laneCount) || laneCount < 1) {
+      return;
+    }
+
+    const nameAlreadyExists = centers.some(
+      (center) => center.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A bowling center with that name already exists.");
+      return;
+    }
+
+    setCenters((currentCenters) => [
+      ...currentCenters,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        laneCount: Math.floor(laneCount),
+        notes: newCenterNotes.trim(),
+      },
+    ]);
+
+    setNewCenterName("");
+    setNewCenterLaneCount("8");
+    setNewCenterNotes("");
+  }
+
+  function deleteCenter(centerId: number) {
+    const center = centers.find((currentCenter) => currentCenter.id === centerId);
+
+    if (!center) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${center.name}? This will remove it from center selection.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setCenters((currentCenters) =>
+      currentCenters.filter((currentCenter) => currentCenter.id !== centerId)
+    );
+
+    setCenterDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[centerId];
+      return updatedDrafts;
+    });
+  }
+
+  return (
+    <>
+      <h2>Bowling Centers</h2>
+      <p>Add bowling centers and assign lane counts.</p>
+
+      <details className="center-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add Bowling Center</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
+
+        <div className="add-form-content">
+          <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newCenterName}
+              onChange={(event) => setNewCenterName(event.target.value)}
+              placeholder="Example: Titan Bowl"
+            />
+          </label>
+
+          <label>
+            Number of Lanes <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newCenterLaneCount}
+              onChange={(event) => setNewCenterLaneCount(event.target.value)}
+              placeholder="Example: 8"
+            />
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newCenterNotes}
+              onChange={(event) => setNewCenterNotes(event.target.value)}
+              placeholder="Optional notes"
+              rows={3}
+            />
+          </label>
+        </div>
+
+          <button
+            className="primary-button"
+            disabled={!newCenterName.trim() || Number(newCenterLaneCount) < 1}
+            onClick={addCenter}
+          >
+            Add Center
+          </button>
+        </div>
+      </details>
+
+      <section className="center-list">
+        {centers.map((center) => {
+          const draftCenter = getCenterDraft(center);
+          const isDirty = hasCenterChanged(center);
+
+          return (
+            <details className="center-card" key={center.id}>
+              <summary className="center-summary">
+                <div>
+                  <strong>{center.name}</strong>
+                  <p>
+                    {center.laneCount} lane{center.laneCount === 1 ? "" : "s"}
+                  </p>
+                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="center-details-content">
+                <div className="center-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => saveCenter(center.id)}
+                  >
+                    Save Center
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() => deleteCenter(center.id)}
+                  >
+                    Delete Center
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={draftCenter.name}
+                      onChange={(event) =>
+                        updateCenterDraft(center, { name: event.target.value })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Number of Lanes
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftCenter.laneCount}
+                      onChange={(event) =>
+                        updateCenterDraft(center, {
+                          laneCount: Math.max(
+                            1,
+                            Math.floor(Number(event.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={draftCenter.notes}
+                      onChange={(event) =>
+                        updateCenterDraft(center, { notes: event.target.value })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="lane-preview-card">
+                  <h4>Generated Lane Options</h4>
+                  <p>
+                    <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
+                    {draftCenter.laneCount}
+                  </p>
+                  <p>
+                    <strong>Pair Mode:</strong>{" "}
+                    {Math.floor(draftCenter.laneCount / 2) > 0
+                      ? `Pairs 1/2 through ${
+                          Math.floor(draftCenter.laneCount / 2) * 2 - 1
+                        }/${Math.floor(draftCenter.laneCount / 2) * 2}`
+                      : "No pairs available"}
+                  </p>
+                </section>
+              </div>
+            </details>
+          );
+        })}
+      </section>
+    </>
+  );
+}
+
+// Tournaments / Leagues
+// ==================
+
+function EventsPage({
+  events,
+  setEvents,
+  centers,
+}: EventsPageProps) {
+  const [newEventName, setNewEventName] = useState("");
+  const [newEventType, setNewEventType] = useState<"League" | "Tournament">(
+    "League"
+  );
+  const [newEventFormat, setNewEventFormat] = useState<BowlingFormat>("Singles");
+  const [newSeriesGameCount, setNewSeriesGameCount] = useState("3");
+  const [newBowlersPerPair, setNewBowlersPerPair] = useState("10");
+  const [newScheduleUnit, setNewScheduleUnit] =
+    useState<EventScheduleUnit>("Weeks");
+  const [newScheduleCount, setNewScheduleCount] = useState("12");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [newCenterId, setNewCenterId] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [eventDrafts, setEventDrafts] = useState<Record<number, EventSetup>>(
+    {}
+  );
+
+  function getEventDraft(event: EventSetup) {
+    return eventDrafts[event.id] ?? event;
+  }
+
+  function hasEventChanged(event: EventSetup) {
+    const draft = eventDrafts[event.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return JSON.stringify(draft) !== JSON.stringify(event);
+  }
+
+  function updateEventDraft(event: EventSetup, updates: Partial<EventSetup>) {
+    setEventDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [event.id]: {
+        ...getEventDraft(event),
+        ...updates,
+      },
+    }));
+  }
+
+  function saveEvent(eventId: number) {
+    const draft = eventDrafts[eventId];
+
+    if (!draft) {
+      return;
+    }
+
+    const trimmedName = draft.name.trim();
+
+    if (!trimmedName) {
+      window.alert("Event name cannot be empty.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.seriesGameCount) || draft.seriesGameCount < 1) {
+      window.alert("Games in series/block must be at least 1.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.scheduleCount) || draft.scheduleCount < 1) {
+      window.alert("Number of weeks/days must be at least 1.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.bowlersPerPair) || draft.bowlersPerPair < 1) {
+      window.alert("Bowlers per pair must be at least 1.");
+      return;
+    }
+
+    if (!centers.some((center) => center.id === draft.centerId)) {
+      window.alert("Choose a valid bowling center.");
+      return;
+    }
+
+    const nameAlreadyExists = events.some(
+      (event) =>
+        event.id !== eventId &&
+        event.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("An event with that name already exists.");
+      return;
+    }
+
+    setEvents((currentEvents) =>
+      currentEvents.map((event) =>
+        event.id === eventId
+          ? {
+              ...draft,
+              name: trimmedName,
+              seriesGameCount: Math.max(
+                1,
+                Math.floor(draft.seriesGameCount)
+              ),
+              bowlersPerPair: Math.max(1, Math.floor(draft.bowlersPerPair)),
+              scheduleCount: Math.max(1, Math.floor(draft.scheduleCount)),
+              startDate: draft.startDate,
+              endDate: draft.endDate,
+              notes: draft.notes.trim(),
+            }
+          : event
+      )
+    );
+
+    setEventDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[eventId];
+      return updatedDrafts;
+    });
+  }
+
+  function addEvent() {
+    const trimmedName = newEventName.trim();
+    const seriesGameCount = Number(newSeriesGameCount);
+    const bowlersPerPair = Number(newBowlersPerPair);
+    const scheduleCount = Number(newScheduleCount);
+    const centerId = Number(newCenterId);
+
+    if (
+      !trimmedName ||
+      !Number.isFinite(seriesGameCount) ||
+      seriesGameCount < 1 ||
+      !Number.isFinite(bowlersPerPair) ||
+      bowlersPerPair < 1 ||
+      !Number.isFinite(scheduleCount) ||
+      scheduleCount < 1 ||
+      !Number.isFinite(centerId)
+    ) {
+      return;
+    }
+
+    const nameAlreadyExists = events.some(
+      (event) => event.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("An event with that name already exists.");
+      return;
+    }
+
+    setEvents((currentEvents) => [
+      ...currentEvents,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        eventType: newEventType,
+        format: newEventFormat,
+        seriesGameCount: Math.floor(seriesGameCount),
+        bowlersPerPair: Math.floor(bowlersPerPair),
+        scheduleUnit: newScheduleUnit,
+        scheduleCount: Math.floor(scheduleCount),
+        startDate: newStartDate,
+        endDate: newEndDate,
+        centerId,
+        notes: newNotes.trim(),
+      },
+    ]);
+
+    setNewEventName("");
+    setNewEventType("League");
+    setNewEventFormat("Singles");
+    setNewSeriesGameCount("3");
+    setNewBowlersPerPair("10");
+    setNewScheduleUnit("Weeks");
+    setNewScheduleCount("12");
+    setNewStartDate("");
+    setNewEndDate("");
+    setNewCenterId("");
+    setNewNotes("");
+  }
+
+  function deleteEvent(eventId: number) {
+    const event = events.find((currentEvent) => currentEvent.id === eventId);
+
+    if (!event) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${event.name}? This will remove it from league/tournament selection.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setEvents((currentEvents) =>
+      currentEvents.filter((currentEvent) => currentEvent.id !== eventId)
+    );
+
+    setEventDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[eventId];
+      return updatedDrafts;
+    });
+  }
+
+  function getCenterName(centerId: number) {
+    return (
+      centers.find((center) => center.id === centerId)?.name ?? "Unknown Center"
+    );
+  }
+
+  function getScheduleLabel(event: EventSetup) {
+    return `${event.scheduleCount} ${event.scheduleUnit.toLowerCase()}`;
+  }
+
+  function formatEventSummary(event: EventSetup) {
+    return `${event.eventType} • ${event.format} • ${event.seriesGameCount} game${
+      event.seriesGameCount === 1 ? "" : "s"
+    } • ${event.bowlersPerPair} per pair • ${getScheduleLabel(event)} • ${getCenterName(event.centerId)}`;
+  }
+
+  const canAddEvent =
+    newEventName.trim() !== "" &&
+    Number(newSeriesGameCount) >= 1 &&
+    Number(newBowlersPerPair) >= 1 &&
+    Number(newScheduleCount) >= 1 &&
+    newCenterId !== "";
+
+  return (
+    <>
+      <h2>Tournaments / Leagues</h2>
+      <p>Create leagues and tournaments.</p>
+
+      <details className="event-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add League / Tournament</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
+
+        <div className="add-form-content">
+          <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newEventName}
+              onChange={(event) => setNewEventName(event.target.value)}
+              placeholder="Example: Tuesday Night League"
+            />
+          </label>
+
+          <label>
+            Type
+            <select
+              value={newEventType}
+              onChange={(event) => {
+                const nextType = event.target.value as "League" | "Tournament";
+                setNewEventType(nextType);
+                setNewScheduleUnit(nextType === "League" ? "Weeks" : "Days");
+                setNewScheduleCount(nextType === "League" ? "12" : "1");
+              }}
+            >
+              <option>League</option>
+              <option>Tournament</option>
+            </select>
+          </label>
+
+          <label>
+            Format
+            <select
+              value={newEventFormat}
+              onChange={(event) =>
+                setNewEventFormat(event.target.value as BowlingFormat)
+              }
+            >
+              <option>Singles</option>
+              <option>Doubles</option>
+              <option>Trios</option>
+              <option>Fours</option>
+              <option>Fives</option>
+              <option>Baker</option>
+            </select>
+          </label>
+
+          <label>
+            Games in Series/Block <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newSeriesGameCount}
+              onChange={(event) => setNewSeriesGameCount(event.target.value)}
+              placeholder="Example: 3"
+            />
+          </label>
+
+          <label>
+            Bowlers Per Pair <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newBowlersPerPair}
+              onChange={(event) => setNewBowlersPerPair(event.target.value)}
+              placeholder="Example: 10"
+            />
+          </label>
+
+          <label>
+            Schedule Type
+            <select
+              value={newScheduleUnit}
+              onChange={(event) =>
+                setNewScheduleUnit(event.target.value as EventScheduleUnit)
+              }
+            >
+              <option>Weeks</option>
+              <option>Days</option>
+            </select>
+          </label>
+
+          <label>
+            Number of {newScheduleUnit} <span className="required">*</span>
+            <input
+              type="number"
+              min="1"
+              value={newScheduleCount}
+              onChange={(event) => setNewScheduleCount(event.target.value)}
+              placeholder={newScheduleUnit === "Weeks" ? "Example: 12" : "Example: 2"}
+            />
+          </label>
+
+          <label>
+            Start Date
+            <input
+              type="date"
+              value={newStartDate}
+              onChange={(event) => setNewStartDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            End Date
+            <input
+              type="date"
+              value={newEndDate}
+              onChange={(event) => setNewEndDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Bowling Center <span className="required">*</span>
+            <select
+              value={newCenterId}
+              onChange={(event) => setNewCenterId(event.target.value)}
+            >
+              <option value="">Select bowling center</option>
+              {centers.map((center) => (
+                <option key={center.id} value={center.id}>
+                  {center.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newNotes}
+              onChange={(event) => setNewNotes(event.target.value)}
+              rows={3}
+              placeholder="Optional notes"
+            />
+          </label>
+        </div>
+
+          <button
+            className="primary-button"
+            disabled={!canAddEvent}
+            onClick={addEvent}
+          >
+            Add Event
+          </button>
+        </div>
+      </details>
+
+      <section className="event-list">
+        {events.map((event) => {
+          const draftEvent = getEventDraft(event);
+          const isDirty = hasEventChanged(event);
+
+          return (
+            <details className="event-card" key={event.id}>
+              <summary className="event-summary">
+                <div>
+                  <strong>{event.name}</strong>
+                  <p>{formatEventSummary(event)}</p>
+                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="event-details-content">
+                <div className="event-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => saveEvent(event.id)}
+                  >
+                    Save Event
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() => deleteEvent(event.id)}
+                  >
+                    Delete Event
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={draftEvent.name}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          name: inputEvent.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Type
+                    <select
+                      value={draftEvent.eventType}
+                      onChange={(inputEvent) => {
+                        const nextType = inputEvent.target.value as
+                          | "League"
+                          | "Tournament";
+
+                        updateEventDraft(event, {
+                          eventType: nextType,
+                          scheduleUnit:
+                            nextType === "League" ? "Weeks" : "Days",
+                        });
+                      }}
+                    >
+                      <option>League</option>
+                      <option>Tournament</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Format
+                    <select
+                      value={draftEvent.format}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          format: inputEvent.target.value as BowlingFormat,
+                        })
+                      }
+                    >
+                      <option>Singles</option>
+                      <option>Doubles</option>
+                      <option>Trios</option>
+                      <option>Fours</option>
+                      <option>Fives</option>
+                      <option>Baker</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Games in Series/Block
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftEvent.seriesGameCount}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          seriesGameCount: Math.max(
+                            1,
+                            Math.floor(Number(inputEvent.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Bowlers Per Pair
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftEvent.bowlersPerPair}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          bowlersPerPair: Math.max(
+                            1,
+                            Math.floor(Number(inputEvent.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Schedule Type
+                    <select
+                      value={draftEvent.scheduleUnit}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          scheduleUnit: inputEvent.target
+                            .value as EventScheduleUnit,
+                        })
+                      }
+                    >
+                      <option>Weeks</option>
+                      <option>Days</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Number of {draftEvent.scheduleUnit}
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftEvent.scheduleCount}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          scheduleCount: Math.max(
+                            1,
+                            Math.floor(Number(inputEvent.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Start Date
+                    <input
+                      type="date"
+                      value={draftEvent.startDate}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          startDate: inputEvent.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    End Date
+                    <input
+                      type="date"
+                      value={draftEvent.endDate}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          endDate: inputEvent.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Bowling Center
+                    <select
+                      value={draftEvent.centerId}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          centerId: Number(inputEvent.target.value),
+                        })
+                      }
+                    >
+                      {centers.map((center) => (
+                        <option key={center.id} value={center.id}>
+                          {center.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={draftEvent.notes}
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          notes: inputEvent.target.value,
+                        })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="event-preview-card">
+                  <h4>Event Summary</h4>
+                  <p>
+                    <strong>Type:</strong> {draftEvent.eventType}
+                  </p>
+                  <p>
+                    <strong>Format:</strong> {draftEvent.format}
+                  </p>
+                  <p>
+                    <strong>Games in Series/Block:</strong>{" "}
+                    {draftEvent.seriesGameCount}
+                  </p>
+                  <p>
+                    <strong>Bowlers Per Pair:</strong> {draftEvent.bowlersPerPair}
+                  </p>
+                  <p>
+                    <strong>Schedule:</strong> {getScheduleLabel(draftEvent)}
+                  </p>
+                  <p>
+                    <strong>Dates:</strong>{" "}
+                    {draftEvent.startDate || "No start date"} →{" "}
+                    {draftEvent.endDate || "No end date"}
+                  </p>
+                  <p>
+                    <strong>Bowling Center:</strong>{" "}
+                    {getCenterName(draftEvent.centerId)}
+                  </p>
+                  <p>
+                    <strong>Pattern:</strong> selected when logging each week/day
+                  </p>
+                </section>
+              </div>
+            </details>
+          );
+        })}
+      </section>
+    </>
+  );
+}
+// Patterns
+// ==================
+
+function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
+  const [newPatternName, setNewPatternName] = useState("");
+  const [newPatternLength, setNewPatternLength] = useState("");
+  const [newPatternVolume, setNewPatternVolume] = useState("");
+  const [newPatternRatio, setNewPatternRatio] = useState("");
+  const [newPatternDropBrush, setNewPatternDropBrush] = useState("");
+  const [newPatternSource, setNewPatternSource] = useState("");
+  const [newPatternNotes, setNewPatternNotes] = useState("");
+  const [patternDrafts, setPatternDrafts] = useState<Record<number, Pattern>>(
+    {}
+  );
+
+  function getPatternDraft(pattern: Pattern) {
+    return patternDrafts[pattern.id] ?? pattern;
+  }
+
+  function hasPatternChanged(pattern: Pattern) {
+    const draft = patternDrafts[pattern.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return (
+      draft.name !== pattern.name ||
+      draft.length !== pattern.length ||
+      draft.volume !== pattern.volume ||
+      draft.ratio !== pattern.ratio ||
+      draft.dropBrush !== pattern.dropBrush ||
+      draft.source !== pattern.source ||
+      draft.notes !== pattern.notes
+    );
+  }
+
+  function updatePatternDraft(pattern: Pattern, updates: Partial<Pattern>) {
+    setPatternDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [pattern.id]: {
+        ...getPatternDraft(pattern),
+        ...updates,
+      },
+    }));
+  }
+
+  function savePattern(patternId: number) {
+    const draft = patternDrafts[patternId];
+
+    if (!draft) {
+      return;
+    }
+
+    setPatterns((currentPatterns) =>
+      currentPatterns.map((pattern) =>
+        pattern.id === patternId ? { ...draft } : pattern
+      )
+    );
+
+    setPatternDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[patternId];
+      return updatedDrafts;
+    });
+  }
+
+  function addPattern() {
+    const trimmedName = newPatternName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const nameAlreadyExists = patterns.some(
+      (pattern) => pattern.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A pattern with that name already exists.");
+      return;
+    }
+
+    setPatterns((currentPatterns) => [
+      ...currentPatterns,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        length: newPatternLength.trim(),
+        volume: newPatternVolume.trim(),
+        ratio: newPatternRatio.trim(),
+        dropBrush: newPatternDropBrush.trim(),
+        source: newPatternSource.trim(),
+        notes: newPatternNotes.trim(),
+      },
+    ]);
+
+    setNewPatternName("");
+    setNewPatternLength("");
+    setNewPatternVolume("");
+    setNewPatternRatio("");
+    setNewPatternDropBrush("");
+    setNewPatternSource("");
+    setNewPatternNotes("");
+  }
+
+  function deletePattern(patternId: number) {
+    const pattern = patterns.find(
+      (currentPattern) => currentPattern.id === patternId
+    );
+
+    if (!pattern) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${pattern.name}? This will remove it from pattern selection.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setPatterns((currentPatterns) =>
+      currentPatterns.filter(
+        (currentPattern) => currentPattern.id !== patternId
+      )
+    );
+
+    setPatternDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[patternId];
+      return updatedDrafts;
+    });
+  }
+
+  function formatPatternSummary(pattern: Pattern) {
+    const details = [
+      pattern.length ? `${pattern.length} ft` : "",
+      pattern.volume ? `${pattern.volume} mL` : "",
+      pattern.ratio ? `${pattern.ratio}:1` : "",
+    ].filter(Boolean);
+
+    return details.length > 0 ? details.join(" • ") : "No specs entered";
+  }
+
+  return (
+    <>
+      <h2>Patterns</h2>
+      <p>
+        Add oil patterns with length, volume, ratio, drop brush, source, and
+        additional notes.
+      </p>
+
+      <details className="pattern-form-card add-form-card">
+        <summary className="add-form-summary">
+          <strong>Add Pattern</strong>
+          <span className="summary-hint">Open Form</span>
+        </summary>
+
+        <div className="add-form-content">
+          <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newPatternName}
+              onChange={(event) => setNewPatternName(event.target.value)}
+              placeholder="Example: 2025 PBA Wolf"
+            />
+          </label>
+
+          <label>
+            Length
+            <input
+              value={newPatternLength}
+              onChange={(event) => setNewPatternLength(event.target.value)}
+              placeholder="Example: 32"
+            />
+          </label>
+
+          <label>
+            Volume
+            <input
+              value={newPatternVolume}
+              onChange={(event) => setNewPatternVolume(event.target.value)}
+              placeholder="Example: 28.5"
+            />
+          </label>
+
+          <label>
+            Ratio
+            <input
+              value={newPatternRatio}
+              onChange={(event) => setNewPatternRatio(event.target.value)}
+              placeholder="Example: 2.0"
+            />
+          </label>
+
+          <label>
+            Drop Brush
+            <input
+              value={newPatternDropBrush}
+              onChange={(event) => setNewPatternDropBrush(event.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+
+          <label>
+            Source
+            <input
+              value={newPatternSource}
+              onChange={(event) => setNewPatternSource(event.target.value)}
+              placeholder="Example: Kegel, PBA, custom"
+            />
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newPatternNotes}
+              onChange={(event) => setNewPatternNotes(event.target.value)}
+              placeholder="Optional notes"
+              rows={3}
+            />
+          </label>
+        </div>
+
+          <button
+            className="primary-button"
+            disabled={!newPatternName.trim()}
+            onClick={addPattern}
+          >
+            Add Pattern
+          </button>
+        </div>
+      </details>
+
+      <section className="pattern-list">
+        {patterns.map((pattern) => {
+          const draftPattern = getPatternDraft(pattern);
+          const isDirty = hasPatternChanged(pattern);
+
+          return (
+            <details className="pattern-card" key={pattern.id}>
+              <summary className="pattern-summary">
+                <div>
+                  <strong>{pattern.name}</strong>
+                  <p>{formatPatternSummary(pattern)}</p>
+                  {isDirty && (
+                    <p className="unsaved-text">Unsaved changes</p>
+                  )}
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="pattern-details-content">
+                <div className="pattern-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => savePattern(pattern.id)}
+                  >
+                    Save Pattern
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() => deletePattern(pattern.id)}
+                  >
+                    Delete Pattern
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={draftPattern.name}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          name: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Length
+                    <input
+                      value={draftPattern.length}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          length: event.target.value,
+                        })
+                      }
+                      placeholder="Example: 32"
+                    />
+                  </label>
+
+                  <label>
+                    Volume
+                    <input
+                      value={draftPattern.volume}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          volume: event.target.value,
+                        })
+                      }
+                      placeholder="Example: 28.5"
+                    />
+                  </label>
+
+                  <label>
+                    Ratio
+                    <input
+                      value={draftPattern.ratio}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          ratio: event.target.value,
+                        })
+                      }
+                      placeholder="Example: 2.0"
+                    />
+                  </label>
+
+                  <label>
+                    Drop Brush
+                    <input
+                      value={draftPattern.dropBrush}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          dropBrush: event.target.value,
+                        })
+                      }
+                      placeholder="Optional"
+                    />
+                  </label>
+
+                  <label>
+                    Source
+                    <input
+                      value={draftPattern.source}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          source: event.target.value,
+                        })
+                      }
+                      placeholder="Example: Kegel, PBA, custom"
+                    />
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={draftPattern.notes}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          notes: event.target.value,
+                        })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="pattern-preview-card">
+                  <h4>Pattern Summary</h4>
+                  <p>
+                    <strong>Length:</strong>{" "}
+                    {draftPattern.length
+                      ? `${draftPattern.length} ft`
+                      : "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Volume:</strong>{" "}
+                    {draftPattern.volume
+                      ? `${draftPattern.volume} mL`
+                      : "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Ratio:</strong>{" "}
+                    {draftPattern.ratio
+                      ? `${draftPattern.ratio}:1`
+                      : "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Drop Brush:</strong>{" "}
+                    {draftPattern.dropBrush || "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Source:</strong>{" "}
+                    {draftPattern.source || "Not entered"}
+                  </p>
+                </section>
+              </div>
+            </details>
+          );
+        })}
+      </section>
+    </>
+  );
+}
+export default App;
+
+// Game Entry
+// ==================
 
 function GameEntryPage({
   bowlers,
@@ -2715,6 +4102,9 @@ function GameEntryPage({
   );
 }
 
+// Completed Game Summary
+// ==================
+
 function CompletedGamesList({
   completedGames,
 }: {
@@ -2748,6 +4138,9 @@ function CompletedGamesList({
   );
 }
 
+// Board Select
+// ==================
+
 function BoardSelect({ label, value, options, onChange }: BoardSelectProps) {
   return (
     <label>
@@ -2763,6 +4156,9 @@ function BoardSelect({ label, value, options, onChange }: BoardSelectProps) {
     </label>
   );
 }
+
+// Scoring Helpers
+// ==================
 
 function getPinsStanding(knockedPins: number[]) {
   return ALL_PINS.filter((pin) => !knockedPins.includes(pin));
@@ -3040,6 +4436,9 @@ function getFrameMarks(frame: FrameEntry): ScoreMark[] {
   ];
 }
 
+// Score Grid
+// ==================
+
 function ScoreRollMark({ mark }: { mark?: ScoreMark }) {
   return (
     <span className={mark?.isSplit ? "split-score-mark" : ""}>
@@ -3111,6 +4510,9 @@ function ScoreGrid({
   );
 }
 
+
+// Pin Deck
+// ==================
 
 function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
   const pins = [
@@ -3201,7 +4603,56 @@ function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
   );
 }
 
+// Static Pin Deck
+// ==================
+
+function StaticPinLeaveDeck({ leave }: { leave: string }) {
+  const pins = [
+    { number: 7, left: 15, top: 15 },
+    { number: 8, left: 38, top: 15 },
+    { number: 9, left: 62, top: 15 },
+    { number: 10, left: 85, top: 15 },
+    { number: 4, left: 27, top: 38 },
+    { number: 5, left: 50, top: 38 },
+    { number: 6, left: 73, top: 38 },
+    { number: 2, left: 38, top: 61 },
+    { number: 3, left: 62, top: 61 },
+    { number: 1, left: 50, top: 84 },
+  ];
+  const standingPins = parseLeaveKeyPins(leave);
+
+  return (
+    <div className="mini-pin-deck" aria-label={`Leave ${leave}`}>
+      {pins.map((pin) => {
+        const isStanding = standingPins.includes(pin.number);
+
+        return (
+          <span
+            key={pin.number}
+            className={`mini-pin ${isStanding ? "standing" : ""}`}
+            style={{
+              left: `${pin.left}%`,
+              top: `${pin.top}%`,
+            }}
+            title={
+              isStanding
+                ? `Pin ${pin.number} left`
+                : `Pin ${pin.number} cleared`
+            }
+          >
+            {pin.number}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// Stats
+// ==================
+
 function StatsPage({
+  bowlers,
   savedGames,
   setSavedGames,
   setSavedEventLogs,
@@ -3210,12 +4661,38 @@ function StatsPage({
   const [selectedBakerBowler, setSelectedBakerBowler] = useState("All");
   const [selectedBall, setSelectedBall] = useState("All");
   const [selectedCompetition, setSelectedCompetition] = useState("All");
+  const [selectedEventName, setSelectedEventName] = useState("All");
   const [selectedCenter, setSelectedCenter] = useState("All");
   const [selectedLane, setSelectedLane] = useState("All");
   const [selectedPattern, setSelectedPattern] = useState("All");
   const [selectedEventStage, setSelectedEventStage] = useState("All");
+  const [selectedSetKey, setSelectedSetKey] = useState("All");
+  const [selectedGameNumber, setSelectedGameNumber] = useState("All");
 
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
+  const usesEventFilter =
+    selectedCompetition === "League" || selectedCompetition === "Tournament";
+  const hasFocusedStatsFilter =
+    selectedBowler !== "All" ||
+    selectedBakerBowler !== "All" ||
+    selectedBall !== "All" ||
+    selectedCompetition !== "All" ||
+    selectedEventName !== "All" ||
+    selectedCenter !== "All" ||
+    selectedLane !== "All" ||
+    selectedPattern !== "All" ||
+    selectedEventStage !== "All" ||
+    selectedSetKey !== "All" ||
+    selectedGameNumber !== "All";
+  const isIndividualBowlerFilter =
+    selectedBowler !== "All" && !isBakerTeamSelection;
+  const bowlerHandednessByName = useMemo(
+    () =>
+      new Map<string, Handedness>(
+        bowlers.map((bowler) => [bowler.name, bowler.handedness])
+      ),
+    [bowlers]
+  );
 
   function getEventStageLabelForGame(game: SavedGameRecord) {
     return game.eventName && game.eventStageLabel
@@ -3279,6 +4756,11 @@ function StatsPage({
       selectedCompetition === "All" ||
       game.competitionType === selectedCompetition;
 
+    const matchesEventName =
+      ignores.has("eventName") ||
+      selectedEventName === "All" ||
+      game.eventName === selectedEventName;
+
     const matchesCenter =
       ignores.has("center") ||
       selectedCenter === "All" ||
@@ -3297,17 +4779,30 @@ function StatsPage({
     const matchesEventStage =
       ignores.has("eventStage") ||
       selectedEventStage === "All" ||
-      getEventStageLabelForGame(game) === selectedEventStage;
+      game.eventStageLabel === selectedEventStage;
+
+    const matchesSet =
+      ignores.has("set") ||
+      selectedSetKey === "All" ||
+      game.sessionId === selectedSetKey;
+
+    const matchesGame =
+      ignores.has("game") ||
+      selectedGameNumber === "All" ||
+      String(game.gameNumber) === selectedGameNumber;
 
     return (
       matchesBowler &&
       matchesBakerBowler &&
       matchesBall &&
       matchesCompetition &&
+      matchesEventName &&
       matchesCenter &&
       matchesLane &&
       matchesPattern &&
-      matchesEventStage
+      matchesEventStage &&
+      matchesSet &&
+      matchesGame
     );
   }
 
@@ -3391,6 +4886,21 @@ function StatsPage({
     )
   ).sort();
 
+  const eventOptions = usesEventFilter
+    ? Array.from(
+        new Set(
+          savedGames
+            .filter(
+              (game) =>
+                game.eventName &&
+                game.competitionType === selectedCompetition &&
+                gameMatchesCurrentFilters(game, ["eventName", "eventStage"])
+            )
+            .map((game) => game.eventName)
+        )
+      ).sort()
+    : [];
+
   const centerOptions = Array.from(
     new Set(
       savedGames
@@ -3422,18 +4932,53 @@ function StatsPage({
     )
   ).sort();
 
-  const eventStageOptions = Array.from(
-    new Set(
-      savedGames
-        .filter((game) => gameMatchesCurrentFilters(game, ["eventStage"]))
-        .map(getEventStageLabelForGame)
-        .filter(Boolean)
-    )
-  ).sort();
+  const eventStageOptions =
+    usesEventFilter && selectedEventName !== "All"
+      ? Array.from(
+          new Set(
+            savedGames
+              .filter(
+                (game) =>
+                  game.competitionType === selectedCompetition &&
+                  game.eventName === selectedEventName &&
+                  gameMatchesCurrentFilters(game, ["eventStage"])
+              )
+              .map((game) => game.eventStageLabel)
+              .filter(Boolean)
+          )
+        ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      : [];
+
+  const usesSetFilter =
+    (usesEventFilter && selectedEventName !== "All") ||
+    selectedCompetition === "Open";
+
+  const setOptions = usesSetFilter
+    ? buildSetFilterOptions(
+        savedGames.filter((game) =>
+          gameMatchesCurrentFilters(game, ["set", "game"])
+        )
+      )
+    : [];
+
+  const gameOptions =
+    selectedSetKey !== "All"
+      ? Array.from(
+          new Set(
+            savedGames
+              .filter((game) => gameMatchesCurrentFilters(game, ["game"]))
+              .map((game) => game.gameNumber)
+          )
+        ).sort((a, b) => a - b)
+      : [];
 
   const filteredGames = savedGames.filter((game) =>
     gameMatchesCurrentFilters(game)
   );
+  const statsFilteredGames = filteredGames.filter(
+    (game) => game.format !== "Baker" || isBakerTeamSelection
+  );
+  const hiddenBakerGameCount = filteredGames.length - statsFilteredGames.length;
 
   const bakerTeamGames = filteredGames.filter(
     (game) =>
@@ -3442,7 +4987,7 @@ function StatsPage({
         getBakerTeamLabelForGame(game) === selectedBowler)
   );
 
-  const filteredEntries = filteredGames.flatMap((game) =>
+  const filteredEntries = statsFilteredGames.flatMap((game) =>
     game.entries.filter((entry) => {
       if (game.format === "Baker") {
         if (!isBakerTeamSelection) {
@@ -3467,7 +5012,7 @@ function StatsPage({
     })
   );
 
-  const totalScores = filteredGames.flatMap((game) => {
+  const totalScores = statsFilteredGames.flatMap((game) => {
     if (game.format === "Baker") {
       if (!isBakerTeamSelection) {
         return [];
@@ -3498,33 +5043,40 @@ function StatsPage({
   const splitPercentage =
     filteredEntries.length > 0 ? (splitCount / filteredEntries.length) * 100 : 0;
   const cleanGameCount = countCleanGames(
-    filteredGames,
+    statsFilteredGames,
     isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
     selectedBall
   );
 
-  const sessionGroups = buildSessionGroups(filteredGames);
+  const sessionGroups = buildSessionGroups(statsFilteredGames);
+  const overviewHighGame = totalScores.length > 0 ? Math.max(...totalScores) : 0;
+  const overviewHighThreeGameSeries = isIndividualBowlerFilter
+    ? getHighSeries(sessionGroups, selectedBowler, 3)
+    : getHighTeamSeries(sessionGroups, 3);
+  const teamSetRows = calculateTeamSetRows(sessionGroups);
   const detailedStats =
-    selectedBowler !== "All" && !isBakerTeamSelection
+    isIndividualBowlerFilter
       ? calculateDetailedBowlerStats(
           selectedBowler,
           selectedBall,
-          filteredGames.filter((game) => game.format !== "Baker"),
-          sessionGroups
+          statsFilteredGames.filter((game) => game.format !== "Baker"),
+          sessionGroups,
+          bowlerHandednessByName
         )
       : null;
 
   const spareLeaveRows = calculateSpareLeaveRows(filteredEntries);
+  const spareLeaveSummary = calculateSpareLeaveSummary(filteredEntries);
   const boardStats = calculateBoardStats(filteredEntries);
   const boardProgressionRows = calculateBoardProgressionRows(
-    filteredGames.filter((game) => game.format !== "Baker" || isBakerTeamSelection),
+    statsFilteredGames,
     isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
     selectedBall
   );
 
   const bowlerRows = individualBowlerOptions
     .map((bowlerName) => {
-      const nonBakerGames = filteredGames.filter((game) => game.format !== "Baker");
+      const nonBakerGames = statsFilteredGames.filter((game) => game.format !== "Baker");
 
       const bowlerEntries = nonBakerGames.flatMap((game) =>
         game.entries.filter((entry) => {
@@ -3564,6 +5116,8 @@ function StatsPage({
         games: bowlerScores.length,
         frames: bowlerEntries.length,
         average: bowlerAverage,
+        highGame: bowlerScores.length > 0 ? Math.max(...bowlerScores) : 0,
+        highSeries: getHighFullSeries(sessionGroups, bowlerName),
         strikes: bowlerStrikes,
         spares: bowlerSpares,
         opens: bowlerOpens,
@@ -3593,10 +5147,13 @@ function StatsPage({
     setSelectedBakerBowler("All");
     setSelectedBall("All");
     setSelectedCompetition("All");
+    setSelectedEventName("All");
     setSelectedCenter("All");
     setSelectedLane("All");
     setSelectedPattern("All");
     setSelectedEventStage("All");
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
   }
 
   function escapeCsv(value: string | number) {
@@ -3628,7 +5185,7 @@ function StatsPage({
         "Score Label",
         "Score",
       ],
-      ...filteredGames.flatMap((game) =>
+      ...statsFilteredGames.flatMap((game) =>
         game.scores.map((score) => [
           new Date(game.savedAt).toLocaleString(),
           game.competitionType,
@@ -3658,10 +5215,13 @@ function StatsPage({
       selectedBowler,
       selectedBall,
       selectedCompetition,
+      selectedEventName,
       selectedCenter,
       selectedLane,
       selectedPattern,
       selectedEventStage,
+      selectedSetKey,
+      selectedGameNumber,
     });
     link.click();
 
@@ -3722,36 +5282,68 @@ function StatsPage({
 
   function handleCompetitionChange(value: string) {
     setSelectedCompetition(value);
-    setSelectedLane("All");
+    setSelectedEventName("All");
     setSelectedEventStage("All");
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
+    setSelectedLane("All");
+  }
+
+  function handleEventNameChange(value: string) {
+    setSelectedEventName(value);
+    setSelectedEventStage("All");
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
+  }
+
+  function handleEventStageChange(value: string) {
+    setSelectedEventStage(value);
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
+  }
+
+  function handleSetChange(value: string) {
+    setSelectedSetKey(value);
+    setSelectedGameNumber("All");
   }
 
   function handleCenterChange(value: string) {
     setSelectedCenter(value);
     setSelectedLane("All");
-    setSelectedPattern("All");
-    setSelectedEventStage("All");
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
   }
 
   function handlePatternChange(value: string) {
     setSelectedPattern(value);
-    setSelectedEventStage("All");
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
+  }
+
+  function handleLaneChange(value: string) {
+    setSelectedLane(value);
+    setSelectedSetKey("All");
+    setSelectedGameNumber("All");
+  }
+
+  function handleGameChange(value: string) {
+    setSelectedGameNumber(value);
   }
 
   return (
     <>
       <h2>Stats</h2>
       <p>
-        Review saved sets, filter by bowler/session info, export CSV, and delete
-        saved logs when a league/tournament week or day needs to be re-entered.
+        Review saved sets, narrow stats with filters, export CSVs, and remove
+        logs that need to be entered again.
       </p>
 
       {savedGames.length === 0 ? (
         <section className="empty-state-card">
           <h3>No Saved Sets Yet</h3>
           <p>
-            Complete a game in Log Games, then choose Save and Exit. Saved sets
-            will appear here for filtering, deeper analysis, and export.
+            Save a game from Log Games to start building stats, saved sets, and
+            exportable data.
           </p>
         </section>
       ) : (
@@ -3761,9 +5353,10 @@ function StatsPage({
               <div>
                 <strong>Filters</strong>
                 <p>
-                  Filter dropdowns only show choices that still have matching
-                  saved data based on the other active filters.
+                  Narrow the data by bowler, competition, set, game, center,
+                  lane, pattern, ball, and saved log details.
                 </p>
+
               </div>
               <span className="summary-hint">Open Section</span>
             </summary>
@@ -3843,6 +5436,74 @@ function StatsPage({
                 </select>
               </label>
 
+              {usesEventFilter && (
+                <label>
+                  {selectedCompetition}
+                  <select
+                    value={selectedEventName}
+                    onChange={(event) =>
+                      handleEventNameChange(event.target.value)
+                    }
+                  >
+                    <option>All</option>
+                    {eventOptions.map((eventName) => (
+                      <option key={eventName}>{eventName}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {usesEventFilter && selectedEventName !== "All" && (
+                <label>
+                  {selectedCompetition === "League" ? "Week" : "Day"}
+                  <select
+                    value={selectedEventStage}
+                    onChange={(event) =>
+                      handleEventStageChange(event.target.value)
+                    }
+                  >
+                    <option>All</option>
+                    {eventStageOptions.map((eventStage) => (
+                      <option key={eventStage}>{eventStage}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {usesSetFilter && (
+                <label>
+                  Set
+                  <select
+                    value={selectedSetKey}
+                    onChange={(event) => handleSetChange(event.target.value)}
+                  >
+                    <option>All</option>
+                    {setOptions.map((setOption) => (
+                      <option key={setOption.key} value={setOption.key}>
+                        {setOption.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {selectedSetKey !== "All" && (
+                <label>
+                  Game
+                  <select
+                    value={selectedGameNumber}
+                    onChange={(event) => handleGameChange(event.target.value)}
+                  >
+                    <option>All</option>
+                    {gameOptions.map((gameNumber) => (
+                      <option key={gameNumber} value={String(gameNumber)}>
+                        Game {gameNumber}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               <label>
                 Bowling Center
                 <select
@@ -3861,7 +5522,7 @@ function StatsPage({
                   Lane / Pair
                   <select
                     value={selectedLane}
-                    onChange={(event) => setSelectedLane(event.target.value)}
+                    onChange={(event) => handleLaneChange(event.target.value)}
                   >
                     <option>All</option>
                     {laneOptions.map((lane) => (
@@ -3884,20 +5545,6 @@ function StatsPage({
                 </select>
               </label>
 
-              <label>
-                League/Tournament Week or Day
-                <select
-                  value={selectedEventStage}
-                  onChange={(event) =>
-                    setSelectedEventStage(event.target.value)
-                  }
-                >
-                  <option>All</option>
-                  {eventStageOptions.map((eventStage) => (
-                    <option key={eventStage}>{eventStage}</option>
-                  ))}
-                </select>
-              </label>
             </div>
 
               <div className="stats-action-row">
@@ -3907,7 +5554,7 @@ function StatsPage({
 
                 <button
                   className="primary-button"
-                  disabled={filteredGames.length === 0}
+                  disabled={statsFilteredGames.length === 0}
                   onClick={exportFilteredCsv}
                 >
                   Export Filtered CSV
@@ -3920,7 +5567,12 @@ function StatsPage({
             <summary className="stats-section-summary">
               <div>
                 <strong>Overview</strong>
-                <p>Quick summary of the saved sets matching the current filters.</p>
+                <p>
+                  Quick summary of sets using current filters.
+                  {!isBakerTeamSelection && hiddenBakerGameCount > 0
+                    ? " Baker games are hidden unless a Baker Team is selected."
+                    : ""}
+                </p>
               </div>
               <span className="summary-hint">Open Section</span>
             </summary>
@@ -3932,13 +5584,13 @@ function StatsPage({
             </div>
 
             <div className="stat-card">
-              <strong>{filteredGames.length}</strong>
-              <span>Games</span>
+              <strong>{statsFilteredGames.length}</strong>
+              <span>Total Games</span>
             </div>
 
             <div className="stat-card">
               <strong>{overallAverage.toFixed(1)}</strong>
-              <span>Score Average</span>
+              <span>Average</span>
             </div>
 
             <div className="stat-card">
@@ -3957,32 +5609,42 @@ function StatsPage({
             </div>
 
             <div className="stat-card">
-              <strong>{spareLeaveRows.reduce((sum, row) => sum + row.attempts, 0)}</strong>
-              <span>Spare Attempts</span>
-            </div>
-
-            <div className="stat-card">
-              <strong>{cleanPercentage.toFixed(1)}%</strong>
-              <span>Clean Frame %</span>
-            </div>
-
-            <div className="stat-card">
-              <strong>{splitPercentage.toFixed(1)}%</strong>
-              <span>Split %</span>
+              <strong>{splitCount}</strong>
+              <span>Splits</span>
             </div>
 
             <div className="stat-card">
               <strong>{cleanGameCount}</strong>
               <span>Clean Games</span>
             </div>
+
+            <div className="stat-card">
+              <strong>{overviewHighGame || "—"}</strong>
+              <span>High Game</span>
+            </div>
+
+            <div className="stat-card">
+              <strong>{overviewHighThreeGameSeries || "—"}</strong>
+              <span>High Series (3-game)</span>
+            </div>
+
+            {!hasFocusedStatsFilter && (
+              <p className="helper-text overview-default-note">
+                Select a filter to reveal the applicable breakdown sections for
+                the current view.
+              </p>
+            )}
             </div>
           </details>
 
+          {hasFocusedStatsFilter && (
+            <>
+          {!isBakerTeamSelection && (
           <details className="stats-table-card stats-collapsible-card">
             <summary className="stats-section-summary">
               <div>
                 <strong>Bowler Breakdown</strong>
-                <p>Per-bowler games, frames, average, strike rate, spare rate, and opens.</p>
+                <p>Individual bowler stats.</p>
               </div>
               <span className="summary-hint">Open Section</span>
             </summary>
@@ -3995,18 +5657,11 @@ function StatsPage({
                 <table className="stats-table">
                   <thead>
                     <tr>
-                      <th>Bowler</th>
+                      <th>Name</th>
                       <th>Games</th>
-                      <th>Frames</th>
                       <th>Average</th>
-                      <th>Strikes</th>
-                      <th>Spares</th>
-                      <th>Opens</th>
-                      <th>Strike %</th>
-                      <th>Spare %</th>
-                      <th>Clean %</th>
-                      <th>Split %</th>
-                      <th>Clean Games</th>
+                      <th>High Game</th>
+                      <th>High Series</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4014,16 +5669,9 @@ function StatsPage({
                       <tr key={row.bowlerName}>
                         <td>{row.bowlerName}</td>
                         <td>{row.games}</td>
-                        <td>{row.frames}</td>
                         <td>{row.average ? row.average.toFixed(1) : "—"}</td>
-                        <td>{row.strikes}</td>
-                        <td>{row.spares}</td>
-                        <td>{row.opens}</td>
-                        <td>{row.strikeRate.toFixed(1)}%</td>
-                        <td>{row.spareRate.toFixed(1)}%</td>
-                        <td>{row.cleanRate.toFixed(1)}%</td>
-                        <td>{row.splitRate.toFixed(1)}%</td>
-                        <td>{row.cleanGames}</td>
+                        <td>{row.highGame || "—"}</td>
+                        <td>{row.highSeries || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -4037,169 +5685,343 @@ function StatsPage({
                     {selectedBall !== "All" ? ` with ${selectedBall}` : ""}
                   </h3>
                   <p className="helper-text">
-                    Deeper bowler metrics, including pocket, carry, doubles,
-                    makeable spares, fill frames, clean frames, splits, and
-                    transition phase.
+                    Deeper scoring, pocket, spare, clean-frame, split, and
+                    first-ball stats.
                   </p>
-                <p className="helper-text">
-                  Pocket-related values use first-ball pin count as the current
-                  proxy: 9-counts and strikes are treated as pocket hits, and
-                  pocket strikes feed carry and double calculations.
-                </p>
-
-                <div className="deep-stats-grid">
-                <div className="stat-card">
-                  <strong>{detailedStats.numGames}</strong>
-                  <span>Number of Games</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.average.toFixed(1)}</strong>
-                  <span>Average</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>
-                    {detailedStats.highThreeGameSeries > 0
-                      ? detailedStats.highThreeGameSeries
-                      : "—"}
-                  </strong>
-                  <span>High 3-Game Series</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>
-                    {detailedStats.highFourGameSeries > 0
-                      ? detailedStats.highFourGameSeries
-                      : "—"}
-                  </strong>
-                  <span>High 4-Game Series</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.pocketPercentage.toFixed(1)}%</strong>
-                  <span>Pocket Percentage</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.carryPercentage.toFixed(1)}%</strong>
-                  <span>Carry Percentage</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.doublePercentage.toFixed(1)}%</strong>
-                  <span>Double Percentage</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>
-                    {detailedStats.makeableSpareConversion.toFixed(1)}%
-                  </strong>
-                  <span>Makeable Spare Conversion</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.fillFramesPercentage.toFixed(1)}%</strong>
-                  <span>Fill Frames Percentage</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.cleanPercentage.toFixed(1)}%</strong>
-                  <span>Clean Percentage</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.splitPercentage.toFixed(1)}%</strong>
-                  <span>Split Percentage</span>
-                </div>
-
-                <div className="stat-card">
-                  <strong>{detailedStats.cleanGames}</strong>
-                  <span>Clean Games</span>
-                </div>
-              </div>
-
-              {selectedBall !== "All" && (
-                <section className="ball-stats-card">
-                  <h4>Ball Stats — {selectedBall}</h4>
-                  <p>
-                    <strong>Frames Tracked:</strong> {detailedStats.frames}
+                  <p className="helper-text">
+                    Pocket stats use handedness: right-handed bowlers count the
+                    pocket when pins 1 and 3 go down on the first ball, while
+                    left-handed bowlers count the pocket when pins 1 and 2 go
+                    down. Carry percentage is strikes divided by pocket hits.
+                    First ball average is average first-ball pinfall.
                   </p>
-                  <p>
-                    <strong>Strike Rate:</strong>{" "}
-                    {detailedStats.frames > 0
-                      ? ((detailedStats.strikes / detailedStats.frames) * 100).toFixed(1)
-                      : "0.0"}
-                    %
-                  </p>
-                  <p>
-                    <strong>Spare Rate:</strong>{" "}
-                    {detailedStats.frames > 0
-                      ? ((detailedStats.spares / detailedStats.frames) * 100).toFixed(1)
-                      : "0.0"}
-                    %
-                  </p>
-                  <p>
-                    <strong>Open Rate:</strong>{" "}
-                    {detailedStats.frames > 0
-                      ? ((detailedStats.opens / detailedStats.frames) * 100).toFixed(1)
-                      : "0.0"}
-                    %
-                  </p>
-                </section>
-              )}
 
-              <section className="transition-card">
-                <h4>Transitional Phase Breakdown</h4>
-                <p className="helper-text">
-                  Phase is estimated using first-shot frame count per lane,
-                  adjusted by the session's Bowlers Per Team value:
-                  Fresh ≤55, Early Transition 56–110, Early Middle 111–165,
-                  Late Middle 166–220, Late Transition 221–275, Burn ≥276.
-                </p>
+                  <div className="deep-stats-grid">
+                    <div className="stat-card">
+                      <strong>{detailedStats.numGames}</strong>
+                      <span>Total Games</span>
+                    </div>
 
-                <div className="table-scroll">
-                  <table className="stats-table">
-                    <thead>
-                      <tr>
-                        <th>Phase</th>
-                        <th>Frames</th>
-                        <th>Strikes</th>
-                        <th>Spares</th>
-                        <th>Opens</th>
-                        <th>Pocket %</th>
-                        <th>Carry %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailedStats.transitionRows.map((row) => (
-                        <tr key={row.phase}>
-                          <td>{row.phase}</td>
-                          <td>{row.frames}</td>
-                          <td>{row.strikes}</td>
-                          <td>{row.spares}</td>
-                          <td>{row.opens}</td>
-                          <td>{row.splits}</td>
-                          <td>{row.pocketPercentage.toFixed(1)}%</td>
-                          <td>{row.carryPercentage.toFixed(1)}%</td>
-                        </tr>
+                    <div className="stat-card">
+                      <strong>{detailedStats.average.toFixed(1)}</strong>
+                      <span>Average</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>
+                        {detailedStats.highThreeGameSeries > 0
+                          ? detailedStats.highThreeGameSeries
+                          : "—"}
+                      </strong>
+                      <span>High 3-Game Series</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>
+                        {detailedStats.highFourGameSeries > 0
+                          ? detailedStats.highFourGameSeries
+                          : "—"}
+                      </strong>
+                      <span>High 4-Game Series</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.pocketPercentage.toFixed(1)}%</strong>
+                      <span>Pocket Percentage</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.carryPercentage.toFixed(1)}%</strong>
+                      <span>Carry Percentage</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.doublePercentage.toFixed(1)}%</strong>
+                      <span>Double Percentage</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>
+                        {detailedStats.makeableSpareConversion.toFixed(1)}%
+                      </strong>
+                      <span>Makeable Spare Conversion</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.fillFramesPercentage.toFixed(1)}%</strong>
+                      <span>Fill Frames Percentage</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.cleanPercentage.toFixed(1)}%</strong>
+                      <span>Clean Percentage</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.splitPercentage.toFixed(1)}%</strong>
+                      <span>Split Percentage</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.cleanGames}</strong>
+                      <span>Clean Games</span>
+                    </div>
+
+                    <div className="stat-card">
+                      <strong>{detailedStats.firstBallAverage.toFixed(2)}</strong>
+                      <span>First Ball Average</span>
+                    </div>
+                  </div>
+
+                  <section className="frame-score-card">
+                    <h4>Average Frame Score</h4>
+                    <p className="helper-text">
+                      Average scoring value by frame.
+                    </p>
+
+                    <div className="frame-score-chart">
+                      {detailedStats.frameScoreRows.map((row) => (
+                        <div className="frame-score-bar-row" key={row.frameNumber}>
+                          <span className="frame-score-label">
+                            Frame {row.frameNumber}
+                          </span>
+                          <div className="frame-score-track">
+                            <div
+                              className="frame-score-bar"
+                              style={{
+                                width: `${Math.min(100, (row.average / 30) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <strong>{row.average.toFixed(1)}</strong>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+                    </div>
+                  </section>
+
+                  <section className="average-game-card">
+                    <h4>Average by Game</h4>
+                    <p className="helper-text">
+                      Average score by game number across matching sets.
+                    </p>
+
+                    <div className="table-scroll">
+                      <table className="stats-table">
+                        <thead>
+                          <tr>
+                            <th>Game</th>
+                            <th>Games Tracked</th>
+                            <th>Average</th>
+                            <th>High</th>
+                            <th>Low</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailedStats.averageByGameRows.map((row) => (
+                            <tr key={row.gameNumber}>
+                              <td>Game {row.gameNumber}</td>
+                              <td>{row.count}</td>
+                              <td>{row.average.toFixed(1)}</td>
+                              <td>{row.high}</td>
+                              <td>{row.low}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section className="score-distribution-card">
+                    <h4>Score Distribution</h4>
+                    <p className="helper-text">
+                      Score ranges by game number, plus 3-game series totals.
+                    </p>
+
+                    <div className="score-distribution-grid">
+                      <section>
+                        <h5>Game Distribution</h5>
+
+                        <div className="table-scroll">
+                          <table className="stats-table distribution-table">
+                            <thead>
+                              <tr>
+                                <th>Games</th>
+                                {detailedStats.scoreDistribution.gameNumbers.map(
+                                  (gameNumber) => (
+                                    <th key={gameNumber}>Game {gameNumber}</th>
+                                  )
+                                )}
+                                <th>Total</th>
+                                <th>%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {detailedStats.scoreDistribution.gameRows.map(
+                                (row) => (
+                                  <tr key={row.label}>
+                                    <td>{row.label}</td>
+                                    {detailedStats.scoreDistribution.gameNumbers.map(
+                                      (gameNumber) => (
+                                        <td key={gameNumber}>
+                                          {row.gameCounts[gameNumber] ?? 0}
+                                        </td>
+                                      )
+                                    )}
+                                    <td>{row.total}</td>
+                                    <td>{row.percentage.toFixed(1)}%</td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+
+                      <section>
+                        <h5>Series Distribution</h5>
+
+                        <div className="table-scroll">
+                          <table className="stats-table distribution-table">
+                            <thead>
+                              <tr>
+                                <th>Series</th>
+                                <th>Total</th>
+                                <th>%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {detailedStats.scoreDistribution.seriesRows.map(
+                                (row) => (
+                                  <tr key={row.label}>
+                                    <td>{row.label}</td>
+                                    <td>{row.total}</td>
+                                    <td>{row.percentage.toFixed(1)}%</td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    </div>
+                  </section>
+
+                  <section className="transition-card">
+                    <h4>Transitional Phase Breakdown</h4>
+                    <p className="helper-text">
+                      Phase is estimated using first-shot frame count per lane,
+                      adjusted by the session's Bowlers Per Pair value:
+                      Fresh ≤55, Early Transition 56–110, Early Middle 111–165,
+                      Late Middle 166–220, Late Transition 221–275, Burn ≥276.
+                      Reference:{" "}
+                      <a
+                        href="https://www.bowlingthismonth.com/bowling-tips/how-to-arrive-at-more-meaningful-analysis-data/"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Bowling This Month
+                      </a>
+                      .
+                    </p>
+
+                    <div className="table-scroll">
+                      <table className="stats-table">
+                        <thead>
+                          <tr>
+                            <th>Phase</th>
+                            <th>Frames</th>
+                            <th>Strikes</th>
+                            <th>Spares</th>
+                            <th>Opens</th>
+                            <th>Splits</th>
+                            <th>Strike %</th>
+                            <th>Clean %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailedStats.transitionRows.map((row) => (
+                            <tr key={row.phase}>
+                              <td>{row.phase}</td>
+                              <td>{row.frames}</td>
+                              <td>{row.strikes}</td>
+                              <td>{row.spares}</td>
+                              <td>{row.opens}</td>
+                              <td>{row.splits}</td>
+                              <td>{row.strikePercentage.toFixed(1)}%</td>
+                              <td>{row.cleanPercentage.toFixed(1)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                 </section>
               )}
 
             </div>
           </details>
+          )}
 
-          {bakerTeamGames.length > 0 && (
-            <BakerStatsSection
-              games={bakerTeamGames}
-              selectedBakerBowler={selectedBakerBowler}
-              selectedBall={selectedBall}
-            />
+          {usesEventFilter &&
+            teamSetRows.length > 0 &&
+            (selectedBowler === "All" ||
+              (isBakerTeamSelection && selectedBakerBowler === "All")) && (
+            <details className="team-set-card stats-collapsible-card">
+              <summary className="stats-section-summary">
+                <div>
+                  <strong>Team / Set Breakdown</strong>
+                  <p>
+                    Team totals and averages for the current set filters.
+                  </p>
+                </div>
+                <span className="summary-hint">Open Section</span>
+              </summary>
+
+              <div className="stats-collapsible-content">
+                <div className="table-scroll">
+                  <table className="stats-table">
+                    <thead>
+                      <tr>
+                        <th>Set</th>
+                        <th>Games</th>
+                        <th>Tracked Bowlers</th>
+                        <th>Team Set Total</th>
+                        <th>Team Game Avg</th>
+                        <th>Tracked Bowler Avg</th>
+                        <th>High Team Game</th>
+                        <th>Frames</th>
+                        <th>Strikes</th>
+                        <th>Spares</th>
+                        <th>Opens</th>
+                        <th>Clean %</th>
+                        <th>Split %</th>
+                        <th>Clean Team Games</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamSetRows.map((row) => (
+                        <tr key={row.sessionKey}>
+                          <td>{row.title}</td>
+                          <td>{row.games}</td>
+                          <td>{row.bowlers}</td>
+                          <td>{row.teamSetTotal}</td>
+                          <td>{row.teamGameAverage.toFixed(1)}</td>
+                          <td>{row.trackedBowlerAverage.toFixed(1)}</td>
+                          <td>{row.highTeamGame}</td>
+                          <td>{row.frames}</td>
+                          <td>{row.strikes}</td>
+                          <td>{row.spares}</td>
+                          <td>{row.opens}</td>
+                          <td>{row.cleanRate.toFixed(1)}%</td>
+                          <td>{row.splitRate.toFixed(1)}%</td>
+                          <td>{row.cleanTeamGames}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
           )}
 
           <details className="spare-leave-card stats-collapsible-card">
@@ -4216,10 +6038,51 @@ function StatsPage({
 
             <div className="stats-collapsible-content">
               <p className="helper-text">
-                This is a display table, not a filter. Attempts are grouped by
-                first-ball leaves, and pickup percentage is calculated as converted
-                spares divided by attempts for that leave.
+                Leaves are grouped by first-ball result and sorted by how often
+                each leave occurs.
               </p>
+
+              <div className="stats-summary-grid spare-summary-grid">
+                <div className="stat-card">
+                  <strong>
+                    {spareLeaveSummary.makeable.percentage.toFixed(1)}%
+                  </strong>
+                  <span>
+                    Makeable Pickup ({spareLeaveSummary.makeable.conversions}/
+                    {spareLeaveSummary.makeable.attempts})
+                  </span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>
+                    {spareLeaveSummary.singlePin.percentage.toFixed(1)}%
+                  </strong>
+                  <span>
+                    Single Pin Pickup ({spareLeaveSummary.singlePin.conversions}/
+                    {spareLeaveSummary.singlePin.attempts})
+                  </span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>
+                    {spareLeaveSummary.multiPin.percentage.toFixed(1)}%
+                  </strong>
+                  <span>
+                    Multi Pin Pickup ({spareLeaveSummary.multiPin.conversions}/
+                    {spareLeaveSummary.multiPin.attempts})
+                  </span>
+                </div>
+
+                <div className="stat-card">
+                  <strong>
+                    {spareLeaveSummary.split.percentage.toFixed(1)}%
+                  </strong>
+                  <span>
+                    Split Pickup ({spareLeaveSummary.split.conversions}/
+                    {spareLeaveSummary.split.attempts})
+                  </span>
+                </div>
+              </div>
 
               {spareLeaveRows.length === 0 ? (
               <p className="helper-text">
@@ -4231,6 +6094,7 @@ function StatsPage({
                   <thead>
                     <tr>
                       <th>Leave</th>
+                      <th>Pins</th>
                       <th>Attempts</th>
                       <th>Conversions</th>
                       <th>Misses</th>
@@ -4241,6 +6105,9 @@ function StatsPage({
                     {spareLeaveRows.map((row) => (
                       <tr key={row.leave}>
                         <td>{row.leave}</td>
+                        <td>
+                          <StaticPinLeaveDeck leave={row.leave} />
+                        </td>
                         <td>{row.attempts}</td>
                         <td>{row.conversions}</td>
                         <td>{row.misses}</td>
@@ -4254,10 +6121,11 @@ function StatsPage({
             </div>
           </details>
 
+          {!isBakerTeamSelection && (
           <details className="board-analysis-card stats-collapsible-card">
             <summary className="stats-section-summary">
               <div>
-                <strong>Targeting / Board Analysis</strong>
+                <strong>Targeting Analysis</strong>
                 <p>
                   Foot board, target arrow, actual arrow, breakpoint, miss
                   averages, and progression over filtered sets.
@@ -4287,21 +6155,6 @@ function StatsPage({
                   </div>
 
                   <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageFootBoard)}</strong>
-                    <span>Avg Foot Board</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageTargetArrow)}</strong>
-                    <span>Avg Target Arrow</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageActualArrow)}</strong>
-                    <span>Avg Actual Arrow</span>
-                  </div>
-
-                  <div className="stat-card">
                     <strong>{formatSignedNumber(boardStats.averageArrowMiss)}</strong>
                     <span>Avg Arrow Miss</span>
                   </div>
@@ -4314,16 +6167,6 @@ function StatsPage({
                   <div className="stat-card">
                     <strong>{formatPercentValue(boardStats.arrowHitRate)}</strong>
                     <span>Arrow ±1 Board</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageTargetBreakpoint)}</strong>
-                    <span>Avg Target Breakpoint</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageActualBreakpoint)}</strong>
-                    <span>Avg Actual Breakpoint</span>
                   </div>
 
                   <div className="stat-card">
@@ -4500,11 +6343,23 @@ function StatsPage({
               )}
             </div>
           </details>
+          )}
+
+          {isBakerTeamSelection && bakerTeamGames.length > 0 && (
+            <BakerStatsSection
+              games={bakerTeamGames}
+              selectedBakerBowler={selectedBakerBowler}
+              selectedBall={selectedBall}
+            />
+          )}
+
+            </>
+          )}
 
           <details className="saved-sets-list stats-collapsible-card">
             <summary className="stats-section-summary">
               <div>
-                <strong>Filtered Saved Sets</strong>
+                <strong>Saved Sets</strong>
                 <p>Expandable saved sets matching the active filters.</p>
               </div>
               <span className="summary-hint">Open Section</span>
@@ -4544,6 +6399,7 @@ function StatsPage({
                         bowlerName={selectedBowler}
                         selectedBall={selectedBall}
                         session={session}
+                        bowlerHandednessByName={bowlerHandednessByName}
                       />
                     )}
 
@@ -4604,6 +6460,9 @@ function StatsPage({
   );
 }
 
+
+// Targeting Analysis Helpers
+// ==================
 
 type BoardStatRow = {
   ball: string;
@@ -4821,24 +6680,35 @@ function calculateBoardProgressionRows(
     .filter((row): row is NonNullable<typeof row> => row !== null);
 }
 
+// Stats Export
+// ==================
+
 function buildStatsExportFileName(filters: {
   selectedBowler: string;
   selectedBall: string;
   selectedCompetition: string;
+  selectedEventName: string;
   selectedCenter: string;
   selectedLane: string;
   selectedPattern: string;
   selectedEventStage: string;
+  selectedSetKey: string;
+  selectedGameNumber: string;
 }) {
   const activeFilterParts = [
     "pin-sighter-stats",
     filters.selectedBowler !== "All" ? filters.selectedBowler : "",
     filters.selectedBall !== "All" ? filters.selectedBall : "",
     filters.selectedCompetition !== "All" ? filters.selectedCompetition : "",
+    filters.selectedEventName !== "All" ? filters.selectedEventName : "",
     filters.selectedCenter !== "All" ? filters.selectedCenter : "",
     filters.selectedLane !== "All" ? filters.selectedLane : "",
     filters.selectedPattern !== "All" ? filters.selectedPattern : "",
     filters.selectedEventStage !== "All" ? filters.selectedEventStage : "",
+    filters.selectedSetKey !== "All" ? "selected-set" : "",
+    filters.selectedGameNumber !== "All"
+      ? `game-${filters.selectedGameNumber}`
+      : "",
   ]
     .filter(Boolean)
     .map((part) =>
@@ -4851,20 +6721,26 @@ function buildStatsExportFileName(filters: {
   return `${activeFilterParts.join("_") || "pin-sighter-stats"}.csv`;
 }
 
+// Set Specific Stats
+// ==================
+
 function SetSpecificStats({
   bowlerName,
   selectedBall,
   session,
+  bowlerHandednessByName,
 }: {
   bowlerName: string;
   selectedBall: string;
   session: ReturnType<typeof buildSessionGroups>[number];
+  bowlerHandednessByName: Map<string, Handedness>;
 }) {
   const sessionStats = calculateDetailedBowlerStats(
     bowlerName,
     selectedBall,
     session.games,
-    [session]
+    [session],
+    bowlerHandednessByName
   );
 
   return (
@@ -4929,6 +6805,70 @@ function SetSpecificStats({
   );
 }
 
+// Baker Stats Helpers
+// ==================
+
+function getBakerEntryStatCounts(entry: FrameEntry) {
+  const rolls = getFrameRolls(entry);
+  let strikes = 0;
+  let spares = 0;
+
+  if (entry.frameNumber === 10) {
+    rolls.forEach((roll) => {
+      if (roll === 10) {
+        strikes += 1;
+      }
+    });
+
+    if ((rolls[0] ?? 0) !== 10 && (rolls[0] ?? 0) + (rolls[1] ?? 0) === 10) {
+      spares += 1;
+    }
+
+    if (
+      (rolls[0] ?? 0) === 10 &&
+      (rolls[1] ?? 0) !== 10 &&
+      (rolls[1] ?? 0) + (rolls[2] ?? 0) === 10
+    ) {
+      spares += 1;
+    }
+  } else if ((rolls[0] ?? 0) === 10) {
+    strikes += 1;
+  } else if ((rolls[0] ?? 0) + (rolls[1] ?? 0) === 10) {
+    spares += 1;
+  }
+
+  return {
+    strikes,
+    spares,
+    opens: isCleanFrame(entry) ? 0 : 1,
+    splits: isSplitEntry(entry) ? 1 : 0,
+    cleanFrames: isCleanFrame(entry) ? 1 : 0,
+  };
+}
+
+function summarizeBakerEntries(entries: FrameEntry[]) {
+  return entries.reduce(
+    (summary, entry) => {
+      const entryStats = getBakerEntryStatCounts(entry);
+
+      return {
+        strikes: summary.strikes + entryStats.strikes,
+        spares: summary.spares + entryStats.spares,
+        opens: summary.opens + entryStats.opens,
+        splits: summary.splits + entryStats.splits,
+        cleanFrames: summary.cleanFrames + entryStats.cleanFrames,
+      };
+    },
+    {
+      strikes: 0,
+      spares: 0,
+      opens: 0,
+      splits: 0,
+      cleanFrames: 0,
+    }
+  );
+}
+
 function calculateBakerTeamSummaryRows(games: SavedGameRecord[]) {
   const gamesByTeam = new Map<string, SavedGameRecord[]>();
 
@@ -4945,10 +6885,7 @@ function calculateBakerTeamSummaryRows(games: SavedGameRecord[]) {
       game.scores.map((score) => score.score)
     );
     const entries = teamGames.flatMap((game) => game.entries);
-    const strikes = entries.filter(isStrikeEntry).length;
-    const spares = entries.filter(isSpareEntry).length;
-    const cleanFrames = entries.filter(isCleanFrame).length;
-    const splits = entries.filter(isSplitEntry).length;
+    const bakerStats = summarizeBakerEntries(entries);
 
     return {
       teamName,
@@ -4959,12 +6896,12 @@ function calculateBakerTeamSummaryRows(games: SavedGameRecord[]) {
           : 0,
       highGame: scores.length > 0 ? Math.max(...scores) : 0,
       frames: entries.length,
-      strikes,
-      spares,
-      opens: entries.length - strikes - spares,
+      strikes: bakerStats.strikes,
+      spares: bakerStats.spares,
+      opens: bakerStats.opens,
+      splits: bakerStats.splits,
       cleanRate:
-        entries.length > 0 ? (cleanFrames / entries.length) * 100 : 0,
-      splitRate: entries.length > 0 ? (splits / entries.length) * 100 : 0,
+        entries.length > 0 ? (bakerStats.cleanFrames / entries.length) * 100 : 0,
       cleanGames: teamGames.filter((game) => isCleanGameForEntries(game.entries))
         .length,
     };
@@ -5012,26 +6949,27 @@ function calculateBakerPositionRows(
 
   return Array.from(rowsByPosition.values())
     .map((row) => {
-      const strikes = row.entries.filter(isStrikeEntry).length;
-      const spares = row.entries.filter(isSpareEntry).length;
-      const cleanFrames = row.entries.filter(isCleanFrame).length;
-      const splits = row.entries.filter(isSplitEntry).length;
+      const bakerStats = summarizeBakerEntries(row.entries);
 
       return {
         position: row.position,
         bowlers: Array.from(row.bowlerNames).sort().join(", "),
         frames: row.entries.length,
-        strikes,
-        spares,
-        opens: row.entries.length - strikes - spares,
+        strikes: bakerStats.strikes,
+        spares: bakerStats.spares,
+        opens: bakerStats.opens,
+        splits: bakerStats.splits,
         cleanRate:
-          row.entries.length > 0 ? (cleanFrames / row.entries.length) * 100 : 0,
-        splitRate:
-          row.entries.length > 0 ? (splits / row.entries.length) * 100 : 0,
+          row.entries.length > 0
+            ? (bakerStats.cleanFrames / row.entries.length) * 100
+            : 0,
       };
     })
     .sort((a, b) => a.position - b.position);
 }
+
+// Baker Stats Components
+// ==================
 
 function BakerStatsSection({
   games,
@@ -5064,8 +7002,9 @@ function BakerStatsSection({
         <div>
           <strong>Baker Team Stats</strong>
           <p>
-            Baker games are separated from individual bowler stats. Use this
-            section for team score, lineup position, and frame responsibility.
+            Baker games stay separate from individual stats. Use this section
+            for team score, lineup position, frame responsibility, and anchor
+            10th-frame fill shots.
           </p>
         </div>
         <span className="summary-hint">Open Section</span>
@@ -5087,8 +7026,8 @@ function BakerStatsSection({
                   <th>Strikes</th>
                   <th>Spares</th>
                   <th>Opens</th>
+                  <th>Splits</th>
                   <th>Clean %</th>
-                  <th>Split %</th>
                   <th>Clean Games</th>
                 </tr>
               </thead>
@@ -5103,8 +7042,8 @@ function BakerStatsSection({
                     <td>{row.strikes}</td>
                     <td>{row.spares}</td>
                     <td>{row.opens}</td>
+                    <td>{row.splits}</td>
                     <td>{row.cleanRate.toFixed(1)}%</td>
-                    <td>{row.splitRate.toFixed(1)}%</td>
                     <td>{row.cleanGames}</td>
                   </tr>
                 ))}
@@ -5118,7 +7057,8 @@ function BakerStatsSection({
           <p className="helper-text">
             Position is calculated from the frame number and team size. For a
             five-person lineup, position 1 bowls frames 1 and 6, position 2
-            bowls frames 2 and 7, and so on.
+            bowls frames 2 and 7, and so on. The anchor position also gets
+            credit for any 10th-frame fill-ball strikes or spares.
           </p>
 
           <div className="table-scroll">
@@ -5131,8 +7071,8 @@ function BakerStatsSection({
                   <th>Strikes</th>
                   <th>Spares</th>
                   <th>Opens</th>
+                  <th>Splits</th>
                   <th>Clean %</th>
-                  <th>Split %</th>
                 </tr>
               </thead>
               <tbody>
@@ -5144,8 +7084,8 @@ function BakerStatsSection({
                     <td>{row.strikes}</td>
                     <td>{row.spares}</td>
                     <td>{row.opens}</td>
+                    <td>{row.splits}</td>
                     <td>{row.cleanRate.toFixed(1)}%</td>
-                    <td>{row.splitRate.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -5165,8 +7105,8 @@ function BakerStatsSection({
                   <th>Strikes</th>
                   <th>Spares</th>
                   <th>Opens</th>
+                  <th>Splits</th>
                   <th>Clean %</th>
-                  <th>Split %</th>
                   <th>Balls Used</th>
                 </tr>
               </thead>
@@ -5178,8 +7118,8 @@ function BakerStatsSection({
                     <td>{row.strikes}</td>
                     <td>{row.spares}</td>
                     <td>{row.opens}</td>
+                    <td>{row.splits}</td>
                     <td>{row.cleanRate.toFixed(1)}%</td>
-                    <td>{row.splitRate.toFixed(1)}%</td>
                     <td>{row.balls}</td>
                   </tr>
                 ))}
@@ -5205,10 +7145,7 @@ function calculateBakerBowlerRows(games: SavedGameRecord[]) {
 
   return Array.from(entryMap.entries())
     .map(([bowlerName, entries]) => {
-      const strikes = entries.filter(isStrikeEntry).length;
-      const spares = entries.filter(isSpareEntry).length;
-      const cleanFrames = entries.filter(isCleanFrame).length;
-      const splits = entries.filter(isSplitEntry).length;
+      const bakerStats = summarizeBakerEntries(entries);
       const balls = Array.from(
         new Set(entries.map((entry) => entry.ballUsed).filter(Boolean))
       ).join(", ");
@@ -5216,12 +7153,14 @@ function calculateBakerBowlerRows(games: SavedGameRecord[]) {
       return {
         bowlerName,
         frames: entries.length,
-        strikes,
-        spares,
-        opens: entries.length - strikes - spares,
+        strikes: bakerStats.strikes,
+        spares: bakerStats.spares,
+        opens: bakerStats.opens,
+        splits: bakerStats.splits,
         cleanRate:
-          entries.length > 0 ? (cleanFrames / entries.length) * 100 : 0,
-        splitRate: entries.length > 0 ? (splits / entries.length) * 100 : 0,
+          entries.length > 0
+            ? (bakerStats.cleanFrames / entries.length) * 100
+            : 0,
         balls: balls || "No ball",
       };
     })
@@ -5257,8 +7196,8 @@ function BakerSetBreakdown({
               <th>Strikes</th>
               <th>Spares</th>
               <th>Opens</th>
+              <th>Splits</th>
               <th>Clean %</th>
-              <th>Split %</th>
               <th>Balls Used</th>
             </tr>
           </thead>
@@ -5270,8 +7209,8 @@ function BakerSetBreakdown({
                 <td>{row.strikes}</td>
                 <td>{row.spares}</td>
                 <td>{row.opens}</td>
+                <td>{row.splits}</td>
                 <td>{row.cleanRate.toFixed(1)}%</td>
-                <td>{row.splitRate.toFixed(1)}%</td>
                 <td>{row.balls}</td>
               </tr>
             ))}
@@ -5343,6 +7282,114 @@ function BakerFrameTable({ game }: { game: SavedGameRecord }) {
   );
 }
 
+// Set / Session Helpers
+// ==================
+
+function formatSetSavedDateTime(savedAt: string) {
+  const savedDate = new Date(savedAt);
+
+  if (Number.isNaN(savedDate.getTime())) {
+    return savedAt;
+  }
+
+  return savedDate.toLocaleString([], {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function buildSetFilterOptions(games: SavedGameRecord[]) {
+  return buildSessionGroups(games).map((group) => {
+    const firstGame = group.games[0];
+    const gameCount = group.games.length;
+    const savedDateTime = firstGame
+      ? formatSetSavedDateTime(firstGame.savedAt)
+      : "";
+
+    return {
+      key: group.sessionKey,
+      label: [
+        `${gameCount} game${gameCount === 1 ? "" : "s"}`,
+        firstGame?.centerName,
+        savedDateTime,
+      ]
+        .filter(Boolean)
+        .join(" • "),
+    };
+  });
+}
+
+function calculateTeamSetRows(sessionGroups: ReturnType<typeof buildSessionGroups>) {
+  return sessionGroups.map((group) => {
+    const teamGameScores = group.games.map((game) =>
+      game.scores.reduce((sum, score) => sum + score.score, 0)
+    );
+    const individualScores = group.games.flatMap((game) =>
+      game.scores.map((score) => score.score)
+    );
+    const entries = group.games.flatMap((game) => game.entries);
+    const strikes = entries.filter(isStrikeEntry).length;
+    const spares = entries.filter(isSpareEntry).length;
+    const opens = entries.length - strikes - spares;
+    const cleanFrames = entries.filter(isCleanFrame).length;
+    const splits = entries.filter(isSplitEntry).length;
+    const bowlerNames = Array.from(
+      new Set(group.games.flatMap((game) => game.bowlerNames))
+    ).sort((a, b) => a.localeCompare(b));
+    const cleanTeamGames = group.games.filter((game) => {
+      if (game.format === "Baker") {
+        return isCleanGameForEntries(game.entries);
+      }
+
+      const entriesByBowler = new Map<string, FrameEntry[]>();
+
+      game.entries.forEach((entry) => {
+        const currentEntries = entriesByBowler.get(entry.bowlerName) ?? [];
+        entriesByBowler.set(entry.bowlerName, [...currentEntries, entry]);
+      });
+
+      const bowlerFrameSets = Array.from(entriesByBowler.values());
+
+      return (
+        bowlerFrameSets.length > 0 &&
+        bowlerFrameSets.every((bowlerEntries) =>
+          isCleanGameForEntries(bowlerEntries)
+        )
+      );
+    }).length;
+
+    const teamSetTotal = teamGameScores.reduce((sum, score) => sum + score, 0);
+    const teamGameAverage =
+      teamGameScores.length > 0 ? teamSetTotal / teamGameScores.length : 0;
+    const trackedBowlerAverage =
+      individualScores.length > 0
+        ? individualScores.reduce((sum, score) => sum + score, 0) /
+          individualScores.length
+        : 0;
+
+    return {
+      sessionKey: group.sessionKey,
+      title: group.title,
+      games: group.games.length,
+      bowlers: bowlerNames.join(", ") || "Team",
+      teamSetTotal,
+      teamGameAverage,
+      trackedBowlerAverage,
+      highTeamGame: teamGameScores.length > 0 ? Math.max(...teamGameScores) : 0,
+      frames: entries.length,
+      strikes,
+      spares,
+      opens,
+      cleanRate: entries.length > 0 ? (cleanFrames / entries.length) * 100 : 0,
+      splitRate: entries.length > 0 ? (splits / entries.length) * 100 : 0,
+      cleanTeamGames,
+    };
+  });
+}
+
 function buildSessionGroups(games: SavedGameRecord[]) {
   const groups = new Map<
     string,
@@ -5385,6 +7432,9 @@ function buildSessionGroups(games: SavedGameRecord[]) {
     games: group.games.sort((a, b) => a.gameNumber - b.gameNumber),
   }));
 }
+
+// Frame Result Helpers
+// ==================
 
 function isStrikeEntry(entry: FrameEntry) {
   return entry.firstShotKnockedPins.length === 10;
@@ -5454,6 +7504,73 @@ function getSpareLeaveKey(entry: FrameEntry) {
   return leavePins.length > 0 ? leavePins.join("-") : "None";
 }
 
+function parseLeaveKeyPins(leave: string) {
+  if (leave === "None") {
+    return [];
+  }
+
+  return leave
+    .split("-")
+    .map((pin) => Number(pin))
+    .filter((pin) => Number.isFinite(pin))
+    .sort((a, b) => a - b);
+}
+
+function calculateSpareLeaveSummary(entries: FrameEntry[]) {
+  const categories = {
+    makeable: { attempts: 0, conversions: 0, percentage: 0 },
+    singlePin: { attempts: 0, conversions: 0, percentage: 0 },
+    multiPin: { attempts: 0, conversions: 0, percentage: 0 },
+    split: { attempts: 0, conversions: 0, percentage: 0 },
+  };
+
+  entries.filter(isSpareAttemptEntry).forEach((entry) => {
+    const leavePins = getSpareLeavePins(entry);
+    const isConverted = isSpareEntry(entry);
+
+    if (isMakeableSpareAttempt(entry)) {
+      categories.makeable.attempts += 1;
+
+      if (isConverted) {
+        categories.makeable.conversions += 1;
+      }
+    }
+
+    if (leavePins.length === 1) {
+      categories.singlePin.attempts += 1;
+
+      if (isConverted) {
+        categories.singlePin.conversions += 1;
+      }
+    }
+
+    if (leavePins.length > 1) {
+      categories.multiPin.attempts += 1;
+
+      if (isConverted) {
+        categories.multiPin.conversions += 1;
+      }
+    }
+
+    if (isSplitLeave(entry.firstShotKnockedPins)) {
+      categories.split.attempts += 1;
+
+      if (isConverted) {
+        categories.split.conversions += 1;
+      }
+    }
+  });
+
+  Object.values(categories).forEach((category) => {
+    category.percentage =
+      category.attempts > 0
+        ? (category.conversions / category.attempts) * 100
+        : 0;
+  });
+
+  return categories;
+}
+
 function calculateSpareLeaveRows(entries: FrameEntry[]) {
   const rowMap = new Map<
     string,
@@ -5521,12 +7638,28 @@ function isCleanFrame(entry: FrameEntry) {
   return isStrikeEntry(entry) || isSpareEntry(entry);
 }
 
-function isPocketHit(entry: FrameEntry) {
-  return entry.firstShotKnockedPins.length >= 9;
+function getBowlerHandedness(
+  bowlerName: string,
+  bowlerHandednessByName: Map<string, Handedness>
+) {
+  return bowlerHandednessByName.get(bowlerName) ?? "Right";
 }
 
-function isPocketStrike(entry: FrameEntry) {
-  return isPocketHit(entry) && isStrikeEntry(entry);
+function getPocketContactPins(handedness: Handedness) {
+  // LaneTalk-style pocket proxy:
+  // right-handed pocket = 1/3 contact on first ball,
+  // left-handed pocket = 1/2 contact on first ball.
+  return handedness === "Left" ? [1, 2] : [1, 3];
+}
+
+function isPocketHit(entry: FrameEntry, handedness: Handedness) {
+  const pocketPins = getPocketContactPins(handedness);
+
+  return pocketPins.every((pin) => entry.firstShotKnockedPins.includes(pin));
+}
+
+function isPocketStrike(entry: FrameEntry, handedness: Handedness) {
+  return isPocketHit(entry, handedness) && isStrikeEntry(entry);
 }
 
 function isMakeableSpareAttempt(entry: FrameEntry) {
@@ -5538,6 +7671,9 @@ function isMakeableSpareAttempt(entry: FrameEntry) {
 
   return standingPins.length <= 3;
 }
+
+// Detailed Bowler Analysis Helpers
+// ==================
 
 function getTransitionPhase(firstShotCount: number) {
   if (firstShotCount <= 55) {
@@ -5563,12 +7699,295 @@ function getTransitionPhase(firstShotCount: number) {
   return "Burn";
 }
 
+function getScoredFrameValues(entries: FrameEntry[]) {
+  const orderedFrames = [...entries].sort((a, b) => a.frameNumber - b.frameNumber);
+  const cumulativeScores = getCumulativeFrameScores(orderedFrames);
+  let previousScore = 0;
+
+  return orderedFrames
+    .map((entry, index) => {
+      const cumulativeScore = cumulativeScores[index];
+
+      if (typeof cumulativeScore !== "number") {
+        return null;
+      }
+
+      const frameScore = cumulativeScore - previousScore;
+      previousScore = cumulativeScore;
+
+      return {
+        frameNumber: entry.frameNumber,
+        frameScore,
+      };
+    })
+    .filter(
+      (row): row is { frameNumber: number; frameScore: number } => row !== null
+    );
+}
+
+function calculateAverageFrameScoreRows(
+  games: SavedGameRecord[],
+  bowlerName: string,
+  selectedBall: string
+) {
+  const rowsByFrame = new Map<number, number[]>();
+
+  games.forEach((game) => {
+    const gameEntries = game.entries
+      .filter((entry) => {
+        const matchesBowler = entry.bowlerName === bowlerName;
+        const matchesBall =
+          selectedBall === "All" || entry.ballUsed === selectedBall;
+
+        return matchesBowler && matchesBall;
+      })
+      .sort((a, b) => a.frameNumber - b.frameNumber);
+
+    getScoredFrameValues(gameEntries).forEach((row) => {
+      const frameScores = rowsByFrame.get(row.frameNumber) ?? [];
+      rowsByFrame.set(row.frameNumber, [...frameScores, row.frameScore]);
+    });
+  });
+
+  return Array.from({ length: 10 }, (_, index) => {
+    const frameNumber = index + 1;
+    const frameScores = rowsByFrame.get(frameNumber) ?? [];
+    const average =
+      frameScores.length > 0
+        ? frameScores.reduce((sum, score) => sum + score, 0) /
+          frameScores.length
+        : 0;
+
+    return {
+      frameNumber,
+      average,
+      count: frameScores.length,
+    };
+  });
+}
+
+function calculateAverageByGameRows(
+  games: SavedGameRecord[],
+  bowlerName: string,
+  selectedBall: string
+) {
+  const scoresByGameNumber = new Map<number, number[]>();
+
+  games.forEach((game) => {
+    const gameEntries = game.entries.filter((entry) => {
+      const matchesBowler = entry.bowlerName === bowlerName;
+      const matchesBall =
+        selectedBall === "All" || entry.ballUsed === selectedBall;
+
+      return matchesBowler && matchesBall;
+    });
+
+    if (gameEntries.length === 0) {
+      return;
+    }
+
+    const score = scoreBowlingFrames(gameEntries);
+    const gameScores = scoresByGameNumber.get(game.gameNumber) ?? [];
+    scoresByGameNumber.set(game.gameNumber, [...gameScores, score]);
+  });
+
+  return Array.from(scoresByGameNumber.entries())
+    .map(([gameNumber, scores]) => ({
+      gameNumber,
+      count: scores.length,
+      average:
+        scores.length > 0
+          ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+          : 0,
+      high: scores.length > 0 ? Math.max(...scores) : 0,
+      low: scores.length > 0 ? Math.min(...scores) : 0,
+    }))
+    .sort((a, b) => a.gameNumber - b.gameNumber);
+}
+
+function getScoreBinLabel(score: number) {
+  if (score < 100) return "U/100";
+  if (score < 125) return "100-124";
+  if (score < 150) return "125-149";
+  if (score < 175) return "150-174";
+  if (score < 200) return "175-199";
+  if (score < 225) return "200-224";
+  if (score < 250) return "225-249";
+  if (score < 275) return "250-274";
+  if (score < 300) return "275-299";
+  return "300";
+}
+
+function getSeriesBinLabel(score: number) {
+  if (score < 400) return "U/400";
+  if (score < 450) return "400-449";
+  if (score < 500) return "450-499";
+  if (score < 550) return "500-549";
+  if (score < 600) return "550-599";
+  if (score < 650) return "600-649";
+  if (score < 700) return "650-699";
+  if (score < 750) return "700-749";
+  if (score < 800) return "750-799";
+  return "800-900";
+}
+
+function getGameScoreItems(
+  games: SavedGameRecord[],
+  bowlerName: string,
+  selectedBall: string
+) {
+  return games
+    .map((game) => {
+      const gameEntries = game.entries.filter((entry) => {
+        const matchesBowler = entry.bowlerName === bowlerName;
+        const matchesBall =
+          selectedBall === "All" || entry.ballUsed === selectedBall;
+
+        return matchesBowler && matchesBall;
+      });
+
+      if (gameEntries.length === 0) {
+        return null;
+      }
+
+      return {
+        gameNumber: game.gameNumber,
+        score: scoreBowlingFrames(gameEntries),
+      };
+    })
+    .filter(
+      (item): item is { gameNumber: number; score: number } => item !== null
+    );
+}
+
+function getThreeGameSeriesTotals(
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  bowlerName: string
+) {
+  const seriesTotals: number[] = [];
+
+  sessionGroups.forEach((session) => {
+    const bowlerScores = session.games
+      .sort((a, b) => a.gameNumber - b.gameNumber)
+      .map((game) =>
+        game.scores.find((score) => score.label === bowlerName)?.score ?? null
+      )
+      .filter((score): score is number => score !== null);
+
+    if (bowlerScores.length < 3) {
+      return;
+    }
+
+    for (let index = 0; index <= bowlerScores.length - 3; index += 1) {
+      seriesTotals.push(
+        bowlerScores
+          .slice(index, index + 3)
+          .reduce((sum, score) => sum + score, 0)
+      );
+    }
+  });
+
+  return seriesTotals;
+}
+
+function calculateScoreDistribution(
+  games: SavedGameRecord[],
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  bowlerName: string,
+  selectedBall: string
+) {
+  const gameScoreItems = getGameScoreItems(games, bowlerName, selectedBall);
+  const gameNumbers = Array.from(
+    new Set(gameScoreItems.map((item) => item.gameNumber))
+  ).sort((a, b) => a - b);
+  const gameBinLabels = [
+    "U/100",
+    "100-124",
+    "125-149",
+    "150-174",
+    "175-199",
+    "200-224",
+    "225-249",
+    "250-274",
+    "275-299",
+    "300",
+  ];
+  const gameRows = gameBinLabels.map((label) => {
+    const gameCounts: Record<number, number> = {};
+
+    gameNumbers.forEach((gameNumber) => {
+      gameCounts[gameNumber] = 0;
+    });
+
+    gameScoreItems.forEach((item) => {
+      if (getScoreBinLabel(item.score) === label) {
+        gameCounts[item.gameNumber] = (gameCounts[item.gameNumber] ?? 0) + 1;
+      }
+    });
+
+    const total = Object.values(gameCounts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    return {
+      label,
+      gameCounts,
+      total,
+      percentage:
+        gameScoreItems.length > 0
+          ? (total / gameScoreItems.length) * 100
+          : 0,
+    };
+  });
+
+  const seriesTotals = getThreeGameSeriesTotals(sessionGroups, bowlerName);
+  const seriesBinLabels = [
+    "U/400",
+    "400-449",
+    "450-499",
+    "500-549",
+    "550-599",
+    "600-649",
+    "650-699",
+    "700-749",
+    "750-799",
+    "800-900",
+  ];
+  const seriesRows = seriesBinLabels.map((label) => {
+    const total = seriesTotals.filter(
+      (seriesTotal) => getSeriesBinLabel(seriesTotal) === label
+    ).length;
+
+    return {
+      label,
+      total,
+      percentage:
+        seriesTotals.length > 0 ? (total / seriesTotals.length) * 100 : 0,
+    };
+  });
+
+  return {
+    gameNumbers,
+    gameRows,
+    seriesRows,
+  };
+}
+
+// Detailed Bowler Analysis
+// ==================
+
 function calculateDetailedBowlerStats(
   bowlerName: string,
   selectedBall: string,
   games: SavedGameRecord[],
-  sessionGroups: ReturnType<typeof buildSessionGroups>
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  bowlerHandednessByName: Map<string, Handedness>
 ) {
+  const bowlerHandedness = getBowlerHandedness(
+    bowlerName,
+    bowlerHandednessByName
+  );
   const entries = games.flatMap((game) =>
     game.entries.filter((entry) => {
       const matchesBowler = entry.bowlerName === bowlerName;
@@ -5594,20 +8013,47 @@ function calculateDetailedBowlerStats(
   const highFourGameSeries = getHighSeries(sessionGroups, bowlerName, 4);
 
   const firstShots = entries.length;
-  const pocketHits = entries.filter(isPocketHit).length;
-  const pocketStrikes = entries.filter(isPocketStrike).length;
+  const pocketHits = entries.filter((entry) =>
+    isPocketHit(entry, bowlerHandedness)
+  ).length;
+  const pocketStrikes = entries.filter((entry) =>
+    isPocketStrike(entry, bowlerHandedness)
+  ).length;
   const strikes = entries.filter(isStrikeEntry).length;
   const spares = entries.filter(isSpareEntry).length;
   const opens = entries.length - strikes - spares;
   const cleanFrames = entries.filter(isCleanFrame).length;
   const splits = entries.filter(isSplitEntry).length;
   const cleanGames = countCleanGames(games, bowlerName, selectedBall);
+  const firstBallAverage =
+    entries.length > 0
+      ? entries.reduce(
+          (sum, entry) => sum + entry.firstShotKnockedPins.length,
+          0
+        ) / entries.length
+      : 0;
+  const frameScoreRows = calculateAverageFrameScoreRows(
+    games,
+    bowlerName,
+    selectedBall
+  );
+  const averageByGameRows = calculateAverageByGameRows(
+    games,
+    bowlerName,
+    selectedBall
+  );
+  const scoreDistribution = calculateScoreDistribution(
+    games,
+    sessionGroups,
+    bowlerName,
+    selectedBall
+  );
 
   let pocketStrikesAfterStrike = 0;
   let previousEntryWasStrike = false;
 
   entries.forEach((entry) => {
-    if (previousEntryWasStrike && isPocketStrike(entry)) {
+    if (previousEntryWasStrike && isPocketStrike(entry, bowlerHandedness)) {
       pocketStrikesAfterStrike += 1;
     }
 
@@ -5697,11 +8143,11 @@ function calculateDetailedBowlerStats(
             bucket.splits += 1;
           }
 
-          if (isPocketHit(entry)) {
+          if (isPocketHit(entry, bowlerHandedness)) {
             bucket.pocketHits += 1;
           }
 
-          if (isPocketStrike(entry)) {
+          if (isPocketStrike(entry, bowlerHandedness)) {
             bucket.pocketStrikes += 1;
           }
         });
@@ -5710,11 +8156,11 @@ function calculateDetailedBowlerStats(
 
   const transitionRows = Array.from(transitionBuckets.values()).map((bucket) => ({
     ...bucket,
-    pocketPercentage:
-      bucket.frames > 0 ? (bucket.pocketHits / bucket.frames) * 100 : 0,
-    carryPercentage:
-      bucket.pocketHits > 0
-        ? (bucket.pocketStrikes / bucket.pocketHits) * 100
+    strikePercentage:
+      bucket.frames > 0 ? (bucket.strikes / bucket.frames) * 100 : 0,
+    cleanPercentage:
+      bucket.frames > 0
+        ? ((bucket.strikes + bucket.spares) / bucket.frames) * 100
         : 0,
   }));
 
@@ -5744,8 +8190,62 @@ function calculateDetailedBowlerStats(
     splitPercentage:
       firstShots > 0 ? (splits / firstShots) * 100 : 0,
     cleanGames,
+    firstBallAverage,
+    frameScoreRows,
+    averageByGameRows,
+    scoreDistribution,
     transitionRows,
   };
+}
+
+function getHighFullSeries(
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  bowlerName: string
+) {
+  let highSeries = 0;
+
+  sessionGroups.forEach((session) => {
+    const seriesTotal = session.games.reduce((sum, game) => {
+      const score = game.scores.find(
+        (currentScore) => currentScore.label === bowlerName
+      );
+
+      return sum + (score?.score ?? 0);
+    }, 0);
+
+    highSeries = Math.max(highSeries, seriesTotal);
+  });
+
+  return highSeries;
+}
+
+function getHighTeamSeries(
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  seriesLength: number
+) {
+  let highSeries = 0;
+
+  sessionGroups.forEach((session) => {
+    const teamScores = session.games
+      .sort((a, b) => a.gameNumber - b.gameNumber)
+      .map((game) =>
+        game.scores.reduce((sum, score) => sum + score.score, 0)
+      );
+
+    if (teamScores.length < seriesLength) {
+      return;
+    }
+
+    for (let index = 0; index <= teamScores.length - seriesLength; index += 1) {
+      const series = teamScores
+        .slice(index, index + seriesLength)
+        .reduce((sum, score) => sum + score, 0);
+
+      highSeries = Math.max(highSeries, series);
+    }
+  });
+
+  return highSeries;
 }
 
 function getHighSeries(
@@ -5782,1387 +8282,3 @@ function getHighSeries(
 
   return highSeries;
 }
-
-function CentersPage({ centers, setCenters }: CentersPageProps) {
-  const [newCenterName, setNewCenterName] = useState("");
-  const [newCenterLaneCount, setNewCenterLaneCount] = useState("8");
-  const [newCenterNotes, setNewCenterNotes] = useState("");
-  const [centerDrafts, setCenterDrafts] = useState<Record<number, Center>>({});
-
-  function getCenterDraft(center: Center) {
-    return centerDrafts[center.id] ?? center;
-  }
-
-  function hasCenterChanged(center: Center) {
-    const draft = centerDrafts[center.id];
-
-    if (!draft) {
-      return false;
-    }
-
-    return JSON.stringify(draft) !== JSON.stringify(center);
-  }
-
-  function updateCenterDraft(center: Center, updates: Partial<Center>) {
-    setCenterDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [center.id]: {
-        ...getCenterDraft(center),
-        ...updates,
-      },
-    }));
-  }
-
-  function saveCenter(centerId: number) {
-    const draft = centerDrafts[centerId];
-
-    if (!draft) {
-      return;
-    }
-
-    const trimmedName = draft.name.trim();
-
-    if (!trimmedName) {
-      window.alert("Center name cannot be empty.");
-      return;
-    }
-
-    if (!Number.isFinite(draft.laneCount) || draft.laneCount < 1) {
-      window.alert("Lane count must be at least 1.");
-      return;
-    }
-
-    const nameAlreadyExists = centers.some(
-      (center) =>
-        center.id !== centerId &&
-        center.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (nameAlreadyExists) {
-      window.alert("A bowling center with that name already exists.");
-      return;
-    }
-
-    setCenters((currentCenters) =>
-      currentCenters.map((center) =>
-        center.id === centerId
-          ? {
-              ...draft,
-              name: trimmedName,
-              laneCount: Math.max(1, Math.floor(draft.laneCount)),
-              notes: draft.notes.trim(),
-            }
-          : center
-      )
-    );
-
-    setCenterDrafts((currentDrafts) => {
-      const updatedDrafts = { ...currentDrafts };
-      delete updatedDrafts[centerId];
-      return updatedDrafts;
-    });
-  }
-
-  function addCenter() {
-    const trimmedName = newCenterName.trim();
-    const laneCount = Number(newCenterLaneCount);
-
-    if (!trimmedName || !Number.isFinite(laneCount) || laneCount < 1) {
-      return;
-    }
-
-    const nameAlreadyExists = centers.some(
-      (center) => center.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (nameAlreadyExists) {
-      window.alert("A bowling center with that name already exists.");
-      return;
-    }
-
-    setCenters((currentCenters) => [
-      ...currentCenters,
-      {
-        id: Date.now(),
-        name: trimmedName,
-        laneCount: Math.floor(laneCount),
-        notes: newCenterNotes.trim(),
-      },
-    ]);
-
-    setNewCenterName("");
-    setNewCenterLaneCount("8");
-    setNewCenterNotes("");
-  }
-
-  function deleteCenter(centerId: number) {
-    const center = centers.find((currentCenter) => currentCenter.id === centerId);
-
-    if (!center) {
-      return;
-    }
-
-    const shouldDelete = window.confirm(
-      `Delete ${center.name}? This will remove it from center selection.`
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    setCenters((currentCenters) =>
-      currentCenters.filter((currentCenter) => currentCenter.id !== centerId)
-    );
-
-    setCenterDrafts((currentDrafts) => {
-      const updatedDrafts = { ...currentDrafts };
-      delete updatedDrafts[centerId];
-      return updatedDrafts;
-    });
-  }
-
-  return (
-    <>
-      <h2>Bowling Centers</h2>
-      <p>
-        Add bowling centers and lane counts. Log Games uses this lane count to
-        generate single-lane and pair dropdowns automatically.
-      </p>
-
-      <details className="center-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add Bowling Center</strong>
-          <span className="summary-hint">Open Form</span>
-        </summary>
-
-        <div className="add-form-content">
-          <div className="form-grid">
-          <label>
-            Name <span className="required">*</span>
-            <input
-              value={newCenterName}
-              onChange={(event) => setNewCenterName(event.target.value)}
-              placeholder="Example: Titan Bowl"
-            />
-          </label>
-
-          <label>
-            Number of Lanes <span className="required">*</span>
-            <input
-              type="number"
-              min="1"
-              value={newCenterLaneCount}
-              onChange={(event) => setNewCenterLaneCount(event.target.value)}
-              placeholder="Example: 8"
-            />
-          </label>
-
-          <label>
-            Notes
-            <textarea
-              value={newCenterNotes}
-              onChange={(event) => setNewCenterNotes(event.target.value)}
-              placeholder="Optional notes"
-              rows={3}
-            />
-          </label>
-        </div>
-
-          <button
-            className="primary-button"
-            disabled={!newCenterName.trim() || Number(newCenterLaneCount) < 1}
-            onClick={addCenter}
-          >
-            Add Center
-          </button>
-        </div>
-      </details>
-
-      <section className="center-list">
-        {centers.map((center) => {
-          const draftCenter = getCenterDraft(center);
-          const isDirty = hasCenterChanged(center);
-
-          return (
-            <details className="center-card" key={center.id}>
-              <summary className="center-summary">
-                <div>
-                  <strong>{center.name}</strong>
-                  <p>
-                    {center.laneCount} lane{center.laneCount === 1 ? "" : "s"}
-                  </p>
-                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
-                </div>
-
-                <span className="summary-hint">Open Details</span>
-              </summary>
-
-              <div className="center-details-content">
-                <div className="center-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={!isDirty}
-                    onClick={() => saveCenter(center.id)}
-                  >
-                    Save Center
-                  </button>
-
-                  <button
-                    className="danger-button"
-                    onClick={() => deleteCenter(center.id)}
-                  >
-                    Delete Center
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input
-                      value={draftCenter.name}
-                      onChange={(event) =>
-                        updateCenterDraft(center, { name: event.target.value })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Number of Lanes
-                    <input
-                      type="number"
-                      min="1"
-                      value={draftCenter.laneCount}
-                      onChange={(event) =>
-                        updateCenterDraft(center, {
-                          laneCount: Math.max(
-                            1,
-                            Math.floor(Number(event.target.value))
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Notes
-                    <textarea
-                      value={draftCenter.notes}
-                      onChange={(event) =>
-                        updateCenterDraft(center, { notes: event.target.value })
-                      }
-                      rows={3}
-                      placeholder="Optional notes"
-                    />
-                  </label>
-                </div>
-
-                <section className="lane-preview-card">
-                  <h4>Generated Lane Options</h4>
-                  <p>
-                    <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
-                    {draftCenter.laneCount}
-                  </p>
-                  <p>
-                    <strong>Pair Mode:</strong>{" "}
-                    {Math.floor(draftCenter.laneCount / 2) > 0
-                      ? `Pairs 1/2 through ${
-                          Math.floor(draftCenter.laneCount / 2) * 2 - 1
-                        }/${Math.floor(draftCenter.laneCount / 2) * 2}`
-                      : "No pairs available"}
-                  </p>
-                </section>
-              </div>
-            </details>
-          );
-        })}
-      </section>
-    </>
-  );
-}
-
-function EventsPage({
-  events,
-  setEvents,
-  centers,
-  patterns,
-}: EventsPageProps) {
-  const [newEventName, setNewEventName] = useState("");
-  const [newEventType, setNewEventType] = useState<"League" | "Tournament">(
-    "League"
-  );
-  const [newEventFormat, setNewEventFormat] = useState<BowlingFormat>("Singles");
-  const [newSeriesGameCount, setNewSeriesGameCount] = useState("3");
-  const [newBowlersPerPair, setNewBowlersPerPair] = useState("10");
-  const [newScheduleUnit, setNewScheduleUnit] =
-    useState<EventScheduleUnit>("Weeks");
-  const [newScheduleCount, setNewScheduleCount] = useState("12");
-  const [newStartDate, setNewStartDate] = useState("");
-  const [newEndDate, setNewEndDate] = useState("");
-  const [newCenterId, setNewCenterId] = useState("");
-  const [newPatternId, setNewPatternId] = useState("0");
-  const [newNotes, setNewNotes] = useState("");
-  const [eventDrafts, setEventDrafts] = useState<Record<number, EventSetup>>(
-    {}
-  );
-
-  function getEventDraft(event: EventSetup) {
-    return eventDrafts[event.id] ?? event;
-  }
-
-  function hasEventChanged(event: EventSetup) {
-    const draft = eventDrafts[event.id];
-
-    if (!draft) {
-      return false;
-    }
-
-    return JSON.stringify(draft) !== JSON.stringify(event);
-  }
-
-  function updateEventDraft(event: EventSetup, updates: Partial<EventSetup>) {
-    setEventDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [event.id]: {
-        ...getEventDraft(event),
-        ...updates,
-      },
-    }));
-  }
-
-  function saveEvent(eventId: number) {
-    const draft = eventDrafts[eventId];
-
-    if (!draft) {
-      return;
-    }
-
-    const trimmedName = draft.name.trim();
-
-    if (!trimmedName) {
-      window.alert("Event name cannot be empty.");
-      return;
-    }
-
-    if (!Number.isFinite(draft.seriesGameCount) || draft.seriesGameCount < 1) {
-      window.alert("Games in series/block must be at least 1.");
-      return;
-    }
-
-    if (!Number.isFinite(draft.scheduleCount) || draft.scheduleCount < 1) {
-      window.alert("Number of weeks/days must be at least 1.");
-      return;
-    }
-
-    if (!Number.isFinite(draft.bowlersPerPair) || draft.bowlersPerPair < 1) {
-      window.alert("Bowlers per pair must be at least 1.");
-      return;
-    }
-
-    if (!centers.some((center) => center.id === draft.centerId)) {
-      window.alert("Choose a valid bowling center.");
-      return;
-    }
-
-    const nameAlreadyExists = events.some(
-      (event) =>
-        event.id !== eventId &&
-        event.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (nameAlreadyExists) {
-      window.alert("An event with that name already exists.");
-      return;
-    }
-
-    setEvents((currentEvents) =>
-      currentEvents.map((event) =>
-        event.id === eventId
-          ? {
-              ...draft,
-              name: trimmedName,
-              seriesGameCount: Math.max(
-                1,
-                Math.floor(draft.seriesGameCount)
-              ),
-              bowlersPerPair: Math.max(1, Math.floor(draft.bowlersPerPair)),
-              scheduleCount: Math.max(1, Math.floor(draft.scheduleCount)),
-              startDate: draft.startDate,
-              endDate: draft.endDate,
-              notes: draft.notes.trim(),
-            }
-          : event
-      )
-    );
-
-    setEventDrafts((currentDrafts) => {
-      const updatedDrafts = { ...currentDrafts };
-      delete updatedDrafts[eventId];
-      return updatedDrafts;
-    });
-  }
-
-  function addEvent() {
-    const trimmedName = newEventName.trim();
-    const seriesGameCount = Number(newSeriesGameCount);
-    const bowlersPerPair = Number(newBowlersPerPair);
-    const scheduleCount = Number(newScheduleCount);
-    const centerId = Number(newCenterId);
-    const patternId = Number(newPatternId);
-
-    if (
-      !trimmedName ||
-      !Number.isFinite(seriesGameCount) ||
-      seriesGameCount < 1 ||
-      !Number.isFinite(bowlersPerPair) ||
-      bowlersPerPair < 1 ||
-      !Number.isFinite(scheduleCount) ||
-      scheduleCount < 1 ||
-      !Number.isFinite(centerId)
-    ) {
-      return;
-    }
-
-    const nameAlreadyExists = events.some(
-      (event) => event.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (nameAlreadyExists) {
-      window.alert("An event with that name already exists.");
-      return;
-    }
-
-    setEvents((currentEvents) => [
-      ...currentEvents,
-      {
-        id: Date.now(),
-        name: trimmedName,
-        eventType: newEventType,
-        format: newEventFormat,
-        seriesGameCount: Math.floor(seriesGameCount),
-        bowlersPerPair: Math.floor(bowlersPerPair),
-        scheduleUnit: newScheduleUnit,
-        scheduleCount: Math.floor(scheduleCount),
-        startDate: newStartDate,
-        endDate: newEndDate,
-        centerId,
-        patternId: Number.isFinite(patternId) ? patternId : 0,
-        notes: newNotes.trim(),
-      },
-    ]);
-
-    setNewEventName("");
-    setNewEventType("League");
-    setNewEventFormat("Singles");
-    setNewSeriesGameCount("3");
-    setNewBowlersPerPair("10");
-    setNewScheduleUnit("Weeks");
-    setNewScheduleCount("12");
-    setNewStartDate("");
-    setNewEndDate("");
-    setNewCenterId("");
-    setNewPatternId("0");
-    setNewNotes("");
-  }
-
-  function deleteEvent(eventId: number) {
-    const event = events.find((currentEvent) => currentEvent.id === eventId);
-
-    if (!event) {
-      return;
-    }
-
-    const shouldDelete = window.confirm(
-      `Delete ${event.name}? This will remove it from league/tournament selection.`
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    setEvents((currentEvents) =>
-      currentEvents.filter((currentEvent) => currentEvent.id !== eventId)
-    );
-
-    setEventDrafts((currentDrafts) => {
-      const updatedDrafts = { ...currentDrafts };
-      delete updatedDrafts[eventId];
-      return updatedDrafts;
-    });
-  }
-
-  function getCenterName(centerId: number) {
-    return (
-      centers.find((center) => center.id === centerId)?.name ?? "Unknown Center"
-    );
-  }
-
-  function getPatternName(patternId: number) {
-    return (
-      patterns.find((pattern) => pattern.id === patternId)?.name ??
-      "Unknown Pattern"
-    );
-  }
-
-  function getScheduleLabel(event: EventSetup) {
-    return `${event.scheduleCount} ${event.scheduleUnit.toLowerCase()}`;
-  }
-
-  function formatEventSummary(event: EventSetup) {
-    return `${event.eventType} • ${event.format} • ${event.seriesGameCount} game${
-      event.seriesGameCount === 1 ? "" : "s"
-    } • ${event.bowlersPerPair} per pair • ${getScheduleLabel(event)} • ${getCenterName(event.centerId)}`;
-  }
-
-  const canAddEvent =
-    newEventName.trim() !== "" &&
-    Number(newSeriesGameCount) >= 1 &&
-    Number(newBowlersPerPair) >= 1 &&
-    Number(newScheduleCount) >= 1 &&
-    newCenterId !== "";
-
-  return (
-    <>
-      <h2>Tournaments / Leagues</h2>
-      <p>
-        Create leagues and tournaments so Log Games can pull the center, pattern,
-        number of games in the set/block, and exact week/day automatically.
-      </p>
-
-      <details className="event-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add League / Tournament</strong>
-          <span className="summary-hint">Open Form</span>
-        </summary>
-
-        <div className="add-form-content">
-          <div className="form-grid">
-          <label>
-            Name <span className="required">*</span>
-            <input
-              value={newEventName}
-              onChange={(event) => setNewEventName(event.target.value)}
-              placeholder="Example: Tuesday Night League"
-            />
-          </label>
-
-          <label>
-            Type
-            <select
-              value={newEventType}
-              onChange={(event) => {
-                const nextType = event.target.value as "League" | "Tournament";
-                setNewEventType(nextType);
-                setNewScheduleUnit(nextType === "League" ? "Weeks" : "Days");
-                setNewScheduleCount(nextType === "League" ? "12" : "1");
-              }}
-            >
-              <option>League</option>
-              <option>Tournament</option>
-            </select>
-          </label>
-
-          <label>
-            Format
-            <select
-              value={newEventFormat}
-              onChange={(event) =>
-                setNewEventFormat(event.target.value as BowlingFormat)
-              }
-            >
-              <option>Singles</option>
-              <option>Doubles</option>
-              <option>Trios</option>
-              <option>Fours</option>
-              <option>Fives</option>
-              <option>Baker</option>
-            </select>
-          </label>
-
-          <label>
-            Games in Series/Block <span className="required">*</span>
-            <input
-              type="number"
-              min="1"
-              value={newSeriesGameCount}
-              onChange={(event) => setNewSeriesGameCount(event.target.value)}
-              placeholder="Example: 3"
-            />
-          </label>
-
-          <label>
-            Bowlers Per Pair <span className="required">*</span>
-            <input
-              type="number"
-              min="1"
-              value={newBowlersPerPair}
-              onChange={(event) => setNewBowlersPerPair(event.target.value)}
-              placeholder="Example: 10"
-            />
-          </label>
-
-          <label>
-            Schedule Type
-            <select
-              value={newScheduleUnit}
-              onChange={(event) =>
-                setNewScheduleUnit(event.target.value as EventScheduleUnit)
-              }
-            >
-              <option>Weeks</option>
-              <option>Days</option>
-            </select>
-          </label>
-
-          <label>
-            Number of {newScheduleUnit} <span className="required">*</span>
-            <input
-              type="number"
-              min="1"
-              value={newScheduleCount}
-              onChange={(event) => setNewScheduleCount(event.target.value)}
-              placeholder={newScheduleUnit === "Weeks" ? "Example: 12" : "Example: 2"}
-            />
-          </label>
-
-          <label>
-            Start Date
-            <input
-              type="date"
-              value={newStartDate}
-              onChange={(event) => setNewStartDate(event.target.value)}
-            />
-          </label>
-
-          <label>
-            End Date
-            <input
-              type="date"
-              value={newEndDate}
-              onChange={(event) => setNewEndDate(event.target.value)}
-            />
-          </label>
-
-          <label>
-            Bowling Center <span className="required">*</span>
-            <select
-              value={newCenterId}
-              onChange={(event) => setNewCenterId(event.target.value)}
-            >
-              <option value="">Select bowling center</option>
-              {centers.map((center) => (
-                <option key={center.id} value={center.id}>
-                  {center.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Pattern
-            <select
-              value={newPatternId}
-              onChange={(event) => setNewPatternId(event.target.value)}
-            >
-              {patterns.map((pattern) => (
-                <option key={pattern.id} value={pattern.id}>
-                  {pattern.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Notes
-            <textarea
-              value={newNotes}
-              onChange={(event) => setNewNotes(event.target.value)}
-              rows={3}
-              placeholder="Optional notes"
-            />
-          </label>
-        </div>
-
-          <button
-            className="primary-button"
-            disabled={!canAddEvent}
-            onClick={addEvent}
-          >
-            Add Event
-          </button>
-        </div>
-      </details>
-
-      <section className="event-list">
-        {events.map((event) => {
-          const draftEvent = getEventDraft(event);
-          const isDirty = hasEventChanged(event);
-
-          return (
-            <details className="event-card" key={event.id}>
-              <summary className="event-summary">
-                <div>
-                  <strong>{event.name}</strong>
-                  <p>{formatEventSummary(event)}</p>
-                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
-                </div>
-
-                <span className="summary-hint">Open Details</span>
-              </summary>
-
-              <div className="event-details-content">
-                <div className="event-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={!isDirty}
-                    onClick={() => saveEvent(event.id)}
-                  >
-                    Save Event
-                  </button>
-
-                  <button
-                    className="danger-button"
-                    onClick={() => deleteEvent(event.id)}
-                  >
-                    Delete Event
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input
-                      value={draftEvent.name}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          name: inputEvent.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Type
-                    <select
-                      value={draftEvent.eventType}
-                      onChange={(inputEvent) => {
-                        const nextType = inputEvent.target.value as
-                          | "League"
-                          | "Tournament";
-
-                        updateEventDraft(event, {
-                          eventType: nextType,
-                          scheduleUnit:
-                            nextType === "League" ? "Weeks" : "Days",
-                        });
-                      }}
-                    >
-                      <option>League</option>
-                      <option>Tournament</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    Format
-                    <select
-                      value={draftEvent.format}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          format: inputEvent.target.value as BowlingFormat,
-                        })
-                      }
-                    >
-                      <option>Singles</option>
-                      <option>Doubles</option>
-                      <option>Trios</option>
-                      <option>Fours</option>
-                      <option>Fives</option>
-                      <option>Baker</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    Games in Series/Block
-                    <input
-                      type="number"
-                      min="1"
-                      value={draftEvent.seriesGameCount}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          seriesGameCount: Math.max(
-                            1,
-                            Math.floor(Number(inputEvent.target.value))
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Bowlers Per Pair
-                    <input
-                      type="number"
-                      min="1"
-                      value={draftEvent.bowlersPerPair}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          bowlersPerPair: Math.max(
-                            1,
-                            Math.floor(Number(inputEvent.target.value))
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Schedule Type
-                    <select
-                      value={draftEvent.scheduleUnit}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          scheduleUnit: inputEvent.target
-                            .value as EventScheduleUnit,
-                        })
-                      }
-                    >
-                      <option>Weeks</option>
-                      <option>Days</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    Number of {draftEvent.scheduleUnit}
-                    <input
-                      type="number"
-                      min="1"
-                      value={draftEvent.scheduleCount}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          scheduleCount: Math.max(
-                            1,
-                            Math.floor(Number(inputEvent.target.value))
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Start Date
-                    <input
-                      type="date"
-                      value={draftEvent.startDate}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          startDate: inputEvent.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    End Date
-                    <input
-                      type="date"
-                      value={draftEvent.endDate}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          endDate: inputEvent.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Bowling Center
-                    <select
-                      value={draftEvent.centerId}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          centerId: Number(inputEvent.target.value),
-                        })
-                      }
-                    >
-                      {centers.map((center) => (
-                        <option key={center.id} value={center.id}>
-                          {center.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Pattern
-                    <select
-                      value={draftEvent.patternId}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          patternId: Number(inputEvent.target.value),
-                        })
-                      }
-                    >
-                      {patterns.map((pattern) => (
-                        <option key={pattern.id} value={pattern.id}>
-                          {pattern.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Notes
-                    <textarea
-                      value={draftEvent.notes}
-                      onChange={(inputEvent) =>
-                        updateEventDraft(event, {
-                          notes: inputEvent.target.value,
-                        })
-                      }
-                      rows={3}
-                      placeholder="Optional notes"
-                    />
-                  </label>
-                </div>
-
-                <section className="event-preview-card">
-                  <h4>Event Summary</h4>
-                  <p>
-                    <strong>Type:</strong> {draftEvent.eventType}
-                  </p>
-                  <p>
-                    <strong>Format:</strong> {draftEvent.format}
-                  </p>
-                  <p>
-                    <strong>Games in Series/Block:</strong>{" "}
-                    {draftEvent.seriesGameCount}
-                  </p>
-                  <p>
-                    <strong>Bowlers Per Pair:</strong> {draftEvent.bowlersPerPair}
-                  </p>
-                  <p>
-                    <strong>Schedule:</strong> {getScheduleLabel(draftEvent)}
-                  </p>
-                  <p>
-                    <strong>Dates:</strong>{" "}
-                    {draftEvent.startDate || "No start date"} →{" "}
-                    {draftEvent.endDate || "No end date"}
-                  </p>
-                  <p>
-                    <strong>Bowling Center:</strong>{" "}
-                    {getCenterName(draftEvent.centerId)}
-                  </p>
-                  <p>
-                    <strong>Pattern:</strong>{" "}
-                    {getPatternName(draftEvent.patternId)}
-                  </p>
-                </section>
-              </div>
-            </details>
-          );
-        })}
-      </section>
-    </>
-  );
-}
-function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
-  const [newPatternName, setNewPatternName] = useState("");
-  const [newPatternLength, setNewPatternLength] = useState("");
-  const [newPatternVolume, setNewPatternVolume] = useState("");
-  const [newPatternRatio, setNewPatternRatio] = useState("");
-  const [newPatternDropBrush, setNewPatternDropBrush] = useState("");
-  const [newPatternSource, setNewPatternSource] = useState("");
-  const [newPatternNotes, setNewPatternNotes] = useState("");
-  const [patternDrafts, setPatternDrafts] = useState<Record<number, Pattern>>(
-    {}
-  );
-
-  function getPatternDraft(pattern: Pattern) {
-    return patternDrafts[pattern.id] ?? pattern;
-  }
-
-  function hasPatternChanged(pattern: Pattern) {
-    const draft = patternDrafts[pattern.id];
-
-    if (!draft) {
-      return false;
-    }
-
-    return (
-      draft.name !== pattern.name ||
-      draft.length !== pattern.length ||
-      draft.volume !== pattern.volume ||
-      draft.ratio !== pattern.ratio ||
-      draft.dropBrush !== pattern.dropBrush ||
-      draft.source !== pattern.source ||
-      draft.notes !== pattern.notes
-    );
-  }
-
-  function updatePatternDraft(pattern: Pattern, updates: Partial<Pattern>) {
-    setPatternDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [pattern.id]: {
-        ...getPatternDraft(pattern),
-        ...updates,
-      },
-    }));
-  }
-
-  function savePattern(patternId: number) {
-    const draft = patternDrafts[patternId];
-
-    if (!draft) {
-      return;
-    }
-
-    setPatterns((currentPatterns) =>
-      currentPatterns.map((pattern) =>
-        pattern.id === patternId ? { ...draft } : pattern
-      )
-    );
-
-    setPatternDrafts((currentDrafts) => {
-      const updatedDrafts = { ...currentDrafts };
-      delete updatedDrafts[patternId];
-      return updatedDrafts;
-    });
-  }
-
-  function addPattern() {
-    const trimmedName = newPatternName.trim();
-
-    if (!trimmedName) {
-      return;
-    }
-
-    const nameAlreadyExists = patterns.some(
-      (pattern) => pattern.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (nameAlreadyExists) {
-      window.alert("A pattern with that name already exists.");
-      return;
-    }
-
-    setPatterns((currentPatterns) => [
-      ...currentPatterns,
-      {
-        id: Date.now(),
-        name: trimmedName,
-        length: newPatternLength.trim(),
-        volume: newPatternVolume.trim(),
-        ratio: newPatternRatio.trim(),
-        dropBrush: newPatternDropBrush.trim(),
-        source: newPatternSource.trim(),
-        notes: newPatternNotes.trim(),
-      },
-    ]);
-
-    setNewPatternName("");
-    setNewPatternLength("");
-    setNewPatternVolume("");
-    setNewPatternRatio("");
-    setNewPatternDropBrush("");
-    setNewPatternSource("");
-    setNewPatternNotes("");
-  }
-
-  function deletePattern(patternId: number) {
-    const pattern = patterns.find(
-      (currentPattern) => currentPattern.id === patternId
-    );
-
-    if (!pattern) {
-      return;
-    }
-
-    const shouldDelete = window.confirm(
-      `Delete ${pattern.name}? This will remove it from pattern selection.`
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    setPatterns((currentPatterns) =>
-      currentPatterns.filter(
-        (currentPattern) => currentPattern.id !== patternId
-      )
-    );
-
-    setPatternDrafts((currentDrafts) => {
-      const updatedDrafts = { ...currentDrafts };
-      delete updatedDrafts[patternId];
-      return updatedDrafts;
-    });
-  }
-
-  function formatPatternSummary(pattern: Pattern) {
-    const details = [
-      pattern.length ? `${pattern.length} ft` : "",
-      pattern.volume ? `${pattern.volume} mL` : "",
-      pattern.ratio ? `${pattern.ratio}:1` : "",
-    ].filter(Boolean);
-
-    return details.length > 0 ? details.join(" • ") : "No specs entered";
-  }
-
-  return (
-    <>
-      <h2>Patterns</h2>
-      <p>
-        Add oil patterns with length, volume, ratio, drop brush, source, and
-        notes. Log Games will use this list when selecting a pattern.
-      </p>
-
-      <details className="pattern-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add Pattern</strong>
-          <span className="summary-hint">Open Form</span>
-        </summary>
-
-        <div className="add-form-content">
-          <div className="form-grid">
-          <label>
-            Name <span className="required">*</span>
-            <input
-              value={newPatternName}
-              onChange={(event) => setNewPatternName(event.target.value)}
-              placeholder="Example: 2025 PBA Wolf"
-            />
-          </label>
-
-          <label>
-            Length
-            <input
-              value={newPatternLength}
-              onChange={(event) => setNewPatternLength(event.target.value)}
-              placeholder="Example: 32"
-            />
-          </label>
-
-          <label>
-            Volume
-            <input
-              value={newPatternVolume}
-              onChange={(event) => setNewPatternVolume(event.target.value)}
-              placeholder="Example: 28.5"
-            />
-          </label>
-
-          <label>
-            Ratio
-            <input
-              value={newPatternRatio}
-              onChange={(event) => setNewPatternRatio(event.target.value)}
-              placeholder="Example: 2.0"
-            />
-          </label>
-
-          <label>
-            Drop Brush
-            <input
-              value={newPatternDropBrush}
-              onChange={(event) => setNewPatternDropBrush(event.target.value)}
-              placeholder="Optional"
-            />
-          </label>
-
-          <label>
-            Source
-            <input
-              value={newPatternSource}
-              onChange={(event) => setNewPatternSource(event.target.value)}
-              placeholder="Example: Kegel, PBA, custom"
-            />
-          </label>
-
-          <label>
-            Notes
-            <textarea
-              value={newPatternNotes}
-              onChange={(event) => setNewPatternNotes(event.target.value)}
-              placeholder="Optional notes"
-              rows={3}
-            />
-          </label>
-        </div>
-
-          <button
-            className="primary-button"
-            disabled={!newPatternName.trim()}
-            onClick={addPattern}
-          >
-            Add Pattern
-          </button>
-        </div>
-      </details>
-
-      <section className="pattern-list">
-        {patterns.map((pattern) => {
-          const draftPattern = getPatternDraft(pattern);
-          const isDirty = hasPatternChanged(pattern);
-
-          return (
-            <details className="pattern-card" key={pattern.id}>
-              <summary className="pattern-summary">
-                <div>
-                  <strong>{pattern.name}</strong>
-                  <p>{formatPatternSummary(pattern)}</p>
-                  {isDirty && (
-                    <p className="unsaved-text">Unsaved changes</p>
-                  )}
-                </div>
-
-                <span className="summary-hint">Open Details</span>
-              </summary>
-
-              <div className="pattern-details-content">
-                <div className="pattern-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={!isDirty}
-                    onClick={() => savePattern(pattern.id)}
-                  >
-                    Save Pattern
-                  </button>
-
-                  <button
-                    className="danger-button"
-                    onClick={() => deletePattern(pattern.id)}
-                  >
-                    Delete Pattern
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input
-                      value={draftPattern.name}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          name: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Length
-                    <input
-                      value={draftPattern.length}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          length: event.target.value,
-                        })
-                      }
-                      placeholder="Example: 32"
-                    />
-                  </label>
-
-                  <label>
-                    Volume
-                    <input
-                      value={draftPattern.volume}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          volume: event.target.value,
-                        })
-                      }
-                      placeholder="Example: 28.5"
-                    />
-                  </label>
-
-                  <label>
-                    Ratio
-                    <input
-                      value={draftPattern.ratio}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          ratio: event.target.value,
-                        })
-                      }
-                      placeholder="Example: 2.0"
-                    />
-                  </label>
-
-                  <label>
-                    Drop Brush
-                    <input
-                      value={draftPattern.dropBrush}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          dropBrush: event.target.value,
-                        })
-                      }
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label>
-                    Source
-                    <input
-                      value={draftPattern.source}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          source: event.target.value,
-                        })
-                      }
-                      placeholder="Example: Kegel, PBA, custom"
-                    />
-                  </label>
-
-                  <label>
-                    Notes
-                    <textarea
-                      value={draftPattern.notes}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          notes: event.target.value,
-                        })
-                      }
-                      rows={3}
-                      placeholder="Optional notes"
-                    />
-                  </label>
-                </div>
-
-                <section className="pattern-preview-card">
-                  <h4>Pattern Summary</h4>
-                  <p>
-                    <strong>Length:</strong>{" "}
-                    {draftPattern.length
-                      ? `${draftPattern.length} ft`
-                      : "Not entered"}
-                  </p>
-                  <p>
-                    <strong>Volume:</strong>{" "}
-                    {draftPattern.volume
-                      ? `${draftPattern.volume} mL`
-                      : "Not entered"}
-                  </p>
-                  <p>
-                    <strong>Ratio:</strong>{" "}
-                    {draftPattern.ratio
-                      ? `${draftPattern.ratio}:1`
-                      : "Not entered"}
-                  </p>
-                  <p>
-                    <strong>Drop Brush:</strong>{" "}
-                    {draftPattern.dropBrush || "Not entered"}
-                  </p>
-                  <p>
-                    <strong>Source:</strong>{" "}
-                    {draftPattern.source || "Not entered"}
-                  </p>
-                </section>
-              </div>
-            </details>
-          );
-        })}
-      </section>
-    </>
-  );
-}
-export default App;
