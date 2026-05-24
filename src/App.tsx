@@ -2,8 +2,10 @@
 // ==================
 
 import {
+  useEffect,
   useMemo,
   useState,
+  type ChangeEvent,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -19,7 +21,8 @@ type Tab =
   | "bowlers"
   | "centers"
   | "events"
-  | "patterns";
+  | "patterns"
+  | "data";
 
 type CompetitionType = "Open" | "League" | "Tournament";
 
@@ -143,6 +146,7 @@ type SavedGameRecord = {
   eventStageLabel: string;
   gameNumber: number;
   laneLabel: string;
+  setNotes?: string;
   bowlerNames: string[];
   scores: CompletedGameScore[];
   entries: FrameEntry[];
@@ -181,10 +185,56 @@ type EventsPageProps = {
 
 type StatsPageProps = {
   bowlers: Bowler[];
+  centers: Center[];
+  patterns: Pattern[];
   savedGames: SavedGameRecord[];
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
   savedEventLogs: SavedEventLog[];
   setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
+};
+
+type DataManagementPageProps = {
+  bowlers: Bowler[];
+  setBowlers: Dispatch<SetStateAction<Bowler[]>>;
+  centers: Center[];
+  setCenters: Dispatch<SetStateAction<Center[]>>;
+  patterns: Pattern[];
+  setPatterns: Dispatch<SetStateAction<Pattern[]>>;
+  events: EventSetup[];
+  setEvents: Dispatch<SetStateAction<EventSetup[]>>;
+  savedEventLogs: SavedEventLog[];
+  setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
+  savedGames: SavedGameRecord[];
+  setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
+  backupData: PinSighterBackupData;
+};
+
+type PinSighterBackupData = {
+  bowlers: Bowler[];
+  centers: Center[];
+  patterns: Pattern[];
+  events: EventSetup[];
+  savedEventLogs: SavedEventLog[];
+  savedGames: SavedGameRecord[];
+};
+
+type PinSighterBackup = {
+  appName: "Pin-Sighter";
+  version: number;
+  exportedAt: string;
+  data: PinSighterBackupData;
+};
+
+type PinSighterImportResult = {
+  data: PinSighterBackupData;
+  warnings: string[];
+};
+
+type SetMetadataDraft = {
+  centerName: string;
+  patternName: string;
+  gameLaneLabels: Record<string, string>;
+  setNotes: string;
 };
 
 type GameEntryPageProps = {
@@ -239,6 +289,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "centers", label: "Bowling Centers" },
   { id: "events", label: "Tournaments / Leagues" },
   { id: "patterns", label: "Patterns" },
+  { id: "data", label: "Data" },
 ];
 
 const defaultCenters: Center[] = [
@@ -776,23 +827,521 @@ function createSampleSavedEventLogs(): SavedEventLog[] {
 }
 
 
+// Persistence Helpers
+// ==================
+
+const storageKeys = {
+  bowlers: "pin-sighter:bowlers:v1",
+  centers: "pin-sighter:centers:v1",
+  patterns: "pin-sighter:patterns:v1",
+  events: "pin-sighter:events:v1",
+  savedEventLogs: "pin-sighter:saved-event-logs:v1",
+  savedGames: "pin-sighter:saved-games:v1",
+  appDataFileFallback: "pin-sighter:app-data-file-json:v1",
+  temporaryBackup: "pin-sighter:temporary-backup-json:v1",
+  setupComplete: "pin-sighter:setup-complete:v1",
+};
+
+const currentBackupVersion = 1;
+const minimumSupportedBackupVersion = 1;
+const dataFolderName = "data";
+const backupFolderName = "back-ups";
+const appDataFileName = "pin-sighter-data.json";
+const temporaryBackupFileName = "pin-sighter-temporary-backup.json";
+
+function loadFromLocalStorage<T>(key: string, fallbackValue: T): T {
+  try {
+    const storedValue = localStorage.getItem(key);
+
+    if (!storedValue) {
+      return fallbackValue;
+    }
+
+    return JSON.parse(storedValue) as T;
+  } catch (error) {
+    console.warn(`Unable to load ${key} from localStorage.`, error);
+    return fallbackValue;
+  }
+}
+
+function hasExistingPinSighterData() {
+  return Object.entries(storageKeys).some(([storageName, key]) => {
+    if (
+      storageName === "temporaryBackup" ||
+      storageName === "setupComplete" ||
+      storageName === "appDataFileFallback"
+    ) {
+      return false;
+    }
+
+    return localStorage.getItem(key) !== null;
+  });
+}
+
+function hasCompletedFirstLaunchSetup() {
+  return (
+    localStorage.getItem(storageKeys.setupComplete) === "true" ||
+    hasExistingPinSighterData()
+  );
+}
+
+function markFirstLaunchSetupComplete() {
+  localStorage.setItem(storageKeys.setupComplete, "true");
+}
+
+function createEmptyBackupData(): PinSighterBackupData {
+  return {
+    bowlers: [],
+    centers: [],
+    patterns: [],
+    events: [],
+    savedEventLogs: [],
+    savedGames: [],
+  };
+}
+
+function createSampleBackupData(): PinSighterBackupData {
+  return {
+    bowlers: defaultBowlers,
+    centers: defaultCenters,
+    patterns: defaultPatterns,
+    events: defaultEvents,
+    savedEventLogs: createSampleSavedEventLogs(),
+    savedGames: createSampleSavedGames(),
+  };
+}
+
+function saveToLocalStorage<T>(key: string, value: T) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Unable to save ${key} to localStorage.`, error);
+  }
+}
+
+function clearPinSighterLocalStorage() {
+  Object.entries(storageKeys).forEach(([storageName, key]) => {
+    if (storageName !== "temporaryBackup" && storageName !== "setupComplete") {
+      localStorage.removeItem(key);
+    }
+  });
+}
+
+function createPinSighterBackup(data: PinSighterBackupData): PinSighterBackup {
+  return {
+    appName: "Pin-Sighter",
+    version: currentBackupVersion,
+    exportedAt: new Date().toISOString(),
+    data,
+  };
+}
+
+async function loadTauriFileSystem() {
+  const dynamicImport = new Function(
+    "specifier",
+    "return import(specifier)"
+  ) as (specifier: string) => Promise<Record<string, any>>;
+  const pathApi = await dynamicImport("@tauri-apps/api/path");
+  let fsApi: Record<string, any>;
+
+  try {
+    fsApi = await dynamicImport("@tauri-apps/plugin-fs");
+  } catch {
+    fsApi = await dynamicImport("@tauri-apps/api/fs");
+  }
+
+  return { pathApi, fsApi };
+}
+
+async function joinAppPath(pathApi: Record<string, any>, ...parts: string[]) {
+  if (pathApi.join) {
+    return pathApi.join(...parts);
+  }
+
+  return parts
+    .map((part, index) =>
+      index === 0 ? part.replace(/[\\/]$/, "") : part.replace(/^[\\/]/, "")
+    )
+    .join("/");
+}
+
+async function createTauriDirectory(fsApi: Record<string, any>, path: string) {
+  if (fsApi.mkdir) {
+    await fsApi.mkdir(path, { recursive: true });
+    return;
+  }
+
+  if (fsApi.createDir) {
+    await fsApi.createDir(path, { recursive: true });
+  }
+}
+
+async function getAppStoragePaths() {
+  const { pathApi, fsApi } = await loadTauriFileSystem();
+  const appDataDir = await pathApi.appDataDir();
+  const dataFolderPath = await joinAppPath(pathApi, appDataDir, dataFolderName);
+  const backupFolderPath = await joinAppPath(
+    pathApi,
+    appDataDir,
+    backupFolderName
+  );
+
+  return {
+    fsApi,
+    dataFolderPath,
+    backupFolderPath,
+    appDataFilePath: await joinAppPath(
+      pathApi,
+      dataFolderPath,
+      appDataFileName
+    ),
+    temporaryBackupFilePath: await joinAppPath(
+      pathApi,
+      backupFolderPath,
+      temporaryBackupFileName
+    ),
+  };
+}
+
+async function writeAppDataFile(backup: PinSighterBackup) {
+  const backupJson = JSON.stringify(backup, null, 2);
+
+  saveToLocalStorage(storageKeys.appDataFileFallback, backupJson);
+
+  try {
+    const storagePaths = await getAppStoragePaths();
+
+    await createTauriDirectory(storagePaths.fsApi, storagePaths.dataFolderPath);
+    await storagePaths.fsApi.writeTextFile(
+      storagePaths.appDataFilePath,
+      backupJson
+    );
+
+    return {
+      ok: true,
+      path: storagePaths.appDataFilePath,
+      message: `App data saved to ${storagePaths.appDataFilePath}`,
+    };
+  } catch (error) {
+    console.warn("Unable to write app data file.", error);
+
+    return {
+      ok: false,
+      path: "localStorage fallback",
+      message:
+        "App data saved to localStorage fallback. File storage needs Tauri filesystem access.",
+    };
+  }
+}
+
+function createTimedOutAppDataResult() {
+  return {
+    ok: false,
+    backup: null,
+    path: "",
+    message:
+      "App data file check timed out. Continuing with localStorage or first-launch setup.",
+  };
+}
+
+async function readAppDataFileWithTimeout(timeoutMs = 1500) {
+  return Promise.race([
+    readAppDataFile(),
+    new Promise<Awaited<ReturnType<typeof readAppDataFile>>>((resolve) => {
+      window.setTimeout(() => resolve(createTimedOutAppDataResult()), timeoutMs);
+    }),
+  ]);
+}
+
+async function readAppDataFile() {
+  try {
+    const storagePaths = await getAppStoragePaths();
+    const backupJson = await storagePaths.fsApi.readTextFile(
+      storagePaths.appDataFilePath
+    );
+
+    return {
+      ok: true,
+      backup: JSON.parse(backupJson) as PinSighterBackup,
+      path: storagePaths.appDataFilePath,
+      message: `App data loaded from ${storagePaths.appDataFilePath}`,
+    };
+  } catch (error) {
+    console.warn("Unable to read app data file.", error);
+
+    const fallbackJson = localStorage.getItem(storageKeys.appDataFileFallback);
+
+    if (!fallbackJson) {
+      return {
+        ok: false,
+        backup: null,
+        path: "",
+        message: "No app data file found.",
+      };
+    }
+
+    try {
+      return {
+        ok: true,
+        backup: JSON.parse(fallbackJson) as PinSighterBackup,
+        path: "localStorage fallback",
+        message: "App data loaded from localStorage fallback.",
+      };
+    } catch (fallbackError) {
+      console.warn("Unable to read app data fallback.", fallbackError);
+
+      return {
+        ok: false,
+        backup: null,
+        path: "",
+        message: "No valid app data file found.",
+      };
+    }
+  }
+}
+
+async function writeTemporaryBackup(backup: PinSighterBackup) {
+  const backupJson = JSON.stringify(backup, null, 2);
+
+  saveToLocalStorage(storageKeys.temporaryBackup, backupJson);
+
+  try {
+    const storagePaths = await getAppStoragePaths();
+
+    await createTauriDirectory(
+      storagePaths.fsApi,
+      storagePaths.backupFolderPath
+    );
+    await storagePaths.fsApi.writeTextFile(
+      storagePaths.temporaryBackupFilePath,
+      backupJson
+    );
+
+    return {
+      ok: true,
+      path: storagePaths.temporaryBackupFilePath,
+      message: `Temporary backup saved to ${storagePaths.temporaryBackupFilePath}`,
+    };
+  } catch (error) {
+    console.warn("Unable to write temporary backup file.", error);
+
+    return {
+      ok: false,
+      path: "localStorage fallback",
+      message:
+        "Temporary backup saved to localStorage fallback. File backup needs Tauri filesystem access.",
+    };
+  }
+}
+
 // App Shell
 // ==================
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  const [bowlers, setBowlers] = useState<Bowler[]>(defaultBowlers);
-  const [centers, setCenters] = useState<Center[]>(defaultCenters);
-  const [patterns, setPatterns] = useState<Pattern[]>(defaultPatterns);
-  const [events, setEvents] = useState<EventSetup[]>(defaultEvents);
-  const [savedEventLogs, setSavedEventLogs] = useState<SavedEventLog[]>(
-    createSampleSavedEventLogs()
+  const [hasCheckedAppDataFile, setHasCheckedAppDataFile] = useState(false);
+  const [hasCompletedSetup, setHasCompletedSetup] = useState(() =>
+    hasCompletedFirstLaunchSetup()
   );
-  const [savedGames, setSavedGames] = useState<SavedGameRecord[]>(
-    createSampleSavedGames()
+  const [bowlers, setBowlers] = useState<Bowler[]>(() =>
+    hasCompletedFirstLaunchSetup()
+      ? loadFromLocalStorage(storageKeys.bowlers, defaultBowlers)
+      : []
+  );
+  const [centers, setCenters] = useState<Center[]>(() =>
+    hasCompletedFirstLaunchSetup()
+      ? loadFromLocalStorage(storageKeys.centers, defaultCenters)
+      : []
+  );
+  const [patterns, setPatterns] = useState<Pattern[]>(() =>
+    hasCompletedFirstLaunchSetup()
+      ? loadFromLocalStorage(storageKeys.patterns, defaultPatterns)
+      : []
+  );
+  const [events, setEvents] = useState<EventSetup[]>(() =>
+    hasCompletedFirstLaunchSetup()
+      ? loadFromLocalStorage(storageKeys.events, defaultEvents)
+      : []
+  );
+  const [savedEventLogs, setSavedEventLogs] = useState<SavedEventLog[]>(() =>
+    hasCompletedFirstLaunchSetup()
+      ? loadFromLocalStorage(storageKeys.savedEventLogs, createSampleSavedEventLogs())
+      : []
+  );
+  const [savedGames, setSavedGames] = useState<SavedGameRecord[]>(() =>
+    hasCompletedFirstLaunchSetup()
+      ? loadFromLocalStorage(storageKeys.savedGames, createSampleSavedGames())
+      : []
   );
 
+  const backupData = useMemo(
+    () => ({
+      bowlers,
+      centers,
+      patterns,
+      events,
+      savedEventLogs,
+      savedGames,
+    }),
+    [bowlers, centers, patterns, events, savedEventLogs, savedGames]
+  );
+
+  function applyBackupData(data: PinSighterBackupData) {
+    setBowlers(data.bowlers);
+    setCenters(data.centers);
+    setPatterns(data.patterns);
+    setEvents(data.events);
+    setSavedEventLogs(data.savedEventLogs);
+    setSavedGames(data.savedGames);
+  }
+
+  function completeSetup(data: PinSighterBackupData) {
+    applyBackupData(data);
+    markFirstLaunchSetupComplete();
+    setHasCompletedSetup(true);
+  }
+
+  function handleStartEmpty() {
+    completeSetup(createEmptyBackupData());
+  }
+
+  function handleStartWithSampleData() {
+    completeSetup(createSampleBackupData());
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSavedAppDataFile() {
+      try {
+        const appDataFileResult = await readAppDataFileWithTimeout();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (appDataFileResult.ok && appDataFileResult.backup) {
+          const importResult = getImportedBackupData(appDataFileResult.backup);
+
+          applyBackupData(importResult.data);
+          markFirstLaunchSetupComplete();
+          setHasCompletedSetup(true);
+        }
+      } catch (error) {
+        console.warn("Unable to complete app data file check.", error);
+      } finally {
+        if (isMounted) {
+          setHasCheckedAppDataFile(true);
+        }
+      }
+    }
+
+    loadSavedAppDataFile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    saveToLocalStorage(storageKeys.bowlers, bowlers);
+  }, [hasCompletedSetup, hasCheckedAppDataFile, bowlers]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    saveToLocalStorage(storageKeys.centers, centers);
+  }, [hasCompletedSetup, hasCheckedAppDataFile, centers]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    saveToLocalStorage(storageKeys.patterns, patterns);
+  }, [hasCompletedSetup, hasCheckedAppDataFile, patterns]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    saveToLocalStorage(storageKeys.events, events);
+  }, [hasCompletedSetup, hasCheckedAppDataFile, events]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    saveToLocalStorage(storageKeys.savedEventLogs, savedEventLogs);
+  }, [hasCompletedSetup, hasCheckedAppDataFile, savedEventLogs]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    saveToLocalStorage(storageKeys.savedGames, savedGames);
+  }, [hasCompletedSetup, hasCheckedAppDataFile, savedGames]);
+
+  useEffect(() => {
+    const handleBrowserUnload = () => {
+      const backup = createPinSighterBackup(backupData);
+      saveToLocalStorage(storageKeys.temporaryBackup, JSON.stringify(backup, null, 2));
+    };
+
+    if (!hasCompletedSetup) {
+      return;
+    }
+
+    window.addEventListener("beforeunload", handleBrowserUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBrowserUnload);
+    };
+  }, [hasCompletedSetup, backupData]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    const appDataSaveDelay = window.setTimeout(() => {
+      writeAppDataFile(createPinSighterBackup(backupData));
+    }, 500);
+
+    return () => {
+      window.clearTimeout(appDataSaveDelay);
+    };
+  }, [hasCompletedSetup, hasCheckedAppDataFile, backupData]);
+
+  useEffect(() => {
+    if (!hasCompletedSetup || !hasCheckedAppDataFile) {
+      return;
+    }
+
+    const autoBackupDelay = window.setTimeout(() => {
+      writeTemporaryBackup(createPinSighterBackup(backupData));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(autoBackupDelay);
+    };
+  }, [hasCompletedSetup, hasCheckedAppDataFile, backupData]);
+
   async function handleCloseApp() {
+    const backup = createPinSighterBackup(backupData);
+
+    await writeAppDataFile(backup);
+    await writeTemporaryBackup(backup);
+
     try {
       const tauriWindowApi = (await import("@tauri-apps/api/window")) as {
         getCurrentWindow?: () => { close: () => Promise<void> };
@@ -819,7 +1368,30 @@ function App() {
         <p>Bowling Game Logger, Shot Tracker, stats, and analytics</p>
       </section>
 
-      {activeTab === "home" ? (
+      {!hasCheckedAppDataFile ? (
+        <section className="setup-card">
+          <h2>Loading Pin-Sighter</h2>
+          <p>Checking for a saved app data file. This should only take a moment.</p>
+        </section>
+      ) : !hasCompletedSetup ? (
+        <section className="setup-card">
+          <h2>Set Up Pin-Sighter</h2>
+          <p>
+            Choose how you want to start. You can load sample data for testing
+            or start empty and build your own bowlers, centers, patterns, and
+            saved sets from scratch.
+          </p>
+
+          <div className="setup-button-row">
+            <button className="primary-button" onClick={handleStartWithSampleData}>
+              Load Sample Data
+            </button>
+            <button className="secondary-button" onClick={handleStartEmpty}>
+              Start Empty
+            </button>
+          </div>
+        </section>
+      ) : activeTab === "home" ? (
         <nav className="home-nav">
           {tabs.map((tab) => (
             <button
@@ -836,7 +1408,7 @@ function App() {
             className="nav-button close-app-button"
             onClick={handleCloseApp}
           >
-            Close App
+            Close
           </button>
         </nav>
       ) : (
@@ -859,6 +1431,8 @@ function App() {
           {activeTab === "stats" && (
             <StatsPage
               bowlers={bowlers}
+              centers={centers}
+              patterns={patterns}
               savedGames={savedGames}
               setSavedGames={setSavedGames}
               savedEventLogs={savedEventLogs}
@@ -881,10 +1455,362 @@ function App() {
           {activeTab === "patterns" && (
             <PatternsPage patterns={patterns} setPatterns={setPatterns} />
           )}
+          {activeTab === "data" && (
+            <DataManagementPage
+              bowlers={bowlers}
+              setBowlers={setBowlers}
+              centers={centers}
+              setCenters={setCenters}
+              patterns={patterns}
+              setPatterns={setPatterns}
+              events={events}
+              setEvents={setEvents}
+              savedEventLogs={savedEventLogs}
+              setSavedEventLogs={setSavedEventLogs}
+              savedGames={savedGames}
+              setSavedGames={setSavedGames}
+              backupData={backupData}
+            />
+          )}
         </section>
       )}
     </main>
   );
+}
+
+
+// Data Management
+// ==================
+
+function DataManagementPage({
+  bowlers,
+  setBowlers,
+  centers,
+  setCenters,
+  patterns,
+  setPatterns,
+  events,
+  setEvents,
+  savedEventLogs,
+  setSavedEventLogs,
+  savedGames,
+  setSavedGames,
+  backupData,
+}: DataManagementPageProps) {
+  const [dataMessage, setDataMessage] = useState("");
+
+  function handleExportData() {
+    const backup = createPinSighterBackup(backupData);
+
+    downloadJsonBackup(
+      `pin-sighter-backup-${formatBackupFileTimestamp()}.json`,
+      backup
+    );
+    setDataMessage("Backup exported.");
+  }
+
+  async function handleSaveAppDataFile() {
+    const saveResult = await writeAppDataFile(createPinSighterBackup(backupData));
+
+    setDataMessage(saveResult.message);
+  }
+
+  async function handleCreateTemporaryBackup() {
+    const backupResult = await writeTemporaryBackup(
+      createPinSighterBackup(backupData)
+    );
+
+    setDataMessage(backupResult.message);
+  }
+
+  async function handleImportData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsedBackup = JSON.parse(await file.text()) as
+        | PinSighterBackup
+        | PinSighterBackupData;
+      const importResult = getImportedBackupData(parsedBackup);
+      const importedData = importResult.data;
+
+      setBowlers(importedData.bowlers);
+      setCenters(importedData.centers);
+      setPatterns(importedData.patterns);
+      setEvents(importedData.events);
+      setSavedEventLogs(importedData.savedEventLogs);
+      setSavedGames(importedData.savedGames);
+      markFirstLaunchSetupComplete();
+      setDataMessage(
+        importResult.warnings.length > 0
+          ? `Backup imported with warnings: ${importResult.warnings.join(" ")}`
+          : "Backup imported."
+      );
+    } catch (error) {
+      console.error("Import failed.", error);
+      setDataMessage("Import failed. Make sure the file is a Pin-Sighter JSON backup.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function handleResetToSampleData() {
+    if (
+      !window.confirm(
+        "Reset everything to the sample/default Pin-Sighter data?"
+      )
+    ) {
+      return;
+    }
+
+    clearPinSighterLocalStorage();
+    loadSampleData();
+    markFirstLaunchSetupComplete();
+    setDataMessage("App data reset to sample/default data.");
+  }
+
+  function handleClearData() {
+    if (
+      !window.confirm(
+        "Clear all Pin-Sighter data and start empty? This cannot be undone unless you have a backup."
+      )
+    ) {
+      return;
+    }
+
+    clearPinSighterLocalStorage();
+    const emptyData = createEmptyBackupData();
+    setBowlers(emptyData.bowlers);
+    setCenters(emptyData.centers);
+    setPatterns(emptyData.patterns);
+    setEvents(emptyData.events);
+    setSavedEventLogs(emptyData.savedEventLogs);
+    setSavedGames(emptyData.savedGames);
+    markFirstLaunchSetupComplete();
+    setDataMessage("All app data cleared.");
+  }
+
+  function handleLoadSampleData() {
+    if (
+      !window.confirm(
+        "Load the sample/default data? This will replace the current app data."
+      )
+    ) {
+      return;
+    }
+
+    loadSampleData();
+    markFirstLaunchSetupComplete();
+    setDataMessage("Sample/default data loaded.");
+  }
+
+  function loadSampleData() {
+    const sampleData = createSampleBackupData();
+
+    setBowlers(sampleData.bowlers);
+    setCenters(sampleData.centers);
+    setPatterns(sampleData.patterns);
+    setEvents(sampleData.events);
+    setSavedEventLogs(sampleData.savedEventLogs);
+    setSavedGames(sampleData.savedGames);
+  }
+
+  return (
+    <>
+      <h2>Data</h2>
+      <p>
+        Back up, restore, reset, or clear the data stored on this device.
+      </p>
+
+      {dataMessage && <p className="success-text">{dataMessage}</p>}
+
+      <section className="data-summary-grid">
+        <article className="stat-card">
+          <span>Bowlers</span>
+          <strong>{bowlers.length}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Centers</span>
+          <strong>{centers.length}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Patterns</span>
+          <strong>{patterns.length}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Leagues / Tournaments</span>
+          <strong>{events.length}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Saved Sets</span>
+          <strong>{new Set(savedGames.map((game) => game.sessionId)).size}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Saved Games</span>
+          <strong>{savedGames.length}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Backup Version</span>
+          <strong>v{currentBackupVersion}</strong>
+        </article>
+      </section>
+
+      <section className="data-card">
+        <div>
+          <h3>App Data File</h3>
+          <p>
+            Pin-Sighter automatically saves the main app data file to the app
+            data folder under data/{appDataFileName}. localStorage is kept as a
+            fallback.
+          </p>
+        </div>
+        <button className="secondary-button" onClick={handleSaveAppDataFile}>
+          Save App Data File Now
+        </button>
+      </section>
+
+      <section className="data-card">
+        <div>
+          <h3>Backup</h3>
+          <p>
+            Export one JSON file with all bowlers, centers, patterns, events,
+            saved sets, and saved games.
+          </p>
+        </div>
+        <button className="primary-button" onClick={handleExportData}>
+          Export All Data
+        </button>
+      </section>
+
+      <section className="data-card">
+        <div>
+          <h3>Temporary Backup</h3>
+          <p>
+            The app automatically updates a temporary JSON backup shortly after
+            data changes. In Tauri, this is saved in the app data folder under
+            back-ups/{temporaryBackupFileName}. Browser mode keeps a
+            localStorage fallback.
+          </p>
+        </div>
+        <button className="secondary-button" onClick={handleCreateTemporaryBackup}>
+          Create Temporary Backup
+        </button>
+      </section>
+
+      <section className="data-card">
+        <div>
+          <h3>Restore</h3>
+          <p>
+            Import a Pin-Sighter JSON backup. This replaces the current app data.
+          </p>
+        </div>
+        <label className="import-button">
+          Import Data
+          <input type="file" accept="application/json,.json" onChange={handleImportData} />
+        </label>
+      </section>
+
+      <section className="data-card">
+        <div>
+          <h3>Sample / Reset</h3>
+          <p>
+            Reset to sample data, load sample data again, or clear everything
+            and start empty.
+          </p>
+        </div>
+        <div className="data-button-row">
+          <button className="secondary-button" onClick={handleResetToSampleData}>
+            Reset App Data
+          </button>
+          <button className="secondary-button" onClick={handleLoadSampleData}>
+            Load Sample Data
+          </button>
+          <button className="danger-button" onClick={handleClearData}>
+            Clear Sample Data
+          </button>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function getImportedBackupData(
+  parsedBackup: PinSighterBackup | PinSighterBackupData
+): PinSighterImportResult {
+  const warnings: string[] = [];
+  const hasBackupWrapper = "data" in parsedBackup;
+  const backupVersion = hasBackupWrapper ? parsedBackup.version ?? 0 : 0;
+  const importedData = hasBackupWrapper ? parsedBackup.data : parsedBackup;
+
+  if (!hasBackupWrapper) {
+    warnings.push("Legacy backup format detected.");
+  } else if (backupVersion < minimumSupportedBackupVersion) {
+    warnings.push(
+      `Backup version ${backupVersion} is older than the supported version.`
+    );
+  } else if (backupVersion > currentBackupVersion) {
+    warnings.push(
+      `Backup version ${backupVersion} is newer than this app version, so newer fields may be ignored.`
+    );
+  }
+
+  return {
+    data: normalizeImportedBackupData(importedData, warnings),
+    warnings,
+  };
+}
+
+function normalizeImportedBackupData(
+  importedData: Partial<PinSighterBackupData>,
+  warnings: string[]
+): PinSighterBackupData {
+  return {
+    bowlers: getImportedArray(importedData, "bowlers", warnings),
+    centers: getImportedArray(importedData, "centers", warnings),
+    patterns: getImportedArray(importedData, "patterns", warnings),
+    events: getImportedArray(importedData, "events", warnings),
+    savedEventLogs: getImportedArray(
+      importedData,
+      "savedEventLogs",
+      warnings
+    ),
+    savedGames: getImportedArray(importedData, "savedGames", warnings),
+  };
+}
+
+function getImportedArray<K extends keyof PinSighterBackupData>(
+  importedData: Partial<PinSighterBackupData>,
+  key: K,
+  warnings: string[]
+): PinSighterBackupData[K] {
+  if (Array.isArray(importedData[key])) {
+    return importedData[key] as PinSighterBackupData[K];
+  }
+
+  warnings.push(`Missing or invalid ${key}; using an empty list.`);
+
+  return [] as unknown as PinSighterBackupData[K];
+}
+
+function downloadJsonBackup(fileName: string, backup: PinSighterBackup) {
+  const backupBlob = new Blob([JSON.stringify(backup, null, 2)], {
+    type: "application/json",
+  });
+  const downloadUrl = URL.createObjectURL(backupBlob);
+  const downloadLink = document.createElement("a");
+
+  downloadLink.href = downloadUrl;
+  downloadLink.download = fileName;
+  downloadLink.click();
+
+  URL.revokeObjectURL(downloadUrl);
+}
+
+function formatBackupFileTimestamp() {
+  return new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
 }
 
 // Log Games
@@ -4653,6 +5579,8 @@ function StaticPinLeaveDeck({ leave }: { leave: string }) {
 
 function StatsPage({
   bowlers,
+  centers,
+  patterns,
   savedGames,
   setSavedGames,
   setSavedEventLogs,
@@ -4668,6 +5596,12 @@ function StatsPage({
   const [selectedEventStage, setSelectedEventStage] = useState("All");
   const [selectedSetKey, setSelectedSetKey] = useState("All");
   const [selectedGameNumber, setSelectedGameNumber] = useState("All");
+  const [setMetadataDrafts, setSetMetadataDrafts] = useState<
+    Record<string, SetMetadataDraft>
+  >({});
+  const [editingSetMetadataKey, setEditingSetMetadataKey] = useState<
+    string | null
+  >(null);
 
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
   const usesEventFilter =
@@ -5170,6 +6104,86 @@ function StatsPage({
     return stringValue;
   }
 
+  function getSetMetadataDraft(
+    session: ReturnType<typeof buildSessionGroups>[number]
+  ) {
+    return (
+      setMetadataDrafts[session.sessionKey] ?? createSetMetadataDraft(session)
+    );
+  }
+
+  function updateSetMetadataDraft(
+    session: ReturnType<typeof buildSessionGroups>[number],
+    field: keyof SetMetadataDraft,
+    value: string
+  ) {
+    setSetMetadataDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [session.sessionKey]: {
+        ...getSetMetadataDraft(session),
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateSetGameLaneDraft(
+    session: ReturnType<typeof buildSessionGroups>[number],
+    gameId: string,
+    laneLabel: string
+  ) {
+    setSetMetadataDrafts((currentDrafts) => {
+      const currentDraft = getSetMetadataDraft(session);
+
+      return {
+        ...currentDrafts,
+        [session.sessionKey]: {
+          ...currentDraft,
+          gameLaneLabels: {
+            ...currentDraft.gameLaneLabels,
+            [gameId]: laneLabel,
+          },
+        },
+      };
+    });
+  }
+
+  function resetSetMetadataDraft(
+    session: ReturnType<typeof buildSessionGroups>[number]
+  ) {
+    setSetMetadataDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+
+      delete updatedDrafts[session.sessionKey];
+
+      return updatedDrafts;
+    });
+  }
+
+  function saveSetMetadata(
+    session: ReturnType<typeof buildSessionGroups>[number]
+  ) {
+    const draft = getSetMetadataDraft(session);
+    const gameIds = new Set(session.games.map((game) => game.id));
+
+    setSavedGames((currentGames) =>
+      currentGames.map((game) =>
+        gameIds.has(game.id)
+          ? {
+              ...game,
+              centerName: draft.centerName.trim() || game.centerName,
+              patternName: draft.patternName.trim() || game.patternName,
+              laneLabel:
+                draft.gameLaneLabels[game.id]?.trim() || game.laneLabel,
+              setNotes: draft.setNotes.trim(),
+            }
+          : game
+      )
+    );
+
+    resetSetMetadataDraft(session);
+    setEditingSetMetadataKey(null);
+  }
+
   function exportFilteredCsv() {
     const rows = [
       [
@@ -5182,6 +6196,7 @@ function StatsPage({
         "Pattern",
         "Format",
         "Lane",
+        "Set Notes",
         "Score Label",
         "Score",
       ],
@@ -5196,6 +6211,7 @@ function StatsPage({
           game.patternName,
           game.format,
           game.laneLabel,
+          game.setNotes ?? "",
           score.label,
           score.score,
         ])
@@ -6378,6 +7394,7 @@ function StatsPage({
                         {session.games.length} game
                         {session.games.length === 1 ? "" : "s"} •{" "}
                         {session.centerName} • {session.patternName}
+                        {session.games[0]?.setNotes ? " • Notes" : ""}
                       </p>
                     </div>
 
@@ -6385,14 +7402,6 @@ function StatsPage({
                   </summary>
 
                   <div className="saved-set-details">
-                    <div className="saved-set-actions-row">
-                      <button
-                        className="danger-button"
-                        onClick={() => deleteSavedSet(session.sessionKey)}
-                      >
-                        Delete Saved Set
-                      </button>
-                    </div>
 
                     {selectedBowler !== "All" && (
                       <SetSpecificStats
@@ -6448,6 +7457,47 @@ function StatsPage({
                         </p>
                       </article>
                     ))}
+
+                    <div className="saved-set-actions-row">
+                      <button
+                        className="secondary-button"
+                        onClick={() =>
+                          setEditingSetMetadataKey(
+                            editingSetMetadataKey === session.sessionKey
+                              ? null
+                              : session.sessionKey
+                          )
+                        }
+                      >
+                        {editingSetMetadataKey === session.sessionKey
+                          ? "Close Edit Data"
+                          : "Edit Data"}
+                      </button>
+                      <button
+                        className="danger-button"
+                        onClick={() => deleteSavedSet(session.sessionKey)}
+                      >
+                        Delete Saved Set
+                      </button>
+                    </div>
+
+                    {editingSetMetadataKey === session.sessionKey && (
+                      <SavedSetMetadataEditor
+                        session={session}
+                        centers={centers}
+                        patterns={patterns}
+                        draft={getSetMetadataDraft(session)}
+                        onChange={(field, value) =>
+                          updateSetMetadataDraft(session, field, value)
+                        }
+                        onLaneChange={(gameId, laneLabel) =>
+                          updateSetGameLaneDraft(session, gameId, laneLabel)
+                        }
+                        onSave={() => saveSetMetadata(session)}
+                        onReset={() => resetSetMetadataDraft(session)}
+                        onClose={() => setEditingSetMetadataKey(null)}
+                      />
+                    )}
                   </div>
                 </details>
               ))
@@ -6719,6 +7769,302 @@ function buildStatsExportFileName(filters: {
     );
 
   return `${activeFilterParts.join("_") || "pin-sighter-stats"}.csv`;
+}
+
+
+function parseStoredLaneLabels(laneLabel: string) {
+  return laneLabel
+    .split(",")
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
+function getSetLaneLabelsByGame(
+  session: ReturnType<typeof buildSessionGroups>[number]
+) {
+  const firstStoredLabels = parseStoredLaneLabels(session.games[0]?.laneLabel ?? "");
+
+  if (firstStoredLabels.length === session.games.length) {
+    return Object.fromEntries(
+      session.games.map((game, index) => [game.id, firstStoredLabels[index]])
+    );
+  }
+
+  return Object.fromEntries(
+    session.games.map((game) => {
+      const parsedGameLabels = parseStoredLaneLabels(game.laneLabel);
+
+      return [game.id, parsedGameLabels[0] ?? game.laneLabel];
+    })
+  );
+}
+
+function createSetMetadataDraft(
+  session: ReturnType<typeof buildSessionGroups>[number]
+): SetMetadataDraft {
+  const firstGame = session.games[0];
+
+  return {
+    centerName: firstGame?.centerName ?? "",
+    patternName: firstGame?.patternName ?? "",
+    gameLaneLabels: getSetLaneLabelsByGame(session),
+    setNotes: firstGame?.setNotes ?? "",
+  };
+}
+
+function getUniqueMetadataOptions(currentValue: string, options: string[]) {
+  const uniqueOptions = Array.from(new Set(options.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  if (currentValue && !uniqueOptions.includes(currentValue)) {
+    return [currentValue, ...uniqueOptions];
+  }
+
+  return uniqueOptions;
+}
+
+function getLaneLabelNumber(laneLabel: string) {
+  const laneNumbers = laneLabel.match(/\d+/g)?.map(Number) ?? [];
+
+  return laneNumbers[0] ?? Number.MAX_SAFE_INTEGER;
+}
+
+function sortLaneLabelsByNumber(a: string, b: string) {
+  const aNumber = getLaneLabelNumber(a);
+  const bNumber = getLaneLabelNumber(b);
+
+  if (aNumber !== bNumber) {
+    return aNumber - bNumber;
+  }
+
+  return a.localeCompare(b, undefined, { numeric: true });
+}
+
+function inferSetLaneMode(laneLabels: string[]) {
+  const validLabels = laneLabels.filter(Boolean);
+  const pairCount = validLabels.filter((label) =>
+    label.trim().toLowerCase().startsWith("pair")
+  ).length;
+  const laneCount = validLabels.filter((label) =>
+    label.trim().toLowerCase().startsWith("lane")
+  ).length;
+
+  if (laneCount > pairCount) {
+    return "Single Lane";
+  }
+
+  return "Pair";
+}
+
+function buildMetadataLaneOptions(
+  centerName: string,
+  centers: Center[],
+  session: ReturnType<typeof buildSessionGroups>[number],
+  currentLaneLabels: string[]
+) {
+  const selectedCenter = centers.find((center) => center.name === centerName);
+  const parsedCurrentLabels = currentLaneLabels
+    .flatMap(parseStoredLaneLabels)
+    .filter(Boolean);
+  const parsedSessionLabels = session.games
+    .flatMap((game) => parseStoredLaneLabels(game.laneLabel))
+    .filter(Boolean);
+  const laneMode = inferSetLaneMode([...parsedCurrentLabels, ...parsedSessionLabels]);
+  const generatedOptions: string[] = [];
+
+  if (selectedCenter) {
+    if (laneMode === "Single Lane") {
+      Array.from({ length: selectedCenter.laneCount }, (_, index) => {
+        generatedOptions.push(`Lane ${index + 1}`);
+      });
+    } else {
+      Array.from(
+        { length: Math.floor(selectedCenter.laneCount / 2) },
+        (_, index) => {
+          const leftLane = index * 2 + 1;
+          const rightLane = leftLane + 1;
+
+          generatedOptions.push(`Pair ${leftLane}/${rightLane}`);
+        }
+      );
+    }
+  }
+
+  return Array.from(
+    new Set([...parsedCurrentLabels, ...parsedSessionLabels, ...generatedOptions])
+  )
+    .filter((label) =>
+      laneMode === "Single Lane"
+        ? label.trim().toLowerCase().startsWith("lane")
+        : label.trim().toLowerCase().startsWith("pair")
+    )
+    .sort(sortLaneLabelsByNumber);
+}
+
+function SavedSetMetadataEditor({
+  session,
+  centers,
+  patterns,
+  draft,
+  onChange,
+  onLaneChange,
+  onSave,
+  onReset,
+  onClose,
+}: {
+  session: ReturnType<typeof buildSessionGroups>[number];
+  centers: Center[];
+  patterns: Pattern[];
+  draft: SetMetadataDraft;
+  onChange: (field: keyof SetMetadataDraft, value: string) => void;
+  onLaneChange: (gameId: string, laneLabel: string) => void;
+  onSave: () => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  const firstGame = session.games[0];
+  const savedDate = firstGame
+    ? new Date(firstGame.savedAt).toLocaleString()
+    : "Unknown";
+  const scoreLabels = Array.from(
+    new Set(
+      session.games.flatMap((game) =>
+        game.scores.map((score) => score.label)
+      )
+    )
+  ).join(", ");
+  const centerOptions = getUniqueMetadataOptions(
+    draft.centerName,
+    centers.map((center) => center.name)
+  );
+  const patternOptions = getUniqueMetadataOptions(
+    draft.patternName,
+    patterns.map((pattern) => pattern.name)
+  );
+  const laneOptions = buildMetadataLaneOptions(
+    draft.centerName,
+    centers,
+    session,
+    Object.values(draft.gameLaneLabels)
+  );
+
+  return (
+    <section className="set-metadata-card">
+      <div className="set-metadata-header">
+        <div>
+          <h4>Edit Set Data</h4>
+          <p>
+            Edit set-level labels and notes without changing the actual frame
+            data.
+          </p>
+        </div>
+      </div>
+
+      <div className="set-metadata-grid">
+        <p>
+          <strong>Saved:</strong> {savedDate}
+        </p>
+        <p>
+          <strong>Competition:</strong>{" "}
+          {firstGame?.eventName || firstGame?.competitionType || "Open"}
+        </p>
+        <p>
+          <strong>Week/Day:</strong> {firstGame?.eventStageLabel || "N/A"}
+        </p>
+        <p>
+          <strong>Format:</strong> {firstGame?.format ?? "Unknown"}
+        </p>
+        <p>
+          <strong>Games:</strong> {session.games.length}
+        </p>
+        <p>
+          <strong>Score Labels:</strong> {scoreLabels || "N/A"}
+        </p>
+      </div>
+
+      <div className="form-grid set-metadata-form">
+        <label>
+          Bowling Center
+          <select
+            value={draft.centerName}
+            onChange={(event) => onChange("centerName", event.target.value)}
+          >
+            {centerOptions.map((centerName) => (
+              <option key={centerName} value={centerName}>
+                {centerName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Pattern
+          <select
+            value={draft.patternName}
+            onChange={(event) => onChange("patternName", event.target.value)}
+          >
+            {patternOptions.map((patternName) => (
+              <option key={patternName} value={patternName}>
+                {patternName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="metadata-game-lane-card full-width-field">
+          <strong>Lane / Pair by Game</strong>
+          <p className="helper-text">
+            Choose the lane or pair for each saved game. Options are based on
+            the saved set's center and whether the set was logged as pairs or
+            single lanes.
+          </p>
+
+          <div className="metadata-game-lane-list">
+            {session.games.map((game) => (
+              <label key={game.id}>
+                Game {game.gameNumber}
+                <select
+                  value={draft.gameLaneLabels[game.id] ?? game.laneLabel}
+                  onChange={(event) =>
+                    onLaneChange(game.id, event.target.value)
+                  }
+                >
+                  {laneOptions.map((laneLabel) => (
+                    <option key={laneLabel} value={laneLabel}>
+                      {laneLabel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <label className="full-width-field">
+          Set Notes
+          <textarea
+            rows={3}
+            value={draft.setNotes}
+            placeholder="Add notes about the pair, transition, ball choices, moves, or anything else from this set."
+            onChange={(event) => onChange("setNotes", event.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="saved-set-actions-row">
+        <button className="primary-button" onClick={onSave}>
+          Save Set Data
+        </button>
+        <button className="secondary-button" onClick={onReset}>
+          Reset Draft
+        </button>
+        <button className="secondary-button" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
 }
 
 // Set Specific Stats
