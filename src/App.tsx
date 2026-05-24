@@ -54,6 +54,12 @@ type Center = {
 type Pattern = {
   id: number;
   name: string;
+  length: string;
+  volume: string;
+  ratio: string;
+  dropBrush: string;
+  source: string;
+  notes: string;
 };
 
 type EventSetup = {
@@ -101,6 +107,7 @@ type CompletedGameSummary = {
 type LogGamesPageProps = {
   bowlers: Bowler[];
   centers: Center[];
+  patterns: Pattern[];
 };
 
 type BowlersPageProps = {
@@ -111,6 +118,11 @@ type BowlersPageProps = {
 type CentersPageProps = {
   centers: Center[];
   setCenters: Dispatch<SetStateAction<Center[]>>;
+};
+
+type PatternsPageProps = {
+  patterns: Pattern[];
+  setPatterns: Dispatch<SetStateAction<Pattern[]>>;
 };
 
 type GameEntryPageProps = {
@@ -163,10 +175,37 @@ const defaultCenters: Center[] = [
   { id: 3, name: "Temporary 24 Lane Center", laneCount: 24, notes: "" },
 ];
 
-const temporaryPatterns: Pattern[] = [
-  { id: 0, name: "Unknown / House Shot" },
-  { id: 1, name: "Custom Pattern" },
-  { id: 2, name: "2025 PBA Wolf" },
+const defaultPatterns: Pattern[] = [
+  {
+    id: 0,
+    name: "Unknown / House Shot",
+    length: "",
+    volume: "",
+    ratio: "",
+    dropBrush: "",
+    source: "",
+    notes: "Fallback pattern when the condition is unknown.",
+  },
+  {
+    id: 1,
+    name: "Custom Pattern",
+    length: "",
+    volume: "",
+    ratio: "",
+    dropBrush: "",
+    source: "",
+    notes: "",
+  },
+  {
+    id: 2,
+    name: "2025 PBA Wolf",
+    length: "32",
+    volume: "",
+    ratio: "",
+    dropBrush: "",
+    source: "PBA",
+    notes: "",
+  },
 ];
 
 const temporaryEvents: EventSetup[] = [
@@ -288,6 +327,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [bowlers, setBowlers] = useState<Bowler[]>(defaultBowlers);
   const [centers, setCenters] = useState<Center[]>(defaultCenters);
+  const [patterns, setPatterns] = useState<Pattern[]>(defaultPatterns);
 
   return (
     <main className="app-shell">
@@ -315,7 +355,11 @@ function App() {
           </button>
 
           {activeTab === "log-games" && (
-            <LogGamesPage bowlers={bowlers} centers={centers} />
+            <LogGamesPage
+              bowlers={bowlers}
+              centers={centers}
+              patterns={patterns}
+            />
           )}
           {activeTab === "stats" && <StatsPage />}
           {activeTab === "bowlers" && (
@@ -325,14 +369,16 @@ function App() {
             <CentersPage centers={centers} setCenters={setCenters} />
           )}
           {activeTab === "events" && <EventsPage />}
-          {activeTab === "patterns" && <PatternsPage />}
+          {activeTab === "patterns" && (
+            <PatternsPage patterns={patterns} setPatterns={setPatterns} />
+          )}
         </section>
       )}
     </main>
   );
 }
 
-function LogGamesPage({ bowlers, centers }: LogGamesPageProps) {
+function LogGamesPage({ bowlers, centers, patterns }: LogGamesPageProps) {
   const [showGameEntry, setShowGameEntry] = useState(false);
 
   const [competitionType, setCompetitionType] =
@@ -361,10 +407,10 @@ function LogGamesPage({ bowlers, centers }: LogGamesPageProps) {
     : centers.find((center) => center.id === selectedEvent?.centerId);
 
   const selectedPattern = isOpen
-    ? temporaryPatterns.find(
+    ? patterns.find(
         (pattern) => String(pattern.id) === selectedPatternId
       )
-    : temporaryPatterns.find(
+    : patterns.find(
         (pattern) => pattern.id === selectedEvent?.patternId
       );
 
@@ -575,7 +621,7 @@ function LogGamesPage({ bowlers, centers }: LogGamesPageProps) {
                 value={selectedPatternId}
                 onChange={(event) => setSelectedPatternId(event.target.value)}
               >
-                {temporaryPatterns.map((pattern) => (
+                {patterns.map((pattern) => (
                   <option key={pattern.id} value={pattern.id}>
                     {pattern.name}
                   </option>
@@ -787,6 +833,83 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
   const [newBallForms, setNewBallForms] = useState<
     Record<number, NewBallFormState>
   >({});
+  const [bowlerDrafts, setBowlerDrafts] = useState<Record<number, Bowler>>({});
+
+  function getBowlerDraft(bowler: Bowler) {
+    return bowlerDrafts[bowler.id] ?? bowler;
+  }
+
+  function hasBowlerChanged(bowler: Bowler) {
+    const draft = bowlerDrafts[bowler.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return JSON.stringify(draft) !== JSON.stringify(bowler);
+  }
+
+  function updateBowlerDraft(bowler: Bowler, updates: Partial<Bowler>) {
+    setBowlerDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [bowler.id]: {
+        ...getBowlerDraft(bowler),
+        ...updates,
+      },
+    }));
+  }
+
+  function saveBowler(bowlerId: number) {
+    const draft = bowlerDrafts[bowlerId];
+
+    if (!draft) {
+      return;
+    }
+
+    const trimmedName = draft.name.trim();
+
+    if (!trimmedName) {
+      window.alert("Bowler name cannot be empty.");
+      return;
+    }
+
+    const nameAlreadyExists = bowlers.some(
+      (bowler) =>
+        bowler.id !== bowlerId &&
+        bowler.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A bowler with that name already exists.");
+      return;
+    }
+
+    setBowlers((currentBowlers) =>
+      currentBowlers.map((bowler) =>
+        bowler.id === bowlerId
+          ? {
+              ...draft,
+              name: trimmedName,
+              notes: draft.notes.trim(),
+              arsenal: draft.arsenal.map((ball) => ({
+                ...ball,
+                name: ball.name.trim(),
+                brand: ball.brand.trim(),
+                surface: ball.surface.trim(),
+                layout: ball.layout.trim(),
+                notes: ball.notes.trim(),
+              })),
+            }
+          : bowler
+      )
+    );
+
+    setBowlerDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[bowlerId];
+      return updatedDrafts;
+    });
+  }
 
   function addBowler() {
     const trimmedName = newBowlerName.trim();
@@ -840,14 +963,12 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     setBowlers((currentBowlers) =>
       currentBowlers.filter((currentBowler) => currentBowler.id !== bowlerId)
     );
-  }
 
-  function updateBowler(bowlerId: number, updates: Partial<Bowler>) {
-    setBowlers((currentBowlers) =>
-      currentBowlers.map((bowler) =>
-        bowler.id === bowlerId ? { ...bowler, ...updates } : bowler
-      )
-    );
+    setBowlerDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[bowlerId];
+      return updatedDrafts;
+    });
   }
 
   function getBallForm(bowlerId: number) {
@@ -867,75 +988,59 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     }));
   }
 
-  function addBallToBowler(bowlerId: number) {
-    const form = getBallForm(bowlerId);
+  function addBallToBowler(bowler: Bowler) {
+    const form = getBallForm(bowler.id);
     const trimmedName = form.name.trim();
 
     if (!trimmedName) {
       return;
     }
 
-    setBowlers((currentBowlers) =>
-      currentBowlers.map((bowler) => {
-        if (bowler.id !== bowlerId) {
-          return bowler;
-        }
+    const draftBowler = getBowlerDraft(bowler);
 
-        return {
-          ...bowler,
-          arsenal: [
-            ...bowler.arsenal,
-            {
-              id: Date.now(),
-              name: trimmedName,
-              brand: form.brand.trim(),
-              surface: form.surface.trim(),
-              layout: form.layout.trim(),
-              notes: form.notes.trim(),
-            },
-          ],
-        };
-      })
-    );
+    updateBowlerDraft(bowler, {
+      arsenal: [
+        ...draftBowler.arsenal,
+        {
+          id: Date.now(),
+          name: trimmedName,
+          brand: form.brand.trim(),
+          surface: form.surface.trim(),
+          layout: form.layout.trim(),
+          notes: form.notes.trim(),
+        },
+      ],
+    });
 
     setNewBallForms((currentForms) => ({
       ...currentForms,
-      [bowlerId]: emptyBallForm,
+      [bowler.id]: emptyBallForm,
     }));
   }
 
-  function deleteBall(bowlerId: number, ballId: number) {
-    const bowler = bowlers.find(
-      (currentBowler) => currentBowler.id === bowlerId
+  function deleteBall(bowler: Bowler, ballId: number) {
+    const draftBowler = getBowlerDraft(bowler);
+    const ball = draftBowler.arsenal.find(
+      (currentBall) => currentBall.id === ballId
     );
-    const ball = bowler?.arsenal.find((currentBall) => currentBall.id === ballId);
 
-    if (!bowler || !ball) {
+    if (!ball) {
       return;
     }
 
     const shouldDelete = window.confirm(
-      `Remove ${ball.name} from ${bowler.name}'s arsenal?`
+      `Remove ${ball.name} from ${draftBowler.name}'s arsenal?`
     );
 
     if (!shouldDelete) {
       return;
     }
 
-    setBowlers((currentBowlers) =>
-      currentBowlers.map((currentBowler) => {
-        if (currentBowler.id !== bowlerId) {
-          return currentBowler;
-        }
-
-        return {
-          ...currentBowler,
-          arsenal: currentBowler.arsenal.filter(
-            (currentBall) => currentBall.id !== ballId
-          ),
-        };
-      })
-    );
+    updateBowlerDraft(bowler, {
+      arsenal: draftBowler.arsenal.filter(
+        (currentBall) => currentBall.id !== ballId
+      ),
+    });
   }
 
   return (
@@ -997,7 +1102,9 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
 
       <section className="bowler-list">
         {bowlers.map((bowler) => {
+          const draftBowler = getBowlerDraft(bowler);
           const ballForm = getBallForm(bowler.id);
+          const isDirty = hasBowlerChanged(bowler);
 
           return (
             <details className="bowler-card" key={bowler.id}>
@@ -1008,6 +1115,7 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                     {bowler.handedness} • {bowler.arsenal.length} ball
                     {bowler.arsenal.length === 1 ? "" : "s"}
                   </p>
+                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
                 </div>
 
                 <span className="summary-hint">Open Details</span>
@@ -1015,6 +1123,14 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
 
               <div className="bowler-details-content">
                 <div className="bowler-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => saveBowler(bowler.id)}
+                  >
+                    Save Bowler
+                  </button>
+
                   <button
                     className="danger-button"
                     onClick={() => deleteBowler(bowler.id)}
@@ -1027,9 +1143,11 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                   <label>
                     Name
                     <input
-                      value={bowler.name}
+                      value={draftBowler.name}
                       onChange={(event) =>
-                        updateBowler(bowler.id, { name: event.target.value })
+                        updateBowlerDraft(bowler, {
+                          name: event.target.value,
+                        })
                       }
                     />
                   </label>
@@ -1037,9 +1155,9 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                   <label>
                     Handedness
                     <select
-                      value={bowler.handedness}
+                      value={draftBowler.handedness}
                       onChange={(event) =>
-                        updateBowler(bowler.id, {
+                        updateBowlerDraft(bowler, {
                           handedness: event.target.value as Handedness,
                         })
                       }
@@ -1055,9 +1173,11 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                   <label>
                     Notes
                     <textarea
-                      value={bowler.notes}
+                      value={draftBowler.notes}
                       onChange={(event) =>
-                        updateBowler(bowler.id, { notes: event.target.value })
+                        updateBowlerDraft(bowler, {
+                          notes: event.target.value,
+                        })
                       }
                       rows={3}
                       placeholder="Optional notes"
@@ -1068,11 +1188,11 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                 <section className="arsenal-section">
                   <h4>Arsenal</h4>
 
-                  {bowler.arsenal.length === 0 ? (
+                  {draftBowler.arsenal.length === 0 ? (
                     <p className="helper-text">No balls added yet.</p>
                   ) : (
                     <div className="arsenal-list">
-                      {bowler.arsenal.map((ball) => (
+                      {draftBowler.arsenal.map((ball) => (
                         <div className="ball-card" key={ball.id}>
                           <div>
                             <strong>{ball.name}</strong>
@@ -1093,7 +1213,7 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
 
                           <button
                             className="danger-button small-button"
-                            onClick={() => deleteBall(bowler.id, ball.id)}
+                            onClick={() => deleteBall(bowler, ball.id)}
                           >
                             Remove
                           </button>
@@ -1180,7 +1300,7 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                       <button
                         className="secondary-button"
                         disabled={!ballForm.name.trim()}
-                        onClick={() => addBallToBowler(bowler.id)}
+                        onClick={() => addBallToBowler(bowler)}
                       >
                         Add Ball
                       </button>
@@ -1988,6 +2108,81 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
   const [newCenterName, setNewCenterName] = useState("");
   const [newCenterLaneCount, setNewCenterLaneCount] = useState("8");
   const [newCenterNotes, setNewCenterNotes] = useState("");
+  const [centerDrafts, setCenterDrafts] = useState<Record<number, Center>>({});
+
+  function getCenterDraft(center: Center) {
+    return centerDrafts[center.id] ?? center;
+  }
+
+  function hasCenterChanged(center: Center) {
+    const draft = centerDrafts[center.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return JSON.stringify(draft) !== JSON.stringify(center);
+  }
+
+  function updateCenterDraft(center: Center, updates: Partial<Center>) {
+    setCenterDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [center.id]: {
+        ...getCenterDraft(center),
+        ...updates,
+      },
+    }));
+  }
+
+  function saveCenter(centerId: number) {
+    const draft = centerDrafts[centerId];
+
+    if (!draft) {
+      return;
+    }
+
+    const trimmedName = draft.name.trim();
+
+    if (!trimmedName) {
+      window.alert("Center name cannot be empty.");
+      return;
+    }
+
+    if (!Number.isFinite(draft.laneCount) || draft.laneCount < 1) {
+      window.alert("Lane count must be at least 1.");
+      return;
+    }
+
+    const nameAlreadyExists = centers.some(
+      (center) =>
+        center.id !== centerId &&
+        center.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A bowling center with that name already exists.");
+      return;
+    }
+
+    setCenters((currentCenters) =>
+      currentCenters.map((center) =>
+        center.id === centerId
+          ? {
+              ...draft,
+              name: trimmedName,
+              laneCount: Math.max(1, Math.floor(draft.laneCount)),
+              notes: draft.notes.trim(),
+            }
+          : center
+      )
+    );
+
+    setCenterDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[centerId];
+      return updatedDrafts;
+    });
+  }
 
   function addCenter() {
     const trimmedName = newCenterName.trim();
@@ -2021,14 +2216,6 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
     setNewCenterNotes("");
   }
 
-  function updateCenter(centerId: number, updates: Partial<Center>) {
-    setCenters((currentCenters) =>
-      currentCenters.map((center) =>
-        center.id === centerId ? { ...center, ...updates } : center
-      )
-    );
-  }
-
   function deleteCenter(centerId: number) {
     const center = centers.find((currentCenter) => currentCenter.id === centerId);
 
@@ -2047,6 +2234,12 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
     setCenters((currentCenters) =>
       currentCenters.filter((currentCenter) => currentCenter.id !== centerId)
     );
+
+    setCenterDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[centerId];
+      return updatedDrafts;
+    });
   }
 
   return (
@@ -2102,85 +2295,102 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
       </section>
 
       <section className="center-list">
-        {centers.map((center) => (
-          <details className="center-card" key={center.id}>
-            <summary className="center-summary">
-              <div>
-                <strong>{center.name}</strong>
-                <p>
-                  {center.laneCount} lane{center.laneCount === 1 ? "" : "s"}
-                </p>
+        {centers.map((center) => {
+          const draftCenter = getCenterDraft(center);
+          const isDirty = hasCenterChanged(center);
+
+          return (
+            <details className="center-card" key={center.id}>
+              <summary className="center-summary">
+                <div>
+                  <strong>{center.name}</strong>
+                  <p>
+                    {center.laneCount} lane{center.laneCount === 1 ? "" : "s"}
+                  </p>
+                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="center-details-content">
+                <div className="center-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => saveCenter(center.id)}
+                  >
+                    Save Center
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() => deleteCenter(center.id)}
+                  >
+                    Delete Center
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={draftCenter.name}
+                      onChange={(event) =>
+                        updateCenterDraft(center, { name: event.target.value })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Number of Lanes
+                    <input
+                      type="number"
+                      min="1"
+                      value={draftCenter.laneCount}
+                      onChange={(event) =>
+                        updateCenterDraft(center, {
+                          laneCount: Math.max(
+                            1,
+                            Math.floor(Number(event.target.value))
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={draftCenter.notes}
+                      onChange={(event) =>
+                        updateCenterDraft(center, { notes: event.target.value })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="lane-preview-card">
+                  <h4>Generated Lane Options</h4>
+                  <p>
+                    <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
+                    {draftCenter.laneCount}
+                  </p>
+                  <p>
+                    <strong>Pair Mode:</strong>{" "}
+                    {Math.floor(draftCenter.laneCount / 2) > 0
+                      ? `Pairs 1/2 through ${
+                          Math.floor(draftCenter.laneCount / 2) * 2 - 1
+                        }/${Math.floor(draftCenter.laneCount / 2) * 2}`
+                      : "No pairs available"}
+                  </p>
+                </section>
               </div>
-
-              <span className="summary-hint">Open Details</span>
-            </summary>
-
-            <div className="center-details-content">
-              <div className="center-actions-row">
-                <button
-                  className="danger-button"
-                  onClick={() => deleteCenter(center.id)}
-                >
-                  Delete Center
-                </button>
-              </div>
-
-              <div className="form-grid">
-                <label>
-                  Name
-                  <input
-                    value={center.name}
-                    onChange={(event) =>
-                      updateCenter(center.id, { name: event.target.value })
-                    }
-                  />
-                </label>
-
-                <label>
-                  Number of Lanes
-                  <input
-                    type="number"
-                    min="1"
-                    value={center.laneCount}
-                    onChange={(event) =>
-                      updateCenter(center.id, {
-                        laneCount: Math.max(1, Math.floor(Number(event.target.value))),
-                      })
-                    }
-                  />
-                </label>
-
-                <label>
-                  Notes
-                  <textarea
-                    value={center.notes}
-                    onChange={(event) =>
-                      updateCenter(center.id, { notes: event.target.value })
-                    }
-                    rows={3}
-                    placeholder="Optional notes"
-                  />
-                </label>
-              </div>
-
-              <section className="lane-preview-card">
-                <h4>Generated Lane Options</h4>
-                <p>
-                  <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
-                  {center.laneCount}
-                </p>
-                <p>
-                  <strong>Pair Mode:</strong>{" "}
-                  {Math.floor(center.laneCount / 2) > 0
-                    ? `Pairs 1/2 through ${
-                        Math.floor(center.laneCount / 2) * 2 - 1
-                      }/${Math.floor(center.laneCount / 2) * 2}`
-                    : "No pairs available"}
-                </p>
-              </section>
-            </div>
-          </details>
-        ))}
+            </details>
+          );
+        })}
       </section>
     </>
   );
@@ -2195,15 +2405,400 @@ function EventsPage() {
   );
 }
 
-function PatternsPage() {
+function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
+  const [newPatternName, setNewPatternName] = useState("");
+  const [newPatternLength, setNewPatternLength] = useState("");
+  const [newPatternVolume, setNewPatternVolume] = useState("");
+  const [newPatternRatio, setNewPatternRatio] = useState("");
+  const [newPatternDropBrush, setNewPatternDropBrush] = useState("");
+  const [newPatternSource, setNewPatternSource] = useState("");
+  const [newPatternNotes, setNewPatternNotes] = useState("");
+  const [patternDrafts, setPatternDrafts] = useState<Record<number, Pattern>>(
+    {}
+  );
+
+  function getPatternDraft(pattern: Pattern) {
+    return patternDrafts[pattern.id] ?? pattern;
+  }
+
+  function hasPatternChanged(pattern: Pattern) {
+    const draft = patternDrafts[pattern.id];
+
+    if (!draft) {
+      return false;
+    }
+
+    return (
+      draft.name !== pattern.name ||
+      draft.length !== pattern.length ||
+      draft.volume !== pattern.volume ||
+      draft.ratio !== pattern.ratio ||
+      draft.dropBrush !== pattern.dropBrush ||
+      draft.source !== pattern.source ||
+      draft.notes !== pattern.notes
+    );
+  }
+
+  function updatePatternDraft(pattern: Pattern, updates: Partial<Pattern>) {
+    setPatternDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [pattern.id]: {
+        ...getPatternDraft(pattern),
+        ...updates,
+      },
+    }));
+  }
+
+  function savePattern(patternId: number) {
+    const draft = patternDrafts[patternId];
+
+    if (!draft) {
+      return;
+    }
+
+    setPatterns((currentPatterns) =>
+      currentPatterns.map((pattern) =>
+        pattern.id === patternId ? { ...draft } : pattern
+      )
+    );
+
+    setPatternDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[patternId];
+      return updatedDrafts;
+    });
+  }
+
+  function addPattern() {
+    const trimmedName = newPatternName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const nameAlreadyExists = patterns.some(
+      (pattern) => pattern.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A pattern with that name already exists.");
+      return;
+    }
+
+    setPatterns((currentPatterns) => [
+      ...currentPatterns,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        length: newPatternLength.trim(),
+        volume: newPatternVolume.trim(),
+        ratio: newPatternRatio.trim(),
+        dropBrush: newPatternDropBrush.trim(),
+        source: newPatternSource.trim(),
+        notes: newPatternNotes.trim(),
+      },
+    ]);
+
+    setNewPatternName("");
+    setNewPatternLength("");
+    setNewPatternVolume("");
+    setNewPatternRatio("");
+    setNewPatternDropBrush("");
+    setNewPatternSource("");
+    setNewPatternNotes("");
+  }
+
+  function deletePattern(patternId: number) {
+    const pattern = patterns.find(
+      (currentPattern) => currentPattern.id === patternId
+    );
+
+    if (!pattern) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete ${pattern.name}? This will remove it from pattern selection.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setPatterns((currentPatterns) =>
+      currentPatterns.filter(
+        (currentPattern) => currentPattern.id !== patternId
+      )
+    );
+
+    setPatternDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[patternId];
+      return updatedDrafts;
+    });
+  }
+
+  function formatPatternSummary(pattern: Pattern) {
+    const details = [
+      pattern.length ? `${pattern.length} ft` : "",
+      pattern.volume ? `${pattern.volume} mL` : "",
+      pattern.ratio ? `${pattern.ratio}:1` : "",
+    ].filter(Boolean);
+
+    return details.length > 0 ? details.join(" • ") : "No specs entered";
+  }
+
   return (
     <>
       <h2>Patterns</h2>
       <p>
-        Add pattern name, length, volume, ratio, drop brush, source, and notes.
+        Add oil patterns with length, volume, ratio, drop brush, source, and
+        notes. Log Games will use this list when selecting a pattern.
       </p>
+
+      <section className="pattern-form-card">
+        <h3>Add Pattern</h3>
+
+        <div className="form-grid">
+          <label>
+            Name <span className="required">*</span>
+            <input
+              value={newPatternName}
+              onChange={(event) => setNewPatternName(event.target.value)}
+              placeholder="Example: 2025 PBA Wolf"
+            />
+          </label>
+
+          <label>
+            Length
+            <input
+              value={newPatternLength}
+              onChange={(event) => setNewPatternLength(event.target.value)}
+              placeholder="Example: 32"
+            />
+          </label>
+
+          <label>
+            Volume
+            <input
+              value={newPatternVolume}
+              onChange={(event) => setNewPatternVolume(event.target.value)}
+              placeholder="Example: 28.5"
+            />
+          </label>
+
+          <label>
+            Ratio
+            <input
+              value={newPatternRatio}
+              onChange={(event) => setNewPatternRatio(event.target.value)}
+              placeholder="Example: 2.0"
+            />
+          </label>
+
+          <label>
+            Drop Brush
+            <input
+              value={newPatternDropBrush}
+              onChange={(event) => setNewPatternDropBrush(event.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+
+          <label>
+            Source
+            <input
+              value={newPatternSource}
+              onChange={(event) => setNewPatternSource(event.target.value)}
+              placeholder="Example: Kegel, PBA, custom"
+            />
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              value={newPatternNotes}
+              onChange={(event) => setNewPatternNotes(event.target.value)}
+              placeholder="Optional notes"
+              rows={3}
+            />
+          </label>
+        </div>
+
+        <button
+          className="primary-button"
+          disabled={!newPatternName.trim()}
+          onClick={addPattern}
+        >
+          Add Pattern
+        </button>
+      </section>
+
+      <section className="pattern-list">
+        {patterns.map((pattern) => {
+          const draftPattern = getPatternDraft(pattern);
+          const isDirty = hasPatternChanged(pattern);
+
+          return (
+            <details className="pattern-card" key={pattern.id}>
+              <summary className="pattern-summary">
+                <div>
+                  <strong>{pattern.name}</strong>
+                  <p>{formatPatternSummary(pattern)}</p>
+                  {isDirty && (
+                    <p className="unsaved-text">Unsaved changes</p>
+                  )}
+                </div>
+
+                <span className="summary-hint">Open Details</span>
+              </summary>
+
+              <div className="pattern-details-content">
+                <div className="pattern-actions-row">
+                  <button
+                    className="save-button"
+                    disabled={!isDirty}
+                    onClick={() => savePattern(pattern.id)}
+                  >
+                    Save Pattern
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() => deletePattern(pattern.id)}
+                  >
+                    Delete Pattern
+                  </button>
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Name
+                    <input
+                      value={draftPattern.name}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          name: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Length
+                    <input
+                      value={draftPattern.length}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          length: event.target.value,
+                        })
+                      }
+                      placeholder="Example: 32"
+                    />
+                  </label>
+
+                  <label>
+                    Volume
+                    <input
+                      value={draftPattern.volume}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          volume: event.target.value,
+                        })
+                      }
+                      placeholder="Example: 28.5"
+                    />
+                  </label>
+
+                  <label>
+                    Ratio
+                    <input
+                      value={draftPattern.ratio}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          ratio: event.target.value,
+                        })
+                      }
+                      placeholder="Example: 2.0"
+                    />
+                  </label>
+
+                  <label>
+                    Drop Brush
+                    <input
+                      value={draftPattern.dropBrush}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          dropBrush: event.target.value,
+                        })
+                      }
+                      placeholder="Optional"
+                    />
+                  </label>
+
+                  <label>
+                    Source
+                    <input
+                      value={draftPattern.source}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          source: event.target.value,
+                        })
+                      }
+                      placeholder="Example: Kegel, PBA, custom"
+                    />
+                  </label>
+
+                  <label>
+                    Notes
+                    <textarea
+                      value={draftPattern.notes}
+                      onChange={(event) =>
+                        updatePatternDraft(pattern, {
+                          notes: event.target.value,
+                        })
+                      }
+                      rows={3}
+                      placeholder="Optional notes"
+                    />
+                  </label>
+                </div>
+
+                <section className="pattern-preview-card">
+                  <h4>Pattern Summary</h4>
+                  <p>
+                    <strong>Length:</strong>{" "}
+                    {draftPattern.length
+                      ? `${draftPattern.length} ft`
+                      : "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Volume:</strong>{" "}
+                    {draftPattern.volume
+                      ? `${draftPattern.volume} mL`
+                      : "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Ratio:</strong>{" "}
+                    {draftPattern.ratio
+                      ? `${draftPattern.ratio}:1`
+                      : "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Drop Brush:</strong>{" "}
+                    {draftPattern.dropBrush || "Not entered"}
+                  </p>
+                  <p>
+                    <strong>Source:</strong>{" "}
+                    {draftPattern.source || "Not entered"}
+                  </p>
+                </section>
+              </div>
+            </details>
+          );
+        })}
+      </section>
     </>
   );
 }
-
 export default App;
