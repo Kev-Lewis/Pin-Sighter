@@ -1570,10 +1570,9 @@ function App() {
         <section className="setup-card">
           <h2>Set Up Pin-Sighter</h2>
           <p>
-            Import an existing Pin-Sighter backup if you are opening the app in a
-            new browser, on a new device, or after clearing browser data. You can
-            also start empty and build your own bowlers, centers, patterns, and
-            saved sets from scratch.
+            If you have existing Pin-Sighter data, import your backup to restore
+            your bowlers, centers, patterns, and saved sets. Otherwise, you can
+            start empty and build your own data from scratch.
           </p>
 
           <ToastMessage
