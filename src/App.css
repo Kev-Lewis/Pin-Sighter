@@ -3346,3 +3346,327 @@ Add Form Validation Cards
 .add-ball-content .compact-validation-card {
   grid-column: 1 / -1;
 }
+
+
+/*
+Pattern Action Button Alignment
+==================
+*/
+
+.pattern-actions-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 14px;
+  justify-content: center;
+  align-items: stretch;
+  max-width: 340px;
+  margin: 16px auto;
+}
+
+.pattern-actions-row button {
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .pattern-actions-row {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+}
+
+
+/*
+Management Save Delete Button Alignment
+==================
+*/
+
+.bowler-actions-row,
+.center-actions-row,
+.pattern-actions-row,
+.event-actions-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 14px;
+  justify-content: center;
+  align-items: stretch;
+  max-width: 360px;
+  margin: 16px auto;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 14px;
+}
+
+.bowler-actions-row button,
+.center-actions-row button,
+.pattern-actions-row button,
+.event-actions-row button {
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .bowler-actions-row,
+  .center-actions-row,
+  .pattern-actions-row,
+  .event-actions-row {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+}
+
+
+/*
+Management Save Delete Button Full Width
+==================
+*/
+
+.bowler-actions-row,
+.center-actions-row,
+.pattern-actions-row,
+.event-actions-row {
+  max-width: none !important;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  margin: 16px 0 !important;
+}
+
+@media (max-width: 520px) {
+  .bowler-actions-row,
+  .center-actions-row,
+  .pattern-actions-row,
+  .event-actions-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/*
+Editable Ball Cards
+==================
+*/
+
+.ball-card {
+  display: grid;
+  gap: 12px;
+}
+
+.ball-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.ball-edit-card {
+  border-top: 2px solid #111827;
+  padding-top: 10px;
+}
+
+.ball-edit-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.ball-edit-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ball-edit-summary::after {
+  content: "+";
+  border: 2px solid #111827;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.ball-edit-card[open] > .ball-edit-summary::after {
+  content: "−";
+}
+
+.ball-edit-content {
+  border-top: 2px solid #111827;
+  margin-top: 10px;
+  padding-top: 14px;
+}
+
+@media (max-width: 700px) {
+  .ball-card-header {
+    display: grid;
+  }
+
+  .ball-card-header .danger-button {
+    width: 100%;
+  }
+}
+
+
+/*
+Ball Edit Save Button Layout
+==================
+*/
+
+.ball-edit-card {
+  width: 100%;
+  grid-column: 1 / -1;
+}
+
+.ball-edit-content {
+  width: 100%;
+}
+
+.ball-edit-content .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.ball-edit-content .form-grid label {
+  min-width: 0;
+}
+
+.ball-edit-actions-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 16px;
+}
+
+.ball-edit-actions-row button {
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+}
+
+
+/*
+Ball Edit Full Width Fix
+==================
+*/
+
+.ball-card {
+  width: 100%;
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  justify-items: stretch;
+  align-items: stretch;
+}
+
+.ball-card > *,
+.ball-card-header,
+.ball-edit-card,
+.ball-edit-content,
+.ball-edit-content .form-grid {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ball-edit-summary {
+  width: 100%;
+}
+
+.ball-edit-content .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ball-edit-content label {
+  width: 100%;
+  max-width: none;
+}
+
+.ball-edit-content input,
+.ball-edit-content textarea,
+.ball-edit-content select {
+  width: 100%;
+  max-width: none;
+}
+
+
+/*
+Ball Edit Save Remove Actions
+==================
+*/
+
+.ball-edit-actions-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ball-edit-actions-row .save-button,
+.ball-edit-actions-row .danger-button {
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .ball-edit-actions-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/*
+Logo Mark
+==================
+*/
+
+.logo-title-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.app-logo-mark {
+  width: auto;
+  height: clamp(72px, 10vw, 96px);
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .logo-title-row {
+    gap: 12px;
+  }
+
+  .app-logo-mark {
+    height: 72px;
+  }
+}
+
+.app-logo-mark {
+  width: clamp(64px, 12vw, 96px);
+  height: clamp(64px, 12vw, 96px);
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .logo-title-row {
+    gap: 12px;
+  }
+
+  .app-logo-mark {
+    width: 72px;
+    height: 72px;
+  }
+}
