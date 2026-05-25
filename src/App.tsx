@@ -308,7 +308,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.0.0";
+const appVersion = "1.0.1";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -316,17 +316,21 @@ const defaultCenters: Center[] = [
   { id: 3, name: "Temporary 24 Lane Center", laneCount: 24, notes: "" },
 ];
 
+const unknownPatternId = 0;
+
+const unknownPattern: Pattern = {
+  id: unknownPatternId,
+  name: "Unknown",
+  length: "",
+  volume: "",
+  ratio: "",
+  dropBrush: "",
+  source: "",
+  notes: "Default fallback pattern when the condition is unknown.",
+};
+
 const defaultPatterns: Pattern[] = [
-  {
-    id: 0,
-    name: "Unknown / House Shot",
-    length: "",
-    volume: "",
-    ratio: "",
-    dropBrush: "",
-    source: "",
-    notes: "Fallback pattern when the condition is unknown.",
-  },
+  unknownPattern,
   {
     id: 1,
     name: "Custom Pattern",
@@ -348,6 +352,24 @@ const defaultPatterns: Pattern[] = [
     notes: "",
   },
 ];
+
+function isUnknownPattern(pattern: Pattern) {
+  return pattern.id === unknownPatternId;
+}
+
+function ensureUnknownPattern(patterns: Pattern[]) {
+  const editablePatterns = patterns.filter((pattern) => {
+    const normalizedName = pattern.name.trim().toLowerCase();
+
+    return (
+      pattern.id !== unknownPatternId &&
+      normalizedName !== "unknown" &&
+      normalizedName !== "unknown / house shot"
+    );
+  });
+
+  return [{ ...unknownPattern }, ...editablePatterns];
+}
 
 const defaultEvents: EventSetup[] = [
   {
@@ -913,7 +935,7 @@ function createEmptyBackupData(): PinSighterBackupData {
   return {
     bowlers: [],
     centers: [],
-    patterns: [],
+    patterns: ensureUnknownPattern([]),
     events: [],
     savedEventLogs: [],
     savedGames: [],
@@ -942,7 +964,10 @@ function createPinSighterBackup(data: PinSighterBackupData): PinSighterBackup {
     appName: "Pin-Sighter",
     version: currentBackupVersion,
     exportedAt: new Date().toISOString(),
-    data,
+    data: {
+      ...data,
+      patterns: ensureUnknownPattern(data.patterns),
+    },
   };
 }
 
@@ -1334,8 +1359,10 @@ function App() {
   );
   const [patterns, setPatterns] = useState<Pattern[]>(() =>
     hasCompletedFirstLaunchSetup()
-      ? loadFromLocalStorage(storageKeys.patterns, defaultPatterns)
-      : []
+      ? ensureUnknownPattern(
+          loadFromLocalStorage(storageKeys.patterns, defaultPatterns)
+        )
+      : ensureUnknownPattern([])
   );
   const [events, setEvents] = useState<EventSetup[]>(() =>
     hasCompletedFirstLaunchSetup()
@@ -1368,7 +1395,7 @@ function App() {
   function applyBackupData(data: PinSighterBackupData) {
     setBowlers(data.bowlers);
     setCenters(data.centers);
-    setPatterns(data.patterns);
+    setPatterns(ensureUnknownPattern(data.patterns));
     setEvents(data.events);
     setSavedEventLogs(data.savedEventLogs);
     setSavedGames(data.savedGames);
@@ -1776,7 +1803,7 @@ function DataManagementPage({
 
       setBowlers(importedData.bowlers);
       setCenters(importedData.centers);
-      setPatterns(importedData.patterns);
+      setPatterns(ensureUnknownPattern(importedData.patterns));
       setEvents(importedData.events);
       setSavedEventLogs(importedData.savedEventLogs);
       setSavedGames(importedData.savedGames);
@@ -1819,7 +1846,7 @@ function DataManagementPage({
 
       setBowlers(importedData.bowlers);
       setCenters(importedData.centers);
-      setPatterns(importedData.patterns);
+      setPatterns(ensureUnknownPattern(importedData.patterns));
       setEvents(importedData.events);
       setSavedEventLogs(importedData.savedEventLogs);
       setSavedGames(importedData.savedGames);
@@ -1850,7 +1877,7 @@ function DataManagementPage({
     const emptyData = createEmptyBackupData();
     setBowlers(emptyData.bowlers);
     setCenters(emptyData.centers);
-    setPatterns(emptyData.patterns);
+    setPatterns(ensureUnknownPattern(emptyData.patterns));
     setEvents(emptyData.events);
     setSavedEventLogs(emptyData.savedEventLogs);
     setSavedGames(emptyData.savedGames);
@@ -2006,7 +2033,9 @@ function normalizeImportedBackupData(
   return {
     bowlers: getImportedArray(importedData, "bowlers", warnings),
     centers: getImportedArray(importedData, "centers", warnings),
-    patterns: getImportedArray(importedData, "patterns", warnings),
+    patterns: ensureUnknownPattern(
+      getImportedArray(importedData, "patterns", warnings)
+    ),
     events: getImportedArray(importedData, "events", warnings),
     savedEventLogs: getImportedArray(
       importedData,
@@ -2095,6 +2124,12 @@ function LogGamesPage({
   const selectedPattern = patterns.find(
     (pattern) => String(pattern.id) === selectedPatternId
   );
+
+  useEffect(() => {
+    if (patterns.length > 0 && !selectedPattern) {
+      setSelectedPatternId(String(unknownPatternId));
+    }
+  }, [patterns, selectedPattern]);
 
   const activeFormat = selectedEvent?.format ?? format;
   const enteredBowlersPerPair = Math.max(
@@ -4794,6 +4829,10 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
   }
 
   function savePattern(patternId: number) {
+    if (patternId === unknownPatternId) {
+      return;
+    }
+
     const draft = patternDrafts[patternId];
 
     if (!draft) {
@@ -4853,6 +4892,10 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
   }
 
   function deletePattern(patternId: number) {
+    if (patternId === unknownPatternId) {
+      return;
+    }
+
     const pattern = patterns.find(
       (currentPattern) => currentPattern.id === patternId
     );
@@ -4912,7 +4955,8 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       <h2>Patterns</h2>
       <p>
         Add oil patterns with length, volume, ratio, drop brush, source, and
-        additional notes.
+        additional notes. Pin-Sighter always includes a locked Unknown pattern
+        for games where the condition is not known.
       </p>
 
       <p className="resource-link">
@@ -5041,6 +5085,37 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
         {patterns.map((pattern) => {
           const draftPattern = getPatternDraft(pattern);
           const isDirty = hasPatternChanged(pattern);
+          const isLockedUnknownPattern = isUnknownPattern(pattern);
+
+          if (isLockedUnknownPattern) {
+            return (
+              <details className="pattern-card locked-pattern-card" key={pattern.id}>
+                <summary className="pattern-summary">
+                  <div>
+                    <strong>{pattern.name}</strong>
+                    <p>{formatPatternSummary(pattern)}</p>
+                    <p className="locked-pattern-text">
+                      Default pattern for unknown conditions. This pattern cannot
+                      be edited or deleted.
+                    </p>
+                  </div>
+
+                  <span className="summary-hint">Open / Close Details</span>
+                </summary>
+
+                <div className="pattern-details-content">
+                  <section className="locked-pattern-info">
+                    <h3>Built-In Default</h3>
+                    <p>
+                      Use Unknown when you do not know the oil pattern, house
+                      shot, volume, or lane condition. It will always appear as
+                      the default option when logging games.
+                    </p>
+                  </section>
+                </div>
+              </details>
+            );
+          }
 
           return (
             <details className="pattern-card" key={pattern.id}>

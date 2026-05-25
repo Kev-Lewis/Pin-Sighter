@@ -3681,3 +3681,33 @@ First Launch Import
 .setup-import-button:hover {
   background: #15803d;
 }
+
+/*
+Locked Default Pattern
+==================
+*/
+
+.locked-pattern-card {
+  border-style: dashed;
+}
+
+.locked-pattern-text {
+  color: #374151;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+.locked-pattern-info {
+  border: 2px solid #111827;
+  background: #f8fafc;
+  padding: 18px;
+}
+
+.locked-pattern-info h3 {
+  margin-top: 0;
+  color: #0f2a44;
+}
+
+.locked-pattern-info p {
+  margin-bottom: 0;
+}
