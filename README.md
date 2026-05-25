@@ -55,3 +55,12 @@ Bowling scorekeeping, set tracking, and performance reports
 - **Tauri**
 - **CSS**
 - **Local storage / file-backed local data**
+
+--------------------------------------
+## Data and Privacy
+Pin-Sighter is built around local data storage. Your bowling data is intended to stay on your device unless you manually export it or share a backup file.
+
+--------------------------------------
+## Created By
+Created by Kevin Lewis.
+Portfolio: https://kevinlewis.net
