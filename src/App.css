@@ -800,6 +800,20 @@ Bowling Centers
 
 .pattern-form-card,
 .pattern-card,
+
+.resource-link {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 12px 14px;
+  margin: 16px 0 0;
+  font-weight: 700;
+}
+
+.resource-link a {
+  color: #111827;
+  text-decoration: underline;
+}
+
 /*
 Patterns
 ==================
@@ -913,6 +927,33 @@ Patterns
 Tournaments / Leagues
 ==================
 */
+
+
+.event-link-hint {
+  color: #047857 !important;
+  font-weight: 700;
+}
+
+.event-resource-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.event-resource-links a {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  color: #111827;
+  padding: 12px 14px;
+  text-align: center;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.event-resource-links a:hover {
+  background: #e5e7eb;
+}
 
 .event-preview-card {
   border: 2px solid #111827;
@@ -1350,6 +1391,69 @@ Equal Action Buttons
 Saved Set Details
 ==================
 */
+
+
+.saved-game-collapsible-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.saved-game-summary {
+  cursor: pointer;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  list-style: none;
+}
+
+.saved-game-summary::-webkit-details-marker {
+  display: none;
+}
+
+.saved-game-summary::after {
+  content: "+";
+  border: 2px solid #111827;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.saved-game-collapsible-card[open] .saved-game-summary::after {
+  content: "–";
+}
+
+.saved-game-summary div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.saved-game-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.saved-game-detail-content {
+  border-top: 2px solid #111827;
+  padding: 16px;
+}
+
+@media (max-width: 700px) {
+  .saved-game-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-game-summary-meta {
+    display: grid;
+  }
+}
+
 
 
 .saved-set-top-actions {
@@ -2113,4 +2217,1132 @@ Close Button
 
 .close-app-button:hover {
   background: #374151;
+}
+
+
+
+/*
+Desktop Edit Frame Polish
+==================
+*/
+
+.frame-editor-sticky-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #ffffff;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.frame-editor-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) minmax(220px, 2fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mini-stat-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.mini-stat-card span {
+  color: #6b7280;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.mini-stat-card strong {
+  overflow-wrap: anywhere;
+}
+
+.frame-editor-pin-layout {
+  grid-template-columns: minmax(380px, 1fr) minmax(280px, 360px);
+  align-items: start;
+}
+
+.frame-editor-side-panel {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 190px;
+}
+
+.shot-summary h4 {
+  margin: 0 0 10px;
+}
+
+.frame-editor-score-preview .score-list p {
+  margin: 4px 0;
+}
+
+.saved-game-summary strong {
+  overflow-wrap: anywhere;
+}
+
+.saved-game-summary span {
+  overflow-wrap: anywhere;
+}
+
+/*
+Mobile Web Polish
+==================
+*/
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: 100%;
+    padding: 14px 8px;
+  }
+
+  .logo-card,
+  .page-card,
+  .setup-card {
+    border-width: 2px;
+    padding: 16px;
+  }
+
+  .logo-card {
+    margin-bottom: 18px;
+  }
+
+  .logo-card h1 {
+    font-size: clamp(2.25rem, 14vw, 4rem);
+  }
+
+  .logo-card p {
+    font-size: 0.95rem;
+  }
+
+  .home-nav {
+    gap: 12px;
+  }
+
+  .nav-button {
+    width: 100%;
+    min-width: 0;
+    padding: 16px 18px;
+    font-size: 1.15rem;
+  }
+
+  .back-button {
+    width: 100%;
+  }
+
+  .form-grid,
+  .compact-grid,
+  .set-metadata-grid,
+  .metadata-game-lane-list,
+  .game-score-grid,
+  .deep-stats-grid,
+  .data-summary-grid,
+  .stats-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-set-summary,
+  .center-summary,
+  .bowler-summary,
+  .add-ball-summary {
+    align-items: start;
+  }
+
+  .saved-set-top-actions,
+  .saved-set-actions-row,
+  .saved-game-actions-row,
+  .data-button-row,
+  .setup-button-row,
+  .frame-navigation,
+  .post-game-buttons,
+  .pin-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-game-summary {
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .saved-game-summary-meta {
+    display: grid;
+    gap: 4px;
+    align-items: start;
+    font-size: 0.85rem;
+  }
+
+  .saved-game-detail-content,
+  .saved-set-details,
+  .set-metadata-card,
+  .game-notes-card {
+    padding: 14px;
+  }
+
+  .score-grid {
+    grid-template-columns: repeat(10, minmax(68px, 1fr));
+  }
+
+  .score-frame {
+    min-width: 68px;
+  }
+
+  .table-scroll,
+  .score-grid {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 760px) {
+  .frame-editor-overlay {
+    padding: 8px;
+  }
+
+  .frame-editor-modal {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    border-width: 2px;
+    padding: 14px;
+  }
+
+  .frame-editor-header {
+    display: grid;
+    gap: 12px;
+  }
+
+  .frame-editor-header .secondary-button {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .frame-editor-progress {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .frame-editor-progress .small-button {
+    min-width: 0;
+    padding: 8px 4px;
+  }
+
+  .frame-editor-modal .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .frame-editor-pin-layout,
+  .pin-entry-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .pin-deck {
+    max-width: 340px;
+    margin-inline: auto;
+  }
+
+  .pin-button {
+    width: 44px;
+    height: 44px;
+    border-width: 2px;
+  }
+
+  .shot-summary,
+  .frame-editor-score-preview,
+  .frame-edit-warning-text {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .pin-deck {
+    max-width: 300px;
+  }
+
+  .pin-button {
+    width: 38px;
+    height: 38px;
+    font-size: 0.85rem;
+  }
+
+  .frame-editor-progress {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+
+@media (max-width: 760px) {
+  .frame-editor-sticky-bar {
+    position: static;
+  }
+
+  .frame-editor-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .frame-editor-side-panel {
+    position: static;
+  }
+
+  .wide-mini-stat-card {
+    grid-column: auto;
+  }
+}
+
+
+/*
+Blue Slim Section Style
+==================
+*/
+
+:root {
+  --ps-accent-blue: #1e3a8a;
+  --ps-accent-blue-hover: #eff6ff;
+  --ps-accent-blue-soft: #dbeafe;
+  --ps-subtle-line: #d1d5db;
+}
+
+/* Keep add forms boxed, but match the slimmer blue title style. */
+.bowler-form-card,
+.center-form-card,
+.pattern-form-card,
+.event-form-card,
+.add-form-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 16px;
+  margin-top: 20px;
+  color: #111827;
+}
+
+.add-form-summary strong,
+.stats-section-summary strong {
+  color: var(--ps-accent-blue);
+}
+
+/* Slim list rows for main management pages. */
+.bowler-list,
+.center-list,
+.pattern-list,
+.event-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.bowler-card,
+.center-card,
+.pattern-card,
+.event-card {
+  border: 0;
+  border-bottom: 1px solid var(--ps-subtle-line);
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: #111827;
+}
+
+.bowler-card[open],
+.center-card[open],
+.pattern-card[open],
+.event-card[open] {
+  border: 2px solid #111827;
+  background: #ffffff;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.bowler-summary,
+.center-summary,
+.pattern-summary,
+.event-summary {
+  padding: 14px 0;
+  transition: background 0.15s ease, padding 0.15s ease;
+}
+
+.bowler-summary:hover,
+.center-summary:hover,
+.pattern-summary:hover,
+.event-summary:hover {
+  background: var(--ps-accent-blue-hover);
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.bowler-card[open] > .bowler-summary,
+.center-card[open] > .center-summary,
+.pattern-card[open] > .pattern-summary,
+.event-card[open] > .event-summary {
+  border-bottom: 2px solid #111827;
+  margin-bottom: 16px;
+  padding: 0 0 14px;
+}
+
+.bowler-card[open] > .bowler-summary:hover,
+.center-card[open] > .center-summary:hover,
+.pattern-card[open] > .pattern-summary:hover,
+.event-card[open] > .event-summary:hover {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.bowler-summary strong,
+.center-summary strong,
+.pattern-summary strong,
+.event-summary strong,
+.saved-set-summary strong {
+  color: var(--ps-accent-blue);
+  font-weight: 800;
+}
+
+.bowler-summary p,
+.center-summary p,
+.pattern-summary p,
+.event-summary p {
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.bowler-details-content,
+.center-details-content,
+.pattern-details-content,
+.event-details-content {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Match positive/edit actions to the blue accent instead of the accidental green. */
+.save-button {
+  border-color: var(--ps-accent-blue);
+  color: var(--ps-accent-blue);
+}
+
+.save-button:hover {
+  background: var(--ps-accent-blue-soft);
+}
+
+.event-link-hint {
+  color: var(--ps-accent-blue) !important;
+}
+
+.resource-link a,
+.event-resource-links a {
+  color: var(--ps-accent-blue);
+}
+
+.event-resource-links a:hover {
+  background: var(--ps-accent-blue-hover);
+}
+
+@media (max-width: 700px) {
+  .bowler-summary,
+  .center-summary,
+  .pattern-summary,
+  .event-summary {
+    align-items: start;
+  }
+}
+
+
+/*
+Event Detail Color Fix
+==================
+*/
+
+.event-details-content,
+.event-details-content label,
+.event-details-content input,
+.event-details-content select,
+.event-details-content textarea,
+.event-preview-card,
+.event-preview-card h4,
+.event-preview-card p,
+.event-preview-card strong {
+  color: #111827 !important;
+}
+
+.event-resource-links a {
+  color: #1e3a8a !important;
+}
+
+/* Save actions stay green to distinguish safe/save from blue navigation accents. */
+.save-button {
+  border-color: #047857 !important;
+  color: #047857 !important;
+  background: #ffffff;
+}
+
+.save-button:hover {
+  background: #d1fae5 !important;
+}
+
+.save-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+
+/*
+Stats Box Overflow Fix
+==================
+*/
+
+.stats-collapsible-card,
+.stats-collapsible-content,
+.saved-sets-list,
+.saved-set-card,
+.saved-set-details,
+.saved-game-detail-card,
+.saved-game-detail-content,
+.score-grid-card,
+.set-specific-stats-card {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stats-collapsible-card {
+  overflow: hidden;
+}
+
+.stats-section-summary {
+  margin: 0;
+  width: 100%;
+}
+
+.stats-collapsible-content {
+  overflow-x: hidden;
+}
+
+.saved-set-card,
+.saved-game-detail-card {
+  overflow: hidden;
+}
+
+.saved-set-details,
+.saved-game-detail-content {
+  overflow-x: auto;
+}
+
+.score-grid-card,
+.set-specific-stats-card,
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.score-grid {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+}
+
+.saved-set-top-actions,
+.saved-game-actions-row {
+  min-width: 0;
+}
+
+
+/*
+Saved Sets Fit Tightening
+==================
+*/
+
+.stats-collapsible-card[open] {
+  padding: 14px;
+}
+
+.stats-collapsible-card[open] > .stats-section-summary {
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+}
+
+.stats-collapsible-card[open] > .stats-collapsible-content {
+  padding-top: 14px;
+  overflow: hidden;
+}
+
+.saved-sets-list {
+  gap: 12px;
+}
+
+.saved-set-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.saved-set-card[open] {
+  padding: 14px;
+}
+
+.saved-set-summary,
+.saved-game-summary {
+  min-width: 0;
+}
+
+.saved-set-summary > div,
+.saved-game-summary > div {
+  min-width: 0;
+}
+
+.saved-set-details {
+  padding-top: 14px;
+  overflow: hidden;
+}
+
+.saved-set-top-actions,
+.saved-game-actions-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.saved-game-actions-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.saved-set-top-actions > button,
+.saved-game-actions-row > button {
+  min-width: 0;
+}
+
+.saved-game-detail-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.saved-game-detail-content {
+  padding: 14px;
+  overflow: hidden;
+}
+
+.score-grid-card {
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.score-grid {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(10, minmax(58px, 1fr));
+}
+
+.score-frame {
+  min-width: 58px;
+}
+
+.score-rolls span {
+  min-width: 0;
+}
+
+.score-frame-number,
+.score-total {
+  font-size: 0.95rem;
+}
+
+.saved-game-summary-meta {
+  min-width: 0;
+  text-align: right;
+}
+
+@media (max-width: 950px) {
+  .page-card {
+    padding: 18px;
+  }
+
+  .stats-collapsible-card[open],
+  .saved-set-card[open],
+  .saved-game-detail-card,
+  .saved-game-detail-content {
+    padding: 12px;
+  }
+
+  .score-grid {
+    grid-template-columns: repeat(10, minmax(54px, 1fr));
+  }
+
+  .score-frame {
+    min-width: 54px;
+  }
+}
+
+
+/*
+Stats Export Buttons
+==================
+*/
+
+.stats-action-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  align-items: stretch;
+}
+
+.stats-action-row .primary-button,
+.stats-action-row .secondary-button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 0;
+}
+
+
+/*
+Export Options Modal
+==================
+*/
+
+.export-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.68);
+  z-index: 1000;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+.export-modal-card {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  border: 3px solid #111827;
+  background: #ffffff;
+  padding: 24px;
+}
+
+.export-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.export-modal-header h3 {
+  margin: 0;
+}
+
+.export-modal-header p {
+  margin-bottom: 0;
+}
+
+.export-scope-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 12px;
+}
+
+.export-scope-card p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+.export-preset-row,
+.export-modal-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.export-preset-row button,
+.export-modal-actions button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 0;
+}
+
+.export-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.export-section-option {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.export-section-option input {
+  width: auto;
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.export-section-option span {
+  display: grid;
+  gap: 4px;
+}
+
+.export-section-option small {
+  color: #4b5563;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+  .export-modal-overlay {
+    padding: 12px;
+  }
+
+  .export-modal-card {
+    padding: 16px;
+  }
+
+  .export-modal-header {
+    display: grid;
+  }
+}
+
+
+/*
+Polish: Toasts, Empty States, About
+==================
+*/
+
+.toast-message {
+  border: 2px solid #111827;
+  background: #ecfdf5;
+  color: #064e3b;
+  padding: 12px 14px;
+  margin: 16px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+}
+
+.toast-message button {
+  border: 2px solid #111827;
+  background: #ffffff;
+  color: #111827;
+  width: 32px;
+  height: 32px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.empty-state-card {
+  border: 2px dashed #6b7280;
+  background: #f9fafb;
+  padding: 18px;
+  margin-top: 16px;
+}
+
+.empty-state-card h3 {
+  margin: 0 0 8px;
+  color: #1e3a8a;
+}
+
+.empty-state-card p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.structured-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.saved-notes-summary {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.saved-notes-summary p {
+  margin: 6px 0;
+}
+
+.export-file-preview {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 12px;
+  margin-top: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.export-file-preview code {
+  display: block;
+  background: #ffffff;
+  border: 1px solid #111827;
+  padding: 8px;
+  overflow-wrap: anywhere;
+  font-family: "Courier New", monospace;
+}
+
+.export-file-preview p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.about-card {
+  border: 2px solid #111827;
+  background: #f9fafb;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.about-card h3 {
+  margin-top: 0;
+  color: #1e3a8a;
+}
+
+.about-card p {
+  margin-bottom: 0;
+}
+
+
+.about-card a {
+  color: #1e3a8a;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+
+/*
+About Layout Cleanup
+==================
+*/
+
+.simple-about-grid {
+  width: 100%;
+  max-width: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.simple-about-grid .about-card {
+  margin-top: 0;
+  min-height: 100px;
+}
+
+@media (max-width: 700px) {
+  .simple-about-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/*
+Accessibility Polish
+==================
+*/
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex="-1"]:focus-visible {
+  outline: 4px solid #2563eb;
+  outline-offset: 3px;
+}
+
+[aria-invalid="true"] {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.15);
+}
+
+.field-validation-card {
+  border: 2px solid #92400e;
+  background: #fffbeb;
+  color: #111827;
+  padding: 14px;
+  margin-top: 18px;
+}
+
+.field-validation-card h3 {
+  margin: 0 0 8px;
+  color: #92400e;
+}
+
+.field-validation-card ul {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.error-validation-card {
+  border-color: #b91c1c;
+  background: #fef2f2;
+}
+
+.error-validation-card h3 {
+  color: #b91c1c;
+}
+
+.export-modal-card:focus,
+.frame-editor-modal:focus {
+  outline: none;
+}
+
+
+/*
+URL Field Validation
+==================
+*/
+
+.field-error-text {
+  display: block;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+
+/*
+Frame Editor Bleed Fix
+==================
+*/
+
+.frame-editor-overlay {
+  overflow: hidden;
+}
+
+.frame-editor-modal {
+  max-height: calc(100dvh - 56px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.frame-editor-sticky-bar {
+  margin: -24px -24px 18px;
+  padding: 24px 24px 16px;
+  background: #ffffff;
+  border-bottom: 2px solid #111827;
+  z-index: 20;
+}
+
+.frame-editor-modal > .form-grid.compact-grid {
+  margin-top: 0;
+}
+
+@media (max-width: 760px) {
+  .frame-editor-sticky-bar {
+    margin: -14px -14px 18px;
+    padding: 14px 14px 16px;
+  }
+}
+
+
+/*
+Add Event Form Text Color Fix
+==================
+*/
+
+.event-form-card .form-grid label,
+.event-form-card .form-grid input,
+.event-form-card .form-grid select,
+.event-form-card .form-grid textarea,
+.event-form-card .field-error-text {
+  color: #111827;
+}
+
+.event-form-card .form-grid .required {
+  color: #b91c1c;
+}
+
+
+/*
+Frame Editor Content Padding Fix
+==================
+*/
+
+.frame-editor-sticky-bar {
+  margin-bottom: 24px;
+}
+
+.frame-editor-modal > .form-grid.compact-grid {
+  padding-top: 10px;
+  margin-top: 0;
+}
+
+.frame-editor-pin-layout {
+  padding-top: 6px;
+}
+
+@media (max-width: 760px) {
+  .frame-editor-sticky-bar {
+    margin-bottom: 20px;
+  }
+
+  .frame-editor-modal > .form-grid.compact-grid {
+    padding-top: 12px;
+  }
+}
+
+
+/*
+Modal Background Scroll Lock
+==================
+*/
+
+.export-modal-overlay,
+.frame-editor-overlay {
+  overscroll-behavior: contain;
+}
+
+.export-modal-card,
+.frame-editor-modal {
+  overscroll-behavior: contain;
+}
+
+
+/*
+Add Form Validation Cards
+==================
+*/
+
+.compact-validation-card {
+  margin: 16px 0;
+  padding: 12px 14px;
+}
+
+.compact-validation-card h3 {
+  font-size: 1rem;
+}
+
+.add-form-content .compact-validation-card,
+.add-ball-content .compact-validation-card {
+  grid-column: 1 / -1;
 }
