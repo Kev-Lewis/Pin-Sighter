@@ -349,7 +349,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.0.2";
+const appVersion = "1.0.3";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -1210,52 +1210,6 @@ async function writeTemporaryBackup(backup: PinSighterBackup) {
   }
 }
 
-async function readTemporaryBackup() {
-  try {
-    const storagePaths = await getAppStoragePaths();
-    const backupJson = await storagePaths.fsApi.readTextFile(
-      storagePaths.temporaryBackupFilePath
-    );
-
-    return {
-      ok: true,
-      backup: JSON.parse(backupJson) as PinSighterBackup | PinSighterBackupData,
-      path: storagePaths.temporaryBackupFilePath,
-      message: `Temporary backup loaded from ${storagePaths.temporaryBackupFilePath}`,
-    };
-  } catch (error) {
-    console.warn("Unable to read temporary backup file.", error);
-
-    const fallbackJson = localStorage.getItem(storageKeys.temporaryBackup);
-
-    if (!fallbackJson) {
-      return {
-        ok: false,
-        backup: null,
-        path: "",
-        message: "No temporary backup was found.",
-      };
-    }
-
-    try {
-      return {
-        ok: true,
-        backup: JSON.parse(fallbackJson) as PinSighterBackup | PinSighterBackupData,
-        path: "localStorage fallback",
-        message: "Temporary backup loaded from localStorage fallback.",
-      };
-    } catch (fallbackError) {
-      console.warn("Unable to read temporary backup fallback.", fallbackError);
-
-      return {
-        ok: false,
-        backup: null,
-        path: "",
-        message: "No valid temporary backup was found.",
-      };
-    }
-  }
-}
 
 // App Shell
 // ==================
@@ -1816,51 +1770,7 @@ function DataManagementPage({
     setDataMessage("Backup exported.");
   }
 
-  async function handleSaveAppDataFile() {
-    const saveResult = await writeAppDataFile(createPinSighterBackup(backupData));
 
-    setDataMessage(saveResult.message);
-  }
-
-  async function handleLoadTemporaryBackup() {
-    if (
-      !window.confirm(
-        "Load the most recent temporary backup? This will replace the current app data."
-      )
-    ) {
-      return;
-    }
-
-    const backupResult = await readTemporaryBackup();
-
-    if (!backupResult.backup) {
-      setDataMessage(backupResult.message);
-      return;
-    }
-
-    try {
-      const importResult = getImportedBackupData(backupResult.backup);
-      const importedData = importResult.data;
-
-      setBowlers(importedData.bowlers);
-      setCenters(importedData.centers);
-      setPatterns(ensureUnknownPattern(importedData.patterns));
-      setEvents(importedData.events);
-      setSavedEventLogs(importedData.savedEventLogs);
-      setSavedGames(importedData.savedGames);
-      markFirstLaunchSetupComplete();
-      setDataMessage(
-        importResult.warnings.length > 0
-          ? `Temporary backup loaded with warnings: ${importResult.warnings.join(" ")}`
-          : backupResult.message
-      );
-    } catch (error) {
-      console.error("Temporary backup load failed.", error);
-      setDataMessage(
-        "Temporary backup load failed. The backup may be missing or unreadable."
-      );
-    }
-  }
 
   async function handleImportData(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -1971,24 +1881,11 @@ function DataManagementPage({
 
       <section className="data-card">
         <div>
-          <h3>App Data File</h3>
-          <p>
-            Pin-Sighter saves your main data automatically so your bowlers,
-            centers, patterns, leagues, and saved games are ready the next time
-            you open the app. Use the button below to save it again right now.
-          </p>
-        </div>
-        <button className="secondary-button" onClick={handleSaveAppDataFile}>
-          Save App Data File Now
-        </button>
-      </section>
-
-      <section className="data-card">
-        <div>
           <h3>Backup</h3>
           <p>
-            Export one JSON file with all bowlers, centers, patterns, events,
-            saved sets, and saved games.
+            Download one JSON backup file with all bowlers, centers, patterns,
+            events, saved sets, and saved games. Save this file somewhere safe
+            before switching browsers, devices, or clearing browser data.
           </p>
         </div>
         <button className="primary-button" onClick={handleExportData}>
@@ -1998,23 +1895,10 @@ function DataManagementPage({
 
       <section className="data-card">
         <div>
-          <h3>Temporary Backup</h3>
-          <p>
-            Load the most recent automatic backup if your current data is lost,
-            cleared, or not showing correctly. This replaces the current app
-            data with the temporary recovery copy.
-          </p>
-        </div>
-        <button className="secondary-button" onClick={handleLoadTemporaryBackup}>
-          Load Temporary Backup
-        </button>
-      </section>
-
-      <section className="data-card">
-        <div>
           <h3>Restore</h3>
           <p>
-            Import a Pin-Sighter JSON backup. This replaces the current app data.
+            Import a Pin-Sighter JSON backup from your computer. This replaces
+            the current browser data.
           </p>
         </div>
         <label className="import-button">
