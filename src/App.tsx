@@ -252,6 +252,47 @@ type GameMetadataDraft = {
   adjustmentNotes: string;
 };
 
+type DetailedStatDetail = {
+  title: string;
+  label: string;
+  value: string;
+  description: string;
+  formula: string;
+  detailRows: { label: string; value: string }[];
+  note?: string;
+};
+
+type HighSeriesGameDetail = {
+  gameNumber: number;
+  score: number;
+  laneLabel: string;
+  savedAt: string;
+};
+
+type HighSeriesDetail = {
+  total: number;
+  eventLabel: string;
+  games: HighSeriesGameDetail[];
+};
+
+type OverviewScoreDetail = {
+  score: number;
+  bowlerLabel: string;
+  gameNumber: number;
+  laneLabel: string;
+  savedAt: string;
+  eventLabel: string;
+};
+
+type SetStatDetailRow = {
+  id: string;
+  score: number;
+  gameNumber: number;
+  laneLabel: string;
+  savedAt: string;
+  eventLabel: string;
+};
+
 type GameEntryPageProps = {
   bowlers: Bowler[];
   bowlerNames: string[];
@@ -308,7 +349,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.0.1";
+const appVersion = "1.0.2";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -6664,6 +6705,9 @@ function StatsPage({
   const [selectedGameNumber, setSelectedGameNumber] = useState("All");
   const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
   const exportModalRef = useRef<HTMLElement | null>(null);
+  const [selectedDetailedStat, setSelectedDetailedStat] =
+    useState<DetailedStatDetail | null>(null);
+  const detailedStatModalRef = useRef<HTMLElement | null>(null);
   const [exportFormat, setExportFormat] = useState<StatsExportFormat>("html");
   const [exportSections, setExportSections] = useState<StatsExportSections>({
     ...defaultStatsExportSections,
@@ -6726,6 +6770,34 @@ function StatsPage({
       previouslyFocusedElement?.focus();
     };
   }, [isExportPanelOpen]);
+
+  useEffect(() => {
+    if (!selectedDetailedStat) {
+      return;
+    }
+
+    const unlockDocumentScroll = lockDocumentScroll();
+    const previouslyFocusedElement = document.activeElement as HTMLElement | null;
+
+    window.setTimeout(() => detailedStatModalRef.current?.focus(), 0);
+
+    function handleDetailedStatModalKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSelectedDetailedStat(null);
+        return;
+      }
+
+      trapFocusWithinElement(event, detailedStatModalRef.current);
+    }
+
+    document.addEventListener("keydown", handleDetailedStatModalKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDetailedStatModalKeyDown);
+      unlockDocumentScroll();
+      previouslyFocusedElement?.focus();
+    };
+  }, [selectedDetailedStat]);
 
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
   const usesEventFilter =
@@ -7069,24 +7141,50 @@ function StatsPage({
     })
   );
 
-  const totalScores = statsFilteredGames.flatMap((game) => {
-    if (game.format === "Baker") {
-      if (!isBakerTeamSelection) {
-        return [];
+  const overviewScoreEntries: OverviewScoreDetail[] = statsFilteredGames.flatMap(
+    (game) => {
+      const eventLabel = [
+        game.eventName || game.competitionType,
+        game.eventStageLabel,
+        game.centerName,
+      ]
+        .filter(Boolean)
+        .join(" • ");
+
+      if (game.format === "Baker") {
+        if (!isBakerTeamSelection) {
+          return [];
+        }
+
+        return game.scores.map((score) => ({
+          score: score.score,
+          bowlerLabel: score.label,
+          gameNumber: game.gameNumber,
+          laneLabel: game.laneLabel,
+          savedAt: game.savedAt,
+          eventLabel,
+        }));
       }
 
-      return game.scores.map((score) => score.score);
+      return game.scores
+        .filter(
+          (score) => selectedBowler === "All" || score.label === selectedBowler
+        )
+        .map((score) => ({
+          score: score.score,
+          bowlerLabel: score.label,
+          gameNumber: game.gameNumber,
+          laneLabel: game.laneLabel,
+          savedAt: game.savedAt,
+          eventLabel,
+        }));
     }
-
-    return game.scores
-      .filter((score) => selectedBowler === "All" || score.label === selectedBowler)
-      .map((score) => score.score);
-  });
+  );
+  const totalScores = overviewScoreEntries.map((entry) => entry.score);
+  const overviewTotalPins = totalScores.reduce((sum, score) => sum + score, 0);
 
   const overallAverage =
-    totalScores.length > 0
-      ? totalScores.reduce((sum, score) => sum + score, 0) / totalScores.length
-      : 0;
+    totalScores.length > 0 ? overviewTotalPins / totalScores.length : 0;
 
   const strikeCount = filteredEntries.filter(isStrikeEntry).length;
   const spareCount = filteredEntries.filter(isSpareEntry).length;
@@ -7099,10 +7197,21 @@ function StatsPage({
   );
 
   const sessionGroups = buildSessionGroups(statsFilteredGames);
-  const overviewHighGame = totalScores.length > 0 ? Math.max(...totalScores) : 0;
-  const overviewHighThreeGameSeries = isIndividualBowlerFilter
-    ? getHighSeries(sessionGroups, selectedBowler, 3)
-    : getHighTeamSeries(sessionGroups, 3);
+  const overviewHighGameDetail = getHighGameDetail(overviewScoreEntries);
+  const overviewHighGame = overviewHighGameDetail?.score ?? 0;
+  const overviewHighThreeGameSeriesDetail = isIndividualBowlerFilter
+    ? getHighSeriesDetail(sessionGroups, selectedBowler, 3)
+    : getHighTeamSeriesDetail(sessionGroups, 3);
+  const overviewHighThreeGameSeries =
+    overviewHighThreeGameSeriesDetail?.total ?? 0;
+  const overviewStatCards = buildOverviewStatCards({
+    average: overallAverage,
+    totalPins: overviewTotalPins,
+    totalScores: totalScores.length,
+    highGameDetail: overviewHighGameDetail,
+    highSeriesDetail: overviewHighThreeGameSeriesDetail,
+  });
+  const targetingStatCards = buildTargetingStatCards(filteredEntries);
   const teamSetRows = calculateTeamSetRows(sessionGroups);
   const detailedStats =
     isIndividualBowlerFilter
@@ -7114,6 +7223,9 @@ function StatsPage({
           bowlerHandednessByName
         )
       : null;
+  const detailedStatCards = detailedStats
+    ? buildDetailedStatCards(detailedStats, selectedBall)
+    : [];
 
   const spareLeaveRows = calculateSpareLeaveRows(filteredEntries);
   const spareLeaveSummary = calculateSpareLeaveSummary(filteredEntries);
@@ -7787,10 +7899,6 @@ function StatsPage({
       [
         "Makeable Spare Conversion",
         `${detailedStats.makeableSpareConversion.toFixed(1)}%`,
-      ],
-      [
-        "Fill Frames Percentage",
-        `${detailedStats.fillFramesPercentage.toFixed(1)}%`,
       ],
       ["Clean Percentage", `${detailedStats.cleanPercentage.toFixed(1)}%`],
       ["Split Percentage", `${detailedStats.splitPercentage.toFixed(1)}%`],
@@ -9252,10 +9360,16 @@ function StatsPage({
               <span>Total Games</span>
             </div>
 
-            <div className="stat-card">
+            <button
+              className="stat-card stat-card-button"
+              type="button"
+              onClick={() => setSelectedDetailedStat(overviewStatCards.average)}
+              aria-label="View details for average"
+            >
               <strong>{overallAverage.toFixed(1)}</strong>
               <span>Average</span>
-            </div>
+              <small>View Details</small>
+            </button>
 
             <div className="stat-card">
               <strong>{strikeCount}</strong>
@@ -9282,15 +9396,27 @@ function StatsPage({
               <span>Clean Games</span>
             </div>
 
-            <div className="stat-card">
+            <button
+              className="stat-card stat-card-button"
+              type="button"
+              onClick={() => setSelectedDetailedStat(overviewStatCards.highGame)}
+              aria-label="View details for high game"
+            >
               <strong>{overviewHighGame || "—"}</strong>
               <span>High Game</span>
-            </div>
+              <small>View Details</small>
+            </button>
 
-            <div className="stat-card">
+            <button
+              className="stat-card stat-card-button"
+              type="button"
+              onClick={() => setSelectedDetailedStat(overviewStatCards.highSeries)}
+              aria-label="View details for high series"
+            >
               <strong>{overviewHighThreeGameSeries || "—"}</strong>
               <span>High Series (3-game)</span>
-            </div>
+              <small>View Details</small>
+            </button>
 
             {!hasFocusedStatsFilter && (
               <p className="helper-text overview-default-note">
@@ -9353,89 +9479,20 @@ function StatsPage({
                     Deeper scoring, pocket, spare, clean-frame, split, and
                     first-ball stats.
                   </p>
-                  <p className="helper-text">
-                    Pocket stats use handedness: right-handed bowlers count the
-                    pocket when pins 1 and 3 go down on the first ball, while
-                    left-handed bowlers count the pocket when pins 1 and 2 go
-                    down. Carry percentage is strikes divided by pocket hits.
-                    First ball average is average first-ball pinfall.
-                  </p>
-
                   <div className="deep-stats-grid">
-                    <div className="stat-card">
-                      <strong>{detailedStats.numGames}</strong>
-                      <span>Total Games</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.average.toFixed(1)}</strong>
-                      <span>Average</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>
-                        {detailedStats.highThreeGameSeries > 0
-                          ? detailedStats.highThreeGameSeries
-                          : "—"}
-                      </strong>
-                      <span>High 3-Game Series</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>
-                        {detailedStats.highFourGameSeries > 0
-                          ? detailedStats.highFourGameSeries
-                          : "—"}
-                      </strong>
-                      <span>High 4-Game Series</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.pocketPercentage.toFixed(1)}%</strong>
-                      <span>Pocket Percentage</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.carryPercentage.toFixed(1)}%</strong>
-                      <span>Carry Percentage</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.doublePercentage.toFixed(1)}%</strong>
-                      <span>Double Percentage</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>
-                        {detailedStats.makeableSpareConversion.toFixed(1)}%
-                      </strong>
-                      <span>Makeable Spare Conversion</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.fillFramesPercentage.toFixed(1)}%</strong>
-                      <span>Fill Frames Percentage</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.cleanPercentage.toFixed(1)}%</strong>
-                      <span>Clean Percentage</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.splitPercentage.toFixed(1)}%</strong>
-                      <span>Split Percentage</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.cleanGames}</strong>
-                      <span>Clean Games</span>
-                    </div>
-
-                    <div className="stat-card">
-                      <strong>{detailedStats.firstBallAverage.toFixed(2)}</strong>
-                      <span>First Ball Average</span>
-                    </div>
+                    {detailedStatCards.map((stat) => (
+                      <button
+                        className="stat-card stat-card-button"
+                        key={stat.title}
+                        type="button"
+                        onClick={() => setSelectedDetailedStat(stat)}
+                        aria-label={`View details for ${stat.label}`}
+                      >
+                        <strong>{stat.value}</strong>
+                        <span>{stat.label}</span>
+                        <small>View Details</small>
+                      </button>
+                    ))}
                   </div>
 
                   <section className="frame-score-card">
@@ -9820,40 +9877,19 @@ function StatsPage({
             ) : (
               <>
                 <div className="stats-summary-grid">
-                  <div className="stat-card">
-                    <strong>{boardStats.trackedShots}</strong>
-                    <span>Tracked Shots</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatSignedNumber(boardStats.averageArrowMiss)}</strong>
-                    <span>Avg Arrow Miss</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageAbsoluteArrowMiss)}</strong>
-                    <span>Avg Abs Arrow Miss</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatPercentValue(boardStats.arrowHitRate)}</strong>
-                    <span>Arrow ±1 Board</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatSignedNumber(boardStats.averageBreakpointMiss)}</strong>
-                    <span>Avg Breakpoint Miss</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatMaybeNumber(boardStats.averageAbsoluteBreakpointMiss)}</strong>
-                    <span>Avg Abs BP Miss</span>
-                  </div>
-
-                  <div className="stat-card">
-                    <strong>{formatPercentValue(boardStats.breakpointHitRate)}</strong>
-                    <span>Breakpoint ±1 Board</span>
-                  </div>
+                  {targetingStatCards.map((stat) => (
+                    <button
+                      className="stat-card stat-card-button"
+                      key={stat.title}
+                      type="button"
+                      onClick={() => setSelectedDetailedStat(stat)}
+                      aria-label={`View details for ${stat.label}`}
+                    >
+                      <strong>{stat.value}</strong>
+                      <span>{stat.label}</span>
+                      <small>View Details</small>
+                    </button>
+                  ))}
                 </div>
 
                 <section className="board-table-section">
@@ -10113,6 +10149,7 @@ function StatsPage({
                         selectedBall={selectedBall}
                         session={session}
                         bowlerHandednessByName={bowlerHandednessByName}
+                        onStatClick={setSelectedDetailedStat}
                       />
                     )}
 
@@ -10284,6 +10321,72 @@ function StatsPage({
             </div>
           </details>
         </>
+      )}
+
+      {selectedDetailedStat && (
+        <div
+          className="stat-detail-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedDetailedStat(null);
+            }
+          }}
+        >
+          <section
+            className="stat-detail-modal"
+            ref={detailedStatModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stat-detail-title"
+            tabIndex={-1}
+          >
+            <div className="stat-detail-header">
+              <div>
+                <p className="eyebrow">Stat Detail</p>
+                <h3 id="stat-detail-title">{selectedDetailedStat.title}</h3>
+              </div>
+
+              <button
+                className="secondary-button"
+                onClick={() => setSelectedDetailedStat(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="stat-detail-value">
+              <strong>{selectedDetailedStat.value}</strong>
+              <span>{selectedDetailedStat.label}</span>
+            </div>
+
+            <p>{selectedDetailedStat.description}</p>
+
+            <section className="stat-detail-formula">
+              <h4>Formula</h4>
+              <p>{selectedDetailedStat.formula}</p>
+            </section>
+
+            <div className="table-scroll">
+              <table className="stats-table stat-detail-table">
+                <caption className="sr-only">
+                  Calculation details for {selectedDetailedStat.label}.
+                </caption>
+                <tbody>
+                  {selectedDetailedStat.detailRows.map((row) => (
+                    <tr key={row.label}>
+                      <th scope="row">{row.label}</th>
+                      <td>{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {selectedDetailedStat.note && (
+              <p className="helper-text">{selectedDetailedStat.note}</p>
+            )}
+          </section>
+        </div>
       )}
 
       {frameEditorGame && (
@@ -11316,6 +11419,7 @@ function SavedFrameEditModal({
         aria-labelledby="frame-editor-title"
         tabIndex={-1}
       >
+        <div className="frame-editor-scroll-shield" aria-hidden="true" />
         <div className="frame-editor-sticky-bar">
           <div className="frame-editor-header">
             <div>
@@ -11555,16 +11659,19 @@ function SavedFrameEditModal({
 // Set Specific Stats
 // ==================
 
+
 function SetSpecificStats({
   bowlerName,
   selectedBall,
   session,
   bowlerHandednessByName,
+  onStatClick,
 }: {
   bowlerName: string;
   selectedBall: string;
   session: ReturnType<typeof buildSessionGroups>[number];
   bowlerHandednessByName: Map<string, Handedness>;
+  onStatClick: (stat: DetailedStatDetail) => void;
 }) {
   const sessionStats = calculateDetailedBowlerStats(
     bowlerName,
@@ -11573,6 +11680,12 @@ function SetSpecificStats({
     [session],
     bowlerHandednessByName
   );
+  const setStatCards = buildSetStatCards({
+    stats: sessionStats,
+    selectedBowler: bowlerName,
+    selectedBall,
+    games: session.games,
+  });
 
   return (
     <section className="set-specific-stats-card">
@@ -11582,55 +11695,19 @@ function SetSpecificStats({
       </h4>
 
       <div className="deep-stats-grid">
-        <div className="stat-card">
-          <strong>{sessionStats.numGames}</strong>
-          <span>Games</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.average.toFixed(1)}</strong>
-          <span>Average</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.pocketPercentage.toFixed(1)}%</strong>
-          <span>Pocket %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.carryPercentage.toFixed(1)}%</strong>
-          <span>Carry %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.doublePercentage.toFixed(1)}%</strong>
-          <span>Double %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.makeableSpareConversion.toFixed(1)}%</strong>
-          <span>Makeable Spare %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.fillFramesPercentage.toFixed(1)}%</strong>
-          <span>Fill Frames %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.cleanPercentage.toFixed(1)}%</strong>
-          <span>Clean %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.splitPercentage.toFixed(1)}%</strong>
-          <span>Split %</span>
-        </div>
-
-        <div className="stat-card">
-          <strong>{sessionStats.cleanGames}</strong>
-          <span>Clean Games</span>
-        </div>
+        {setStatCards.map((stat) => (
+          <button
+            className="stat-card stat-card-button"
+            key={stat.title}
+            type="button"
+            onClick={() => onStatClick(stat)}
+            aria-label={`View details for ${stat.label}`}
+          >
+            <strong>{stat.value}</strong>
+            <span>{stat.label}</span>
+            <small>View Details</small>
+          </button>
+        ))}
       </div>
     </section>
   );
@@ -12840,13 +12917,21 @@ function calculateDetailedBowlerStats(
   );
 
   const numGames = scores.length;
-  const average =
-    scores.length > 0
-      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
-      : 0;
+  const totalPins = scores.reduce((sum, score) => sum + score, 0);
+  const average = scores.length > 0 ? totalPins / scores.length : 0;
 
-  const highThreeGameSeries = getHighSeries(sessionGroups, bowlerName, 3);
-  const highFourGameSeries = getHighSeries(sessionGroups, bowlerName, 4);
+  const highThreeGameSeriesDetail = getHighSeriesDetail(
+    sessionGroups,
+    bowlerName,
+    3
+  );
+  const highFourGameSeriesDetail = getHighSeriesDetail(
+    sessionGroups,
+    bowlerName,
+    4
+  );
+  const highThreeGameSeries = highThreeGameSeriesDetail?.total ?? 0;
+  const highFourGameSeries = highFourGameSeriesDetail?.total ?? 0;
 
   const firstShots = entries.length;
   const pocketHits = entries.filter((entry) =>
@@ -12861,13 +12946,12 @@ function calculateDetailedBowlerStats(
   const cleanFrames = entries.filter(isCleanFrame).length;
   const splits = entries.filter(isSplitEntry).length;
   const cleanGames = countCleanGames(games, bowlerName, selectedBall);
+  const totalFirstBallPins = entries.reduce(
+    (sum, entry) => sum + entry.firstShotKnockedPins.length,
+    0
+  );
   const firstBallAverage =
-    entries.length > 0
-      ? entries.reduce(
-          (sum, entry) => sum + entry.firstShotKnockedPins.length,
-          0
-        ) / entries.length
-      : 0;
+    entries.length > 0 ? totalFirstBallPins / entries.length : 0;
   const frameScoreRows = calculateAverageFrameScoreRows(
     games,
     bowlerName,
@@ -13002,36 +13086,902 @@ function calculateDetailedBowlerStats(
 
   return {
     numGames,
+    totalPins,
     average,
     highThreeGameSeries,
     highFourGameSeries,
+    highThreeGameSeriesDetail,
+    highFourGameSeriesDetail,
     frames: entries.length,
+    firstShots,
     strikes,
     spares,
     opens,
+    pocketHits,
+    pocketStrikes,
+    pocketStrikesAfterStrike,
     pocketPercentage:
       firstShots > 0 ? (pocketHits / firstShots) * 100 : 0,
     carryPercentage:
       pocketHits > 0 ? (pocketStrikes / pocketHits) * 100 : 0,
     doublePercentage:
       pocketStrikes > 0 ? (pocketStrikesAfterStrike / pocketStrikes) * 100 : 0,
+    makeableAttempts: makeableAttempts.length,
+    convertedMakeableSpares,
     makeableSpareConversion:
       makeableAttempts.length > 0
         ? (convertedMakeableSpares / makeableAttempts.length) * 100
         : 0,
+    cleanFrames,
     fillFramesPercentage:
       firstShots > 0 ? (cleanFrames / firstShots) * 100 : 0,
     cleanPercentage:
       firstShots > 0 ? (cleanFrames / firstShots) * 100 : 0,
+    splits,
     splitPercentage:
       firstShots > 0 ? (splits / firstShots) * 100 : 0,
     cleanGames,
+    totalFirstBallPins,
     firstBallAverage,
     frameScoreRows,
     averageByGameRows,
     scoreDistribution,
     transitionRows,
   };
+}
+
+function formatStatRatio(numerator: number, denominator: number) {
+  return `${numerator.toLocaleString()} / ${denominator.toLocaleString()}`;
+}
+
+function formatDetailedPercent(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
+function formatHighSeriesDetailRows(
+  detail: HighSeriesDetail | null
+): { label: string; value: string }[] {
+  if (!detail) {
+    return [{ label: "Series Games", value: "Not enough games tracked" }];
+  }
+
+  return [
+    {
+      label: "Series Date",
+      value: formatSetSavedDateTime(detail.games[0]?.savedAt ?? ""),
+    },
+    {
+      label: "Event / Set",
+      value: detail.eventLabel,
+    },
+    ...detail.games.map((game, index) => ({
+      label: `Game ${index + 1}`,
+      value: `${game.score} — Game ${game.gameNumber}, ${game.laneLabel}`,
+    })),
+  ];
+}
+
+function getHighGameDetail(scoreEntries: OverviewScoreDetail[]) {
+  if (scoreEntries.length === 0) {
+    return null;
+  }
+
+  return scoreEntries.reduce((highest, current) =>
+    current.score > highest.score ? current : highest
+  );
+}
+
+function buildOverviewStatCards({
+  average,
+  totalPins,
+  totalScores,
+  highGameDetail,
+  highSeriesDetail,
+}: {
+  average: number;
+  totalPins: number;
+  totalScores: number;
+  highGameDetail: OverviewScoreDetail | null;
+  highSeriesDetail: HighSeriesDetail | null;
+}) {
+  return {
+    average: {
+      title: "Average",
+      label: "Average",
+      value: totalScores > 0 ? average.toFixed(1) : "—",
+      description:
+        "Average score across the saved games that match the current filters.",
+      formula: "Total pins ÷ total game scores.",
+      detailRows: [
+        { label: "Total Pins", value: totalPins.toLocaleString() },
+        { label: "Scores Counted", value: totalScores.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            totalScores > 0
+              ? `${totalPins} ÷ ${totalScores} = ${average.toFixed(1)}`
+              : "No scores match the current filters",
+        },
+      ],
+    },
+    highGame: {
+      title: "High Game",
+      label: "High Game",
+      value: highGameDetail ? String(highGameDetail.score) : "—",
+      description:
+        "The highest single game score found under the current filters.",
+      formula: "Highest score among matching saved game scores.",
+      detailRows: highGameDetail
+        ? [
+            { label: "Score", value: String(highGameDetail.score) },
+            { label: "Bowler / Team", value: highGameDetail.bowlerLabel },
+            { label: "Game", value: `Game ${highGameDetail.gameNumber}` },
+            { label: "Lane / Pair", value: highGameDetail.laneLabel || "—" },
+            { label: "Event / Set", value: highGameDetail.eventLabel || "—" },
+            {
+              label: "Saved",
+              value: formatSetSavedDateTime(highGameDetail.savedAt),
+            },
+          ]
+        : [{ label: "High Game", value: "No scores match the current filters" }],
+    },
+    highSeries: {
+      title: "High Series",
+      label: "High Series (3-game)",
+      value: highSeriesDetail ? String(highSeriesDetail.total) : "—",
+      description:
+        "The highest 3-game series found under the current filters.",
+      formula:
+        "Best total from three consecutive matching games in the same saved set.",
+      detailRows: [
+        {
+          label: "Series Total",
+          value: highSeriesDetail ? String(highSeriesDetail.total) : "—",
+        },
+        ...formatHighSeriesDetailRows(highSeriesDetail),
+      ],
+      note: "Open bowling games are not included in high series calculations.",
+    },
+  };
+}
+
+function getValidBoardValues(
+  rows: BoardShotRow[],
+  selector: (row: BoardShotRow) => number | null
+) {
+  return rows.map(selector).filter((value): value is number => value !== null);
+}
+
+function sumBoardValues(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+function averageBoardValue(values: number[]) {
+  return values.length > 0 ? sumBoardValues(values) / values.length : null;
+}
+
+function createAverageBoardDetail({
+  title,
+  label,
+  values,
+  valueFormatter,
+  description,
+  formula,
+}: {
+  title: string;
+  label: string;
+  values: number[];
+  valueFormatter: (value: number | null) => string;
+  description: string;
+  formula: string;
+}): DetailedStatDetail {
+  const averageValue = averageBoardValue(values);
+  const totalValue = sumBoardValues(values);
+
+  return {
+    title,
+    label,
+    value: valueFormatter(averageValue),
+    description,
+    formula,
+    detailRows: [
+      { label: "Values Counted", value: values.length.toLocaleString() },
+      { label: "Total", value: totalValue.toFixed(1) },
+      {
+        label: "Calculation",
+        value:
+          values.length > 0
+            ? `${totalValue.toFixed(1)} ÷ ${values.length} = ${valueFormatter(averageValue)}`
+            : "No matching board values tracked",
+      },
+    ],
+  };
+}
+
+function createBoardHitRateDetail({
+  title,
+  label,
+  values,
+  description,
+  formula,
+}: {
+  title: string;
+  label: string;
+  values: number[];
+  description: string;
+  formula: string;
+}): DetailedStatDetail {
+  const hits = values.filter((value) => Math.abs(value) <= 1).length;
+  const percentage = values.length > 0 ? (hits / values.length) * 100 : null;
+
+  return {
+    title,
+    label,
+    value: formatPercentValue(percentage),
+    description,
+    formula,
+    detailRows: [
+      { label: "Hits Within ±1", value: hits.toLocaleString() },
+      { label: "Values Counted", value: values.length.toLocaleString() },
+      {
+        label: "Calculation",
+        value:
+          values.length > 0
+            ? `${formatStatRatio(hits, values.length)} = ${formatPercentValue(percentage)}`
+            : "No matching board values tracked",
+      },
+    ],
+  };
+}
+
+function buildTargetingStatCards(entries: FrameEntry[]): DetailedStatDetail[] {
+  const boardRows = entries.map(createBoardShotRow).filter(hasBoardData);
+  const arrowMissValues = getValidBoardValues(
+    boardRows,
+    (row) => row.arrowMiss
+  );
+  const absoluteArrowMissValues = arrowMissValues.map((value) =>
+    Math.abs(value)
+  );
+  const breakpointMissValues = getValidBoardValues(
+    boardRows,
+    (row) => row.breakpointMiss
+  );
+  const absoluteBreakpointMissValues = breakpointMissValues.map((value) =>
+    Math.abs(value)
+  );
+
+  return [
+    {
+      title: "Tracked Shots",
+      label: "Tracked Shots",
+      value: String(boardRows.length),
+      description:
+        "Number of shots with at least one saved targeting field.",
+      formula:
+        "Count of frame entries with foot board, target arrow, actual arrow, target breakpoint, or actual breakpoint saved.",
+      detailRows: [
+        { label: "Tracked Shots", value: boardRows.length.toLocaleString() },
+        { label: "Total Filtered Frames", value: entries.length.toLocaleString() },
+      ],
+    },
+    createAverageBoardDetail({
+      title: "Average Arrow Miss",
+      label: "Avg Arrow Miss",
+      values: arrowMissValues,
+      valueFormatter: formatSignedNumber,
+      description:
+        "Average directional miss at the arrows. Positive means farther right on the board scale, negative means farther left.",
+      formula: "Sum of (actual arrow − target arrow) ÷ arrow values counted.",
+    }),
+    createAverageBoardDetail({
+      title: "Average Absolute Arrow Miss",
+      label: "Avg Abs Arrow Miss",
+      values: absoluteArrowMissValues,
+      valueFormatter: formatMaybeNumber,
+      description:
+        "Average size of the arrow miss regardless of left/right direction.",
+      formula: "Sum of absolute arrow misses ÷ arrow values counted.",
+    }),
+    createBoardHitRateDetail({
+      title: "Arrow Within ±1 Board",
+      label: "Arrow ±1 Board",
+      values: arrowMissValues,
+      description:
+        "How often the actual arrow was within one board of the target arrow.",
+      formula: "Arrow misses with absolute value ≤ 1 ÷ arrow values counted.",
+    }),
+    createAverageBoardDetail({
+      title: "Average Breakpoint Miss",
+      label: "Avg Breakpoint Miss",
+      values: breakpointMissValues,
+      valueFormatter: formatSignedNumber,
+      description:
+        "Average directional miss at the breakpoint. Positive means farther right on the board scale, negative means farther left.",
+      formula:
+        "Sum of (actual breakpoint − target breakpoint) ÷ breakpoint values counted.",
+    }),
+    createAverageBoardDetail({
+      title: "Average Absolute Breakpoint Miss",
+      label: "Avg Abs BP Miss",
+      values: absoluteBreakpointMissValues,
+      valueFormatter: formatMaybeNumber,
+      description:
+        "Average size of the breakpoint miss regardless of left/right direction.",
+      formula: "Sum of absolute breakpoint misses ÷ breakpoint values counted.",
+    }),
+    createBoardHitRateDetail({
+      title: "Breakpoint Within ±1 Board",
+      label: "Breakpoint ±1 Board",
+      values: breakpointMissValues,
+      description:
+        "How often the actual breakpoint was within one board of the target breakpoint.",
+      formula:
+        "Breakpoint misses with absolute value ≤ 1 ÷ breakpoint values counted.",
+    }),
+  ];
+}
+
+function getSetScoreRows(
+  games: SavedGameRecord[],
+  bowlerName: string
+): SetStatDetailRow[] {
+  return games.flatMap((game) => {
+    const score = game.scores.find(
+      (currentScore) => currentScore.label === bowlerName
+    );
+
+    if (!score) {
+      return [];
+    }
+
+    const eventLabel = [
+      game.eventName || game.competitionType,
+      game.eventStageLabel,
+      game.centerName,
+    ]
+      .filter(Boolean)
+      .join(" • ");
+
+    return [
+      {
+        id: `${game.id}:${score.label}`,
+        score: score.score,
+        gameNumber: game.gameNumber,
+        laneLabel: game.laneLabel,
+        savedAt: game.savedAt,
+        eventLabel,
+      },
+    ];
+  });
+}
+
+function formatSetScoreDetailRows(rows: SetStatDetailRow[]) {
+  if (rows.length === 0) {
+    return [{ label: "Scores", value: "No matching games tracked" }];
+  }
+
+  return rows.map((row, index) => ({
+    label: `Game ${index + 1}`,
+    value: `${row.score} — Game ${row.gameNumber}, ${
+      row.laneLabel || "No lane"
+    }, ${row.eventLabel || "Saved Set"}, ${formatSetSavedDateTime(row.savedAt)}`,
+  }));
+}
+
+function buildSetStatCards({
+  stats,
+  selectedBowler,
+  selectedBall,
+  games,
+}: {
+  stats: ReturnType<typeof calculateDetailedBowlerStats>;
+  selectedBowler: string;
+  selectedBall: string;
+  games: SavedGameRecord[];
+}): DetailedStatDetail[] {
+  const scoreRows = getSetScoreRows(games, selectedBowler);
+  const ballFilterNote =
+    selectedBall === "All"
+      ? undefined
+      : "A ball filter is active. Frame-based stats use only frames matching that ball, while score-based stats use saved game scores in the current set.";
+
+  return [
+    {
+      title: "Set Games",
+      label: "Games",
+      value: String(stats.numGames),
+      description:
+        "The number of saved non-Baker games counted for this bowler in this set.",
+      formula: "Count of matching saved game scores.",
+      detailRows: [
+        { label: "Games Counted", value: stats.numGames.toLocaleString() },
+        { label: "Total Pins", value: stats.totalPins.toLocaleString() },
+        ...formatSetScoreDetailRows(scoreRows),
+      ],
+      note: ballFilterNote,
+    },
+    {
+      title: "Set Average",
+      label: "Average",
+      value: stats.average.toFixed(1),
+      description:
+        "Average score for this bowler in this set.",
+      formula: "Total pins ÷ games counted.",
+      detailRows: [
+        { label: "Total Pins", value: stats.totalPins.toLocaleString() },
+        { label: "Games Counted", value: stats.numGames.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.numGames > 0
+              ? `${stats.totalPins} ÷ ${stats.numGames} = ${stats.average.toFixed(1)}`
+              : "No matching games tracked",
+        },
+        ...formatSetScoreDetailRows(scoreRows),
+      ],
+      note: ballFilterNote,
+    },
+    {
+      title: "Set Pocket Percentage",
+      label: "Pocket %",
+      value: formatDetailedPercent(stats.pocketPercentage),
+      description:
+        "How often this bowler's first ball hit the pocket in this set.",
+      formula:
+        "Pocket hits ÷ first-ball shots. Right-handed pocket hits count pins 1 and 3; left-handed pocket hits count pins 1 and 2.",
+      detailRows: [
+        { label: "Pocket Hits", value: stats.pocketHits.toLocaleString() },
+        { label: "First-Ball Shots", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${formatStatRatio(stats.pocketHits, stats.firstShots)} = ${formatDetailedPercent(stats.pocketPercentage)}`
+              : "No first-ball shots tracked",
+        },
+      ],
+    },
+    {
+      title: "Set Carry Percentage",
+      label: "Carry %",
+      value: formatDetailedPercent(stats.carryPercentage),
+      description:
+        "How often pocket hits carried for strikes in this set.",
+      formula: "Pocket strikes ÷ pocket hits.",
+      detailRows: [
+        { label: "Pocket Strikes", value: stats.pocketStrikes.toLocaleString() },
+        { label: "Pocket Hits", value: stats.pocketHits.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.pocketHits > 0
+              ? `${formatStatRatio(stats.pocketStrikes, stats.pocketHits)} = ${formatDetailedPercent(stats.carryPercentage)}`
+              : "No pocket hits tracked",
+        },
+      ],
+    },
+    {
+      title: "Set Double Percentage",
+      label: "Double %",
+      value: formatDetailedPercent(stats.doublePercentage),
+      description:
+        "How often a pocket strike followed a previous-frame strike in this set.",
+      formula: "Pocket strikes after a previous strike ÷ pocket strikes.",
+      detailRows: [
+        {
+          label: "Pocket Strikes After Strike",
+          value: stats.pocketStrikesAfterStrike.toLocaleString(),
+        },
+        { label: "Pocket Strikes", value: stats.pocketStrikes.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.pocketStrikes > 0
+              ? `${formatStatRatio(stats.pocketStrikesAfterStrike, stats.pocketStrikes)} = ${formatDetailedPercent(stats.doublePercentage)}`
+              : "No pocket strikes tracked",
+        },
+      ],
+    },
+    {
+      title: "Set Makeable Spare Percentage",
+      label: "Makeable Spare %",
+      value: formatDetailedPercent(stats.makeableSpareConversion),
+      description:
+        "How often makeable spare attempts were converted in this set.",
+      formula: "Converted makeable spares ÷ makeable spare attempts.",
+      detailRows: [
+        {
+          label: "Converted Makeable Spares",
+          value: stats.convertedMakeableSpares.toLocaleString(),
+        },
+        {
+          label: "Makeable Spare Attempts",
+          value: stats.makeableAttempts.toLocaleString(),
+        },
+        {
+          label: "Calculation",
+          value:
+            stats.makeableAttempts > 0
+              ? `${formatStatRatio(stats.convertedMakeableSpares, stats.makeableAttempts)} = ${formatDetailedPercent(stats.makeableSpareConversion)}`
+              : "No makeable spare attempts tracked",
+        },
+      ],
+    },
+    {
+      title: "Set Clean Percentage",
+      label: "Clean %",
+      value: formatDetailedPercent(stats.cleanPercentage),
+      description:
+        "How often this bowler avoided open frames in this set.",
+      formula: "Clean frames ÷ tracked frames.",
+      detailRows: [
+        { label: "Clean Frames", value: stats.cleanFrames.toLocaleString() },
+        { label: "Tracked Frames", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${formatStatRatio(stats.cleanFrames, stats.firstShots)} = ${formatDetailedPercent(stats.cleanPercentage)}`
+              : "No frames tracked",
+        },
+      ],
+    },
+    {
+      title: "Set Split Percentage",
+      label: "Split %",
+      value: formatDetailedPercent(stats.splitPercentage),
+      description:
+        "How often this bowler left a split on the first ball in this set.",
+      formula: "Split frames ÷ tracked frames.",
+      detailRows: [
+        { label: "Split Frames", value: stats.splits.toLocaleString() },
+        { label: "Tracked Frames", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${formatStatRatio(stats.splits, stats.firstShots)} = ${formatDetailedPercent(stats.splitPercentage)}`
+              : "No frames tracked",
+        },
+      ],
+    },
+    {
+      title: "Set Clean Games",
+      label: "Clean Games",
+      value: String(stats.cleanGames),
+      description:
+        "The number of games in this set where this bowler had no open frames.",
+      formula: "Count of matching games where every completed frame was clean.",
+      detailRows: [
+        { label: "Clean Games", value: stats.cleanGames.toLocaleString() },
+        { label: "Games Counted", value: stats.numGames.toLocaleString() },
+      ],
+      note: ballFilterNote,
+    },
+  ];
+}
+
+function buildDetailedStatCards(
+  stats: ReturnType<typeof calculateDetailedBowlerStats>,
+  selectedBall: string
+): DetailedStatDetail[] {
+  const ballFilterNote =
+    selectedBall === "All"
+      ? undefined
+      : "A ball filter is active. Frame-based stats use only matching frames for that ball, while game score stats use the saved game scores in the current filter set.";
+
+  return [
+    {
+      title: "Total Games",
+      label: "Total Games",
+      value: String(stats.numGames),
+      description:
+        "The number of saved non-Baker games found for this bowler under the current Stats filters.",
+      formula: "Count of matching saved game scores.",
+      detailRows: [
+        { label: "Games Counted", value: stats.numGames.toLocaleString() },
+        { label: "Total Pins", value: stats.totalPins.toLocaleString() },
+      ],
+      note: ballFilterNote,
+    },
+    {
+      title: "Average",
+      label: "Average",
+      value: stats.average.toFixed(1),
+      description:
+        "The bowler's average score across the matching saved games.",
+      formula: "Total pins ÷ total games.",
+      detailRows: [
+        { label: "Total Pins", value: stats.totalPins.toLocaleString() },
+        { label: "Total Games", value: stats.numGames.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.numGames > 0
+              ? `${stats.totalPins} ÷ ${stats.numGames} = ${stats.average.toFixed(1)}`
+              : "No games tracked",
+        },
+      ],
+      note: ballFilterNote,
+    },
+    {
+      title: "High 3-Game Series",
+      label: "High 3-Game Series",
+      value:
+        stats.highThreeGameSeries > 0
+          ? String(stats.highThreeGameSeries)
+          : "—",
+      description:
+        "The highest 3-game league or tournament series found in a matching saved set.",
+      formula: "Best total from three consecutive matching games in the same set.",
+      detailRows: [
+        {
+          label: "Series Total",
+          value:
+            stats.highThreeGameSeries > 0
+              ? String(stats.highThreeGameSeries)
+              : "—",
+        },
+        ...formatHighSeriesDetailRows(stats.highThreeGameSeriesDetail),
+      ],
+      note: "Open bowling games are not included in high series calculations.",
+    },
+    {
+      title: "High 4-Game Series",
+      label: "High 4-Game Series",
+      value:
+        stats.highFourGameSeries > 0
+          ? String(stats.highFourGameSeries)
+          : "—",
+      description:
+        "The highest 4-game league or tournament series found in a matching saved set.",
+      formula: "Best total from four consecutive matching games in the same set.",
+      detailRows: [
+        {
+          label: "Series Total",
+          value:
+            stats.highFourGameSeries > 0
+              ? String(stats.highFourGameSeries)
+              : "—",
+        },
+        ...formatHighSeriesDetailRows(stats.highFourGameSeriesDetail),
+      ],
+      note: "Open bowling games are not included in high series calculations.",
+    },
+    {
+      title: "Pocket Percentage",
+      label: "Pocket Percentage",
+      value: formatDetailedPercent(stats.pocketPercentage),
+      description:
+        "How often the first ball hit the pocket based on the bowler's handedness.",
+      formula:
+        "Pocket hits ÷ first-ball shots. Right-handed pocket hits count pins 1 and 3; left-handed pocket hits count pins 1 and 2.",
+      detailRows: [
+        { label: "Pocket Hits", value: stats.pocketHits.toLocaleString() },
+        { label: "First-Ball Shots", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${formatStatRatio(stats.pocketHits, stats.firstShots)} = ${formatDetailedPercent(stats.pocketPercentage)}`
+              : "No first-ball shots tracked",
+        },
+      ],
+    },
+    {
+      title: "Carry Percentage",
+      label: "Carry Percentage",
+      value: formatDetailedPercent(stats.carryPercentage),
+      description:
+        "How often pocket hits carried for strikes.",
+      formula: "Pocket strikes ÷ pocket hits.",
+      detailRows: [
+        { label: "Pocket Strikes", value: stats.pocketStrikes.toLocaleString() },
+        { label: "Pocket Hits", value: stats.pocketHits.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.pocketHits > 0
+              ? `${formatStatRatio(stats.pocketStrikes, stats.pocketHits)} = ${formatDetailedPercent(stats.carryPercentage)}`
+              : "No pocket hits tracked",
+        },
+      ],
+    },
+    {
+      title: "Double Percentage",
+      label: "Double Percentage",
+      value: formatDetailedPercent(stats.doublePercentage),
+      description:
+        "How often a pocket strike happened after the previous frame was also a strike.",
+      formula: "Pocket strikes after a previous strike ÷ pocket strikes.",
+      detailRows: [
+        {
+          label: "Pocket Strikes After Strike",
+          value: stats.pocketStrikesAfterStrike.toLocaleString(),
+        },
+        { label: "Pocket Strikes", value: stats.pocketStrikes.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.pocketStrikes > 0
+              ? `${formatStatRatio(stats.pocketStrikesAfterStrike, stats.pocketStrikes)} = ${formatDetailedPercent(stats.doublePercentage)}`
+              : "No pocket strikes tracked",
+        },
+      ],
+    },
+    {
+      title: "Makeable Spare Conversion",
+      label: "Makeable Spare Conversion",
+      value: formatDetailedPercent(stats.makeableSpareConversion),
+      description:
+        "How often makeable spare attempts were converted.",
+      formula: "Converted makeable spares ÷ makeable spare attempts.",
+      detailRows: [
+        {
+          label: "Converted Makeable Spares",
+          value: stats.convertedMakeableSpares.toLocaleString(),
+        },
+        {
+          label: "Makeable Spare Attempts",
+          value: stats.makeableAttempts.toLocaleString(),
+        },
+        {
+          label: "Calculation",
+          value:
+            stats.makeableAttempts > 0
+              ? `${formatStatRatio(stats.convertedMakeableSpares, stats.makeableAttempts)} = ${formatDetailedPercent(stats.makeableSpareConversion)}`
+              : "No makeable spare attempts tracked",
+        },
+      ],
+    },
+    {
+      title: "Clean Percentage",
+      label: "Clean Percentage",
+      value: formatDetailedPercent(stats.cleanPercentage),
+      description:
+        "How often the bowler avoided an open frame.",
+      formula: "Clean frames ÷ tracked frames.",
+      detailRows: [
+        { label: "Clean Frames", value: stats.cleanFrames.toLocaleString() },
+        { label: "Tracked Frames", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${formatStatRatio(stats.cleanFrames, stats.firstShots)} = ${formatDetailedPercent(stats.cleanPercentage)}`
+              : "No frames tracked",
+        },
+      ],
+    },
+    {
+      title: "Split Percentage",
+      label: "Split Percentage",
+      value: formatDetailedPercent(stats.splitPercentage),
+      description:
+        "How often the first ball resulted in a split leave.",
+      formula: "Split frames ÷ tracked frames.",
+      detailRows: [
+        { label: "Split Frames", value: stats.splits.toLocaleString() },
+        { label: "Tracked Frames", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${formatStatRatio(stats.splits, stats.firstShots)} = ${formatDetailedPercent(stats.splitPercentage)}`
+              : "No frames tracked",
+        },
+      ],
+    },
+    {
+      title: "Clean Games",
+      label: "Clean Games",
+      value: String(stats.cleanGames),
+      description:
+        "The number of matching games with no open frames for the selected bowler.",
+      formula: "Count of games where every completed frame was clean.",
+      detailRows: [
+        { label: "Clean Games", value: stats.cleanGames.toLocaleString() },
+        { label: "Total Games", value: stats.numGames.toLocaleString() },
+      ],
+      note: ballFilterNote,
+    },
+    {
+      title: "First Ball Average",
+      label: "First Ball Average",
+      value: stats.firstBallAverage.toFixed(2),
+      description:
+        "Average pinfall on the first ball of each tracked frame.",
+      formula: "Total first-ball pinfall ÷ tracked first-ball shots.",
+      detailRows: [
+        {
+          label: "Total First-Ball Pinfall",
+          value: stats.totalFirstBallPins.toLocaleString(),
+        },
+        { label: "First-Ball Shots", value: stats.firstShots.toLocaleString() },
+        {
+          label: "Calculation",
+          value:
+            stats.firstShots > 0
+              ? `${stats.totalFirstBallPins} ÷ ${stats.firstShots} = ${stats.firstBallAverage.toFixed(2)}`
+              : "No first-ball shots tracked",
+        },
+      ],
+    },
+  ];
+}
+
+function getHighSeriesDetail(
+  sessionGroups: ReturnType<typeof buildSessionGroups>,
+  bowlerName: string,
+  seriesLength: number
+): HighSeriesDetail | null {
+  let highSeries = 0;
+  let highSeriesDetail: HighSeriesDetail | null = null;
+
+  sessionGroups.forEach((session) => {
+    const scoredGames = session.games
+      .filter((game) => game.competitionType !== "Open")
+      .slice()
+      .sort((a, b) => a.gameNumber - b.gameNumber)
+      .map((game) => {
+        const score = game.scores.find(
+          (currentScore) => currentScore.label === bowlerName
+        );
+
+        if (!score) {
+          return null;
+        }
+
+        return {
+          game,
+          score: score.score,
+        };
+      })
+      .filter(
+        (gameScore): gameScore is { game: SavedGameRecord; score: number } =>
+          gameScore !== null
+      );
+
+    if (scoredGames.length < seriesLength) {
+      return;
+    }
+
+    for (let index = 0; index <= scoredGames.length - seriesLength; index += 1) {
+      const seriesGames = scoredGames.slice(index, index + seriesLength);
+      const seriesTotal = seriesGames.reduce(
+        (sum, currentGame) => sum + currentGame.score,
+        0
+      );
+
+      if (seriesTotal <= highSeries) {
+        continue;
+      }
+
+      const firstGame = seriesGames[0].game;
+      const eventLabel = [
+        firstGame.eventName,
+        firstGame.eventStageLabel,
+        firstGame.centerName,
+      ]
+        .filter(Boolean)
+        .join(" • ");
+
+      highSeries = seriesTotal;
+      highSeriesDetail = {
+        total: seriesTotal,
+        eventLabel: eventLabel || "Saved Set",
+        games: seriesGames.map(({ game, score }) => ({
+          gameNumber: game.gameNumber,
+          score,
+          laneLabel: game.laneLabel,
+          savedAt: game.savedAt,
+        })),
+      };
+    }
+  });
+
+  return highSeriesDetail;
 }
 
 function getHighFullSeries(
@@ -13055,66 +14005,60 @@ function getHighFullSeries(
   return highSeries;
 }
 
-function getHighTeamSeries(
+function getHighTeamSeriesDetail(
   sessionGroups: ReturnType<typeof buildSessionGroups>,
   seriesLength: number
-) {
+): HighSeriesDetail | null {
   let highSeries = 0;
+  let highSeriesDetail: HighSeriesDetail | null = null;
 
   sessionGroups.forEach((session) => {
-    const teamScores = session.games
+    const scoredGames = session.games
+      .filter((game) => game.competitionType !== "Open")
+      .slice()
       .sort((a, b) => a.gameNumber - b.gameNumber)
-      .map((game) =>
-        game.scores.reduce((sum, score) => sum + score.score, 0)
+      .map((game) => ({
+        game,
+        score: game.scores.reduce((sum, score) => sum + score.score, 0),
+      }));
+
+    if (scoredGames.length < seriesLength) {
+      return;
+    }
+
+    for (let index = 0; index <= scoredGames.length - seriesLength; index += 1) {
+      const seriesGames = scoredGames.slice(index, index + seriesLength);
+      const seriesTotal = seriesGames.reduce(
+        (sum, currentGame) => sum + currentGame.score,
+        0
       );
 
-    if (teamScores.length < seriesLength) {
-      return;
-    }
+      if (seriesTotal <= highSeries) {
+        continue;
+      }
 
-    for (let index = 0; index <= teamScores.length - seriesLength; index += 1) {
-      const series = teamScores
-        .slice(index, index + seriesLength)
-        .reduce((sum, score) => sum + score, 0);
+      const firstGame = seriesGames[0].game;
+      const eventLabel = [
+        firstGame.eventName,
+        firstGame.eventStageLabel,
+        firstGame.centerName,
+      ]
+        .filter(Boolean)
+        .join(" • ");
 
-      highSeries = Math.max(highSeries, series);
-    }
-  });
-
-  return highSeries;
-}
-
-function getHighSeries(
-  sessionGroups: ReturnType<typeof buildSessionGroups>,
-  bowlerName: string,
-  seriesLength: number
-) {
-  let highSeries = 0;
-
-  sessionGroups.forEach((session) => {
-    const leagueOrTournamentGames = session.games.filter(
-      (game) => game.competitionType !== "Open"
-    );
-
-    const bowlerScores = leagueOrTournamentGames
-      .sort((a, b) => a.gameNumber - b.gameNumber)
-      .map((game) =>
-        game.scores.find((score) => score.label === bowlerName)?.score ?? null
-      )
-      .filter((score): score is number => score !== null);
-
-    if (bowlerScores.length < seriesLength) {
-      return;
-    }
-
-    for (let index = 0; index <= bowlerScores.length - seriesLength; index += 1) {
-      const series = bowlerScores
-        .slice(index, index + seriesLength)
-        .reduce((sum, score) => sum + score, 0);
-
-      highSeries = Math.max(highSeries, series);
+      highSeries = seriesTotal;
+      highSeriesDetail = {
+        total: seriesTotal,
+        eventLabel: eventLabel || "Saved Set",
+        games: seriesGames.map(({ game, score }) => ({
+          gameNumber: game.gameNumber,
+          score,
+          laneLabel: game.laneLabel,
+          savedAt: game.savedAt,
+        })),
+      };
     }
   });
 
-  return highSeries;
+  return highSeriesDetail;
 }
