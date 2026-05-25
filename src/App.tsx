@@ -1533,8 +1533,8 @@ function App() {
       >
         <div className="logo-title-row">
           <img
-            src="/pin-sighter-logo-mark-110x160.png"
-            srcSet="/pin-sighter-logo-mark-110x160.png 1x, /pin-sighter-logo-mark-176x256.png 2x, /pin-sighter-logo-mark-353x512.png 3x"
+            src={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png`}
+            srcSet={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png 1x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-176x256.png 2x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-353x512.png 3x`}
             alt=""
             className="app-logo-mark"
             aria-hidden="true"
