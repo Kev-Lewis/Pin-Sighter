@@ -4,6 +4,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type Dispatch,
@@ -22,7 +23,8 @@ type Tab =
   | "centers"
   | "events"
   | "patterns"
-  | "data";
+  | "data"
+  | "about";
 
 type CompetitionType = "Open" | "League" | "Tournament";
 
@@ -85,6 +87,8 @@ type EventSetup = {
   startDate: string;
   endDate: string;
   centerId: number;
+  dashboardUrl?: string;
+  standingsUrl?: string;
   notes: string;
 };
 
@@ -134,6 +138,7 @@ type SavedEventLog = {
 type SavedGameRecord = {
   id: string;
   sessionId: string;
+  createdAt?: string;
   savedAt: string;
   competitionType: CompetitionType;
   format: BowlingFormat;
@@ -148,6 +153,9 @@ type SavedGameRecord = {
   laneLabel: string;
   setNotes?: string;
   gameNotes?: string;
+  ballReactionNotes?: string;
+  laneTransitionNotes?: string;
+  adjustmentNotes?: string;
   bowlerNames: string[];
   scores: CompletedGameScore[];
   entries: FrameEntry[];
@@ -240,6 +248,9 @@ type SetMetadataDraft = {
 
 type GameMetadataDraft = {
   gameNotes: string;
+  ballReactionNotes: string;
+  laneTransitionNotes: string;
+  adjustmentNotes: string;
 };
 
 type GameEntryPageProps = {
@@ -295,7 +306,10 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "events", label: "Tournaments / Leagues" },
   { id: "patterns", label: "Patterns" },
   { id: "data", label: "Data" },
+  { id: "about", label: "About" },
 ];
+
+const appVersion = "1.0.0";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -604,6 +618,7 @@ function createSampleSavedGame(
   return {
     id,
     sessionId,
+    createdAt: savedAt,
     savedAt,
     competitionType,
     format,
@@ -651,6 +666,7 @@ function createSampleBakerSavedGame(
   return {
     id,
     sessionId,
+    createdAt: savedAt,
     savedAt,
     competitionType,
     format: "Baker",
@@ -1139,8 +1155,176 @@ async function writeTemporaryBackup(backup: PinSighterBackup) {
   }
 }
 
+async function readTemporaryBackup() {
+  try {
+    const storagePaths = await getAppStoragePaths();
+    const backupJson = await storagePaths.fsApi.readTextFile(
+      storagePaths.temporaryBackupFilePath
+    );
+
+    return {
+      ok: true,
+      backup: JSON.parse(backupJson) as PinSighterBackup | PinSighterBackupData,
+      path: storagePaths.temporaryBackupFilePath,
+      message: `Temporary backup loaded from ${storagePaths.temporaryBackupFilePath}`,
+    };
+  } catch (error) {
+    console.warn("Unable to read temporary backup file.", error);
+
+    const fallbackJson = localStorage.getItem(storageKeys.temporaryBackup);
+
+    if (!fallbackJson) {
+      return {
+        ok: false,
+        backup: null,
+        path: "",
+        message: "No temporary backup was found.",
+      };
+    }
+
+    try {
+      return {
+        ok: true,
+        backup: JSON.parse(fallbackJson) as PinSighterBackup | PinSighterBackupData,
+        path: "localStorage fallback",
+        message: "Temporary backup loaded from localStorage fallback.",
+      };
+    } catch (fallbackError) {
+      console.warn("Unable to read temporary backup fallback.", fallbackError);
+
+      return {
+        ok: false,
+        backup: null,
+        path: "",
+        message: "No valid temporary backup was found.",
+      };
+    }
+  }
+}
+
 // App Shell
 // ==================
+
+function EmptyStateCard({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <section className="empty-state-card">
+      <h3>{title}</h3>
+      <p>{description}</p>
+    </section>
+  );
+}
+
+function ToastMessage({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className="toast-message" role="status" aria-live="polite">
+      <span>{message}</span>
+      <button type="button" onClick={onDismiss} aria-label="Dismiss message">
+        ×
+      </button>
+    </div>
+  );
+}
+
+function trapFocusWithinElement(
+  event: KeyboardEvent,
+  container: HTMLElement | null
+) {
+  if (event.key !== "Tab" || !container) {
+    return;
+  }
+
+  const focusableElements = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true"
+  );
+
+  if (focusableElements.length === 0) {
+    event.preventDefault();
+    container.focus();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+
+  if (event.shiftKey && document.activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+  } else if (!event.shiftKey && document.activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
+  }
+}
+
+let documentScrollLockCount = 0;
+let lockedScrollY = 0;
+let previousBodyPosition = "";
+let previousBodyTop = "";
+let previousBodyWidth = "";
+let previousBodyOverflow = "";
+let previousHtmlOverscrollBehavior = "";
+
+function lockDocumentScroll() {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  if (documentScrollLockCount === 0) {
+    lockedScrollY = window.scrollY;
+    previousBodyPosition = document.body.style.position;
+    previousBodyTop = document.body.style.top;
+    previousBodyWidth = document.body.style.width;
+    previousBodyOverflow = document.body.style.overflow;
+    previousHtmlOverscrollBehavior =
+      document.documentElement.style.overscrollBehavior;
+
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "contain";
+  }
+
+  documentScrollLockCount += 1;
+
+  return () => {
+    documentScrollLockCount = Math.max(0, documentScrollLockCount - 1);
+
+    if (documentScrollLockCount > 0) {
+      return;
+    }
+
+    document.body.style.position = previousBodyPosition;
+    document.body.style.top = previousBodyTop;
+    document.body.style.width = previousBodyWidth;
+    document.body.style.overflow = previousBodyOverflow;
+    document.documentElement.style.overscrollBehavior =
+      previousHtmlOverscrollBehavior;
+
+    window.scrollTo(0, lockedScrollY);
+  };
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -1341,36 +1525,11 @@ function App() {
     };
   }, [hasCompletedSetup, hasCheckedAppDataFile, backupData]);
 
-  async function handleCloseApp() {
-    const backup = createPinSighterBackup(backupData);
-
-    await writeAppDataFile(backup);
-    await writeTemporaryBackup(backup);
-
-    try {
-      const tauriWindowApi = (await import("@tauri-apps/api/window")) as {
-        getCurrentWindow?: () => { close: () => Promise<void> };
-        appWindow?: { close: () => Promise<void> };
-      };
-      const currentWindow =
-        tauriWindowApi.getCurrentWindow?.() ?? tauriWindowApi.appWindow;
-
-      if (currentWindow?.close) {
-        await currentWindow.close();
-        return;
-      }
-    } catch (error) {
-      console.warn("Tauri close unavailable; using browser close fallback.", error);
-    }
-
-    window.close();
-  }
-
   return (
     <main className="app-shell">
       <section className="logo-card" onClick={() => setActiveTab("home")}>
         <h1>Pin-Sighter</h1>
-        <p>Bowling Game Logger, Shot Tracker, stats, and analytics</p>
+        <p>Bowling scorekeeping, set tracking, and performance reports</p>
       </section>
 
       {!hasCheckedAppDataFile ? (
@@ -1408,13 +1567,7 @@ function App() {
             </button>
           ))}
 
-          <button
-            type="button"
-            className="nav-button close-app-button"
-            onClick={handleCloseApp}
-          >
-            Close
-          </button>
+
         </nav>
       ) : (
         <section className="page-card">
@@ -1477,9 +1630,43 @@ function App() {
               backupData={backupData}
             />
           )}
+          {activeTab === "about" && <AboutPage />}
         </section>
       )}
     </main>
+  );
+}
+
+
+
+// About
+// ==================
+
+function AboutPage() {
+  return (
+    <>
+      <h2>About Pin-Sighter</h2>
+
+      <section className="about-grid simple-about-grid">
+        <article className="about-card">
+          <h3>Version</h3>
+          <p>{appVersion}</p>
+        </article>
+
+        <article className="about-card">
+          <h3>Created By</h3>
+          <p>
+            <a
+              href="https://kevinlewis.net/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Kevin Lewis
+            </a>
+          </p>
+        </article>
+      </section>
+    </>
   );
 }
 
@@ -1504,6 +1691,16 @@ function DataManagementPage({
 }: DataManagementPageProps) {
   const [dataMessage, setDataMessage] = useState("");
 
+  useEffect(() => {
+    if (!dataMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setDataMessage(""), 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [dataMessage]);
+
   function handleExportData() {
     const backup = createPinSighterBackup(backupData);
 
@@ -1520,18 +1717,59 @@ function DataManagementPage({
     setDataMessage(saveResult.message);
   }
 
-  async function handleCreateTemporaryBackup() {
-    const backupResult = await writeTemporaryBackup(
-      createPinSighterBackup(backupData)
-    );
+  async function handleLoadTemporaryBackup() {
+    if (
+      !window.confirm(
+        "Load the most recent temporary backup? This will replace the current app data."
+      )
+    ) {
+      return;
+    }
 
-    setDataMessage(backupResult.message);
+    const backupResult = await readTemporaryBackup();
+
+    if (!backupResult.backup) {
+      setDataMessage(backupResult.message);
+      return;
+    }
+
+    try {
+      const importResult = getImportedBackupData(backupResult.backup);
+      const importedData = importResult.data;
+
+      setBowlers(importedData.bowlers);
+      setCenters(importedData.centers);
+      setPatterns(importedData.patterns);
+      setEvents(importedData.events);
+      setSavedEventLogs(importedData.savedEventLogs);
+      setSavedGames(importedData.savedGames);
+      markFirstLaunchSetupComplete();
+      setDataMessage(
+        importResult.warnings.length > 0
+          ? `Temporary backup loaded with warnings: ${importResult.warnings.join(" ")}`
+          : backupResult.message
+      );
+    } catch (error) {
+      console.error("Temporary backup load failed.", error);
+      setDataMessage(
+        "Temporary backup load failed. The backup may be missing or unreadable."
+      );
+    }
   }
 
   async function handleImportData(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
     if (!file) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Importing this backup will replace all current Pin-Sighter data on this device. Continue?"
+      )
+    ) {
+      event.target.value = "";
       return;
     }
 
@@ -1562,25 +1800,10 @@ function DataManagementPage({
     }
   }
 
-  function handleResetToSampleData() {
-    if (
-      !window.confirm(
-        "Reset everything to the sample/default Pin-Sighter data?"
-      )
-    ) {
-      return;
-    }
-
-    clearPinSighterLocalStorage();
-    loadSampleData();
-    markFirstLaunchSetupComplete();
-    setDataMessage("App data reset to sample/default data.");
-  }
-
   function handleClearData() {
     if (
       !window.confirm(
-        "Clear all Pin-Sighter data and start empty? This cannot be undone unless you have a backup."
+        "Reset all Pin-Sighter data and start empty? This cannot be undone unless you have a backup."
       )
     ) {
       return;
@@ -1595,32 +1818,7 @@ function DataManagementPage({
     setSavedEventLogs(emptyData.savedEventLogs);
     setSavedGames(emptyData.savedGames);
     markFirstLaunchSetupComplete();
-    setDataMessage("All app data cleared.");
-  }
-
-  function handleLoadSampleData() {
-    if (
-      !window.confirm(
-        "Load the sample/default data? This will replace the current app data."
-      )
-    ) {
-      return;
-    }
-
-    loadSampleData();
-    markFirstLaunchSetupComplete();
-    setDataMessage("Sample/default data loaded.");
-  }
-
-  function loadSampleData() {
-    const sampleData = createSampleBackupData();
-
-    setBowlers(sampleData.bowlers);
-    setCenters(sampleData.centers);
-    setPatterns(sampleData.patterns);
-    setEvents(sampleData.events);
-    setSavedEventLogs(sampleData.savedEventLogs);
-    setSavedGames(sampleData.savedGames);
+    setDataMessage("App data reset. You are starting empty.");
   }
 
   return (
@@ -1630,7 +1828,10 @@ function DataManagementPage({
         Back up, restore, reset, or clear the data stored on this device.
       </p>
 
-      {dataMessage && <p className="success-text">{dataMessage}</p>}
+      <ToastMessage
+        message={dataMessage}
+        onDismiss={() => setDataMessage("")}
+      />
 
       <section className="data-summary-grid">
         <article className="stat-card">
@@ -1667,9 +1868,9 @@ function DataManagementPage({
         <div>
           <h3>App Data File</h3>
           <p>
-            Pin-Sighter automatically saves the main app data file to the app
-            data folder under data/{appDataFileName}. localStorage is kept as a
-            fallback.
+            Pin-Sighter saves your main data automatically so your bowlers,
+            centers, patterns, leagues, and saved games are ready the next time
+            you open the app. Use the button below to save it again right now.
           </p>
         </div>
         <button className="secondary-button" onClick={handleSaveAppDataFile}>
@@ -1694,14 +1895,13 @@ function DataManagementPage({
         <div>
           <h3>Temporary Backup</h3>
           <p>
-            The app automatically updates a temporary JSON backup shortly after
-            data changes. In Tauri, this is saved in the app data folder under
-            back-ups/{temporaryBackupFileName}. Browser mode keeps a
-            localStorage fallback.
+            Load the most recent automatic backup if your current data is lost,
+            cleared, or not showing correctly. This replaces the current app
+            data with the temporary recovery copy.
           </p>
         </div>
-        <button className="secondary-button" onClick={handleCreateTemporaryBackup}>
-          Create Temporary Backup
+        <button className="secondary-button" onClick={handleLoadTemporaryBackup}>
+          Load Temporary Backup
         </button>
       </section>
 
@@ -1720,21 +1920,15 @@ function DataManagementPage({
 
       <section className="data-card">
         <div>
-          <h3>Sample / Reset</h3>
+          <h3>Reset</h3>
           <p>
-            Reset to sample data, load sample data again, or clear everything
-            and start empty.
+            Reset all app data and start empty. Export a backup first if you
+            want to keep your current data.
           </p>
         </div>
         <div className="data-button-row">
-          <button className="secondary-button" onClick={handleResetToSampleData}>
-            Reset App Data
-          </button>
-          <button className="secondary-button" onClick={handleLoadSampleData}>
-            Load Sample Data
-          </button>
           <button className="danger-button" onClick={handleClearData}>
-            Clear Sample Data
+            Reset App Data
           </button>
         </div>
       </section>
@@ -2032,6 +2226,28 @@ function LogGamesPage({
     activeBowlersPerPair >= 1 &&
     !alreadyLoggedEventStage;
 
+  const setupValidationMessages = [
+    !hasRequiredEvent
+      ? `Choose a ${competitionType.toLowerCase()} before logging.`
+      : "",
+    !hasRequiredEventStage
+      ? `Choose a ${eventStageSingular.toLowerCase()} for this ${competitionType.toLowerCase()}.`
+      : "",
+    selectedCenter === undefined ? "Choose a bowling center." : "",
+    selectedPattern === undefined ? "Choose a pattern." : "",
+    activeBowlersPerPair < 1 ? "Enter at least 1 bowler per pair." : "",
+    startingLaneOrPair === "" ? "Choose a starting lane or pair." : "",
+    !hasEnoughBowlers
+      ? activeFormat === "Baker"
+        ? "Choose at least the first 2 Baker bowlers."
+        : "Choose at least one bowler."
+      : "",
+    hasDuplicateBowlers ? "Each selected bowler must be unique." : "",
+    alreadyLoggedEventStage
+      ? `This ${eventStageSingular.toLowerCase()} already has saved data. Delete the original saved log before logging it again.`
+      : "",
+  ].filter(Boolean);
+
   const bowlersForGame = activeBowlers;
 
   if (showGameEntry) {
@@ -2099,6 +2315,8 @@ function LogGamesPage({
             {competitionType} <span className="required">*</span>
             <select
               value={selectedEventId}
+              aria-invalid={!hasRequiredEvent}
+              aria-describedby={!hasRequiredEvent ? "log-setup-validation" : undefined}
               onChange={(event) => handleEventChange(event.target.value)}
             >
               <option value="">Select {competitionType.toLowerCase()}</option>
@@ -2135,6 +2353,10 @@ function LogGamesPage({
           <input
             type="number"
             min="1"
+            aria-invalid={activeBowlersPerPair < 1}
+            aria-describedby={
+              activeBowlersPerPair < 1 ? "log-setup-validation" : undefined
+            }
             value={bowlersPerTeam}
             disabled={!isOpen && !hasVacantOrBlindBowlers}
             onChange={(event) => setBowlersPerTeam(event.target.value)}
@@ -2164,6 +2386,10 @@ function LogGamesPage({
             Bowling Center <span className="required">*</span>
             <select
               value={selectedCenterId}
+              aria-invalid={selectedCenter === undefined}
+              aria-describedby={
+                selectedCenter === undefined ? "log-setup-validation" : undefined
+              }
               onChange={(event) => handleCenterChange(event.target.value)}
             >
               <option value="">Select bowling center</option>
@@ -2181,6 +2407,10 @@ function LogGamesPage({
           Pattern
           <select
             value={selectedPatternId}
+            aria-invalid={selectedPattern === undefined}
+            aria-describedby={
+              selectedPattern === undefined ? "log-setup-validation" : undefined
+            }
             onChange={(event) => setSelectedPatternId(event.target.value)}
           >
             {patterns.map((pattern) => (
@@ -2224,6 +2454,10 @@ function LogGamesPage({
           Starting Pair/Lane <span className="required">*</span>
           <select
             value={startingLaneOrPair}
+            aria-invalid={startingLaneOrPair === ""}
+            aria-describedby={
+              startingLaneOrPair === "" ? "log-setup-validation" : undefined
+            }
             onChange={(event) => setStartingLaneOrPair(event.target.value)}
             disabled={!selectedCenter}
           >
@@ -2351,16 +2585,23 @@ function LogGamesPage({
         Start Game
       </button>
 
-      {!canStartGame && (
-        <p className={alreadyLoggedEventStage ? "error-text" : "helper-text"}>
-          {alreadyLoggedEventStage
-            ? `This ${eventStageSingular.toLowerCase()} already has saved data. Delete the original saved log before logging it again.`
-            : activeFormat === "Baker"
-            ? "Select at least 2 Baker bowlers, a starting pair/lane, and any required event setup to begin."
-            : isOpen
-            ? "Select a bowling center, pattern, bowlers per pair, starting pair/lane, and at least one bowler to begin."
-            : `Select a ${competitionType.toLowerCase()}, week/day, pattern, starting pair/lane, and at least one bowler to begin.`}
-        </p>
+      {!canStartGame && setupValidationMessages.length > 0 && (
+        <section
+          className={
+            alreadyLoggedEventStage
+              ? "field-validation-card error-validation-card"
+              : "field-validation-card"
+          }
+          id="log-setup-validation"
+          aria-live="polite"
+        >
+          <h3>Before Starting</h3>
+          <ul>
+            {setupValidationMessages.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );
@@ -2622,6 +2863,14 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     }
 
     const draftBowler = getBowlerDraft(bowler);
+    const ballAlreadyExists = draftBowler.arsenal.some(
+      (ball) => ball.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (ballAlreadyExists) {
+      window.alert("This bowler already has a ball with that name.");
+      return;
+    }
 
     updateBowlerDraft(bowler, {
       arsenal: [
@@ -2668,6 +2917,19 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     });
   }
 
+  const trimmedNewBowlerName = newBowlerName.trim();
+  const newBowlerNameAlreadyExists =
+    trimmedNewBowlerName !== "" &&
+    bowlers.some(
+      (bowler) =>
+        bowler.name.toLowerCase() === trimmedNewBowlerName.toLowerCase()
+    );
+  const bowlerAddValidationMessages = [
+    !trimmedNewBowlerName ? "Enter a bowler name." : "",
+    newBowlerNameAlreadyExists ? "A bowler with that name already exists." : "",
+  ].filter(Boolean);
+  const canAddBowler = bowlerAddValidationMessages.length === 0;
+
   return (
     <>
       <h2>Bowlers</h2>
@@ -2679,7 +2941,7 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
       <details className="bowler-form-card add-form-card">
         <summary className="add-form-summary">
           <strong>Add Bowler</strong>
-          <span className="summary-hint">Open Form</span>
+          <span className="summary-hint">Open / Close Form</span>
         </summary>
 
         <div className="add-form-content">
@@ -2688,6 +2950,8 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
             Name <span className="required">*</span>
             <input
               value={newBowlerName}
+              aria-invalid={!canAddBowler}
+              aria-describedby={!canAddBowler ? "add-bowler-validation" : undefined}
               onChange={(event) => setNewBowlerName(event.target.value)}
               placeholder="Example: Kevin"
             />
@@ -2720,9 +2984,24 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
           </label>
         </div>
 
+          {!canAddBowler && (
+            <section
+              className="field-validation-card compact-validation-card"
+              id="add-bowler-validation"
+              aria-live="polite"
+            >
+              <h3>Before Adding</h3>
+              <ul>
+                {bowlerAddValidationMessages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <button
             className="primary-button"
-            disabled={!newBowlerName.trim()}
+            disabled={!canAddBowler}
             onClick={addBowler}
           >
             Add Bowler
@@ -2731,10 +3010,31 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
       </details>
 
       <section className="bowler-list">
+        {bowlers.length === 0 && (
+          <EmptyStateCard
+            title="No Bowlers Yet"
+            description="Add a bowler before logging games or building stats."
+          />
+        )}
+
         {bowlers.map((bowler) => {
           const draftBowler = getBowlerDraft(bowler);
           const ballForm = getBallForm(bowler.id);
           const isDirty = hasBowlerChanged(bowler);
+          const trimmedBallName = ballForm.name.trim();
+          const ballNameAlreadyExists =
+            trimmedBallName !== "" &&
+            draftBowler.arsenal.some(
+              (ball) =>
+                ball.name.toLowerCase() === trimmedBallName.toLowerCase()
+            );
+          const ballAddValidationMessages = [
+            !trimmedBallName ? "Enter a ball name." : "",
+            ballNameAlreadyExists
+              ? "This bowler already has a ball with that name."
+              : "",
+          ].filter(Boolean);
+          const canAddBall = ballAddValidationMessages.length === 0;
 
           return (
             <details className="bowler-card" key={bowler.id}>
@@ -2748,7 +3048,7 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                   {isDirty && <p className="unsaved-text">Unsaved changes</p>}
                 </div>
 
-                <span className="summary-hint">Open Details</span>
+                <span className="summary-hint">Open / Close Details</span>
               </summary>
 
               <div className="bowler-details-content">
@@ -2855,7 +3155,7 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                   <details className="add-ball-card">
                     <summary className="add-ball-summary">
                       <strong>Add Ball</strong>
-                      <span className="summary-hint">Open Form</span>
+                      <span className="summary-hint">Open / Close Form</span>
                     </summary>
 
                     <div className="add-ball-content">
@@ -2864,6 +3164,12 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                           Ball Name <span className="required">*</span>
                           <input
                             value={ballForm.name}
+                            aria-invalid={!canAddBall}
+                            aria-describedby={
+                              !canAddBall
+                                ? `add-ball-validation-${bowler.id}`
+                                : undefined
+                            }
                             onChange={(event) =>
                               updateBallForm(bowler.id, {
                                 name: event.target.value,
@@ -2927,9 +3233,24 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                         </label>
                       </div>
 
+                      {!canAddBall && (
+                        <section
+                          className="field-validation-card compact-validation-card"
+                          id={`add-ball-validation-${bowler.id}`}
+                          aria-live="polite"
+                        >
+                          <h3>Before Adding</h3>
+                          <ul>
+                            {ballAddValidationMessages.map((message) => (
+                              <li key={message}>{message}</li>
+                            ))}
+                          </ul>
+                        </section>
+                      )}
+
                       <button
                         className="secondary-button"
-                        disabled={!ballForm.name.trim()}
+                        disabled={!canAddBall}
                         onClick={() => addBallToBowler(bowler)}
                       >
                         Add Ball
@@ -3087,6 +3408,25 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
     });
   }
 
+  const trimmedNewCenterName = newCenterName.trim();
+  const newCenterLaneCountValue = Number(newCenterLaneCount);
+  const newCenterNameAlreadyExists =
+    trimmedNewCenterName !== "" &&
+    centers.some(
+      (center) =>
+        center.name.toLowerCase() === trimmedNewCenterName.toLowerCase()
+    );
+  const centerAddValidationMessages = [
+    !trimmedNewCenterName ? "Enter a bowling center name." : "",
+    !Number.isFinite(newCenterLaneCountValue) || newCenterLaneCountValue < 1
+      ? "Enter at least 1 lane."
+      : "",
+    newCenterNameAlreadyExists
+      ? "A bowling center with that name already exists."
+      : "",
+  ].filter(Boolean);
+  const canAddCenter = centerAddValidationMessages.length === 0;
+
   return (
     <>
       <h2>Bowling Centers</h2>
@@ -3095,7 +3435,7 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
       <details className="center-form-card add-form-card">
         <summary className="add-form-summary">
           <strong>Add Bowling Center</strong>
-          <span className="summary-hint">Open Form</span>
+          <span className="summary-hint">Open / Close Form</span>
         </summary>
 
         <div className="add-form-content">
@@ -3104,6 +3444,12 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
             Name <span className="required">*</span>
             <input
               value={newCenterName}
+              aria-invalid={
+                !trimmedNewCenterName || newCenterNameAlreadyExists
+              }
+              aria-describedby={
+                !canAddCenter ? "add-center-validation" : undefined
+              }
               onChange={(event) => setNewCenterName(event.target.value)}
               placeholder="Example: Titan Bowl"
             />
@@ -3115,6 +3461,13 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
               type="number"
               min="1"
               value={newCenterLaneCount}
+              aria-invalid={
+                !Number.isFinite(newCenterLaneCountValue) ||
+                newCenterLaneCountValue < 1
+              }
+              aria-describedby={
+                !canAddCenter ? "add-center-validation" : undefined
+              }
               onChange={(event) => setNewCenterLaneCount(event.target.value)}
               placeholder="Example: 8"
             />
@@ -3131,9 +3484,24 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
           </label>
         </div>
 
+          {!canAddCenter && (
+            <section
+              className="field-validation-card compact-validation-card"
+              id="add-center-validation"
+              aria-live="polite"
+            >
+              <h3>Before Adding</h3>
+              <ul>
+                {centerAddValidationMessages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <button
             className="primary-button"
-            disabled={!newCenterName.trim() || Number(newCenterLaneCount) < 1}
+            disabled={!canAddCenter}
             onClick={addCenter}
           >
             Add Center
@@ -3142,6 +3510,13 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
       </details>
 
       <section className="center-list">
+        {centers.length === 0 && (
+          <EmptyStateCard
+            title="No Bowling Centers Yet"
+            description="Add a center and lane count so sets can be saved with lane information."
+          />
+        )}
+
         {centers.map((center) => {
           const draftCenter = getCenterDraft(center);
           const isDirty = hasCenterChanged(center);
@@ -3157,7 +3532,7 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
                   {isDirty && <p className="unsaved-text">Unsaved changes</p>}
                 </div>
 
-                <span className="summary-hint">Open Details</span>
+                <span className="summary-hint">Open / Close Details</span>
               </summary>
 
               <div className="center-details-content">
@@ -3264,6 +3639,8 @@ function EventsPage({
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [newCenterId, setNewCenterId] = useState("");
+  const [newDashboardUrl, setNewDashboardUrl] = useState("");
+  const [newStandingsUrl, setNewStandingsUrl] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [eventDrafts, setEventDrafts] = useState<Record<number, EventSetup>>(
     {}
@@ -3271,6 +3648,47 @@ function EventsPage({
 
   function getEventDraft(event: EventSetup) {
     return eventDrafts[event.id] ?? event;
+  }
+
+  function normalizeExternalUrl(url: string | undefined) {
+    const trimmedUrl = (url ?? "").trim();
+
+    if (!trimmedUrl) {
+      return "";
+    }
+
+    if (/^https?:\/\//i.test(trimmedUrl)) {
+      return trimmedUrl;
+    }
+
+    return `https://${trimmedUrl}`;
+  }
+
+  function isValidExternalUrl(url: string | undefined) {
+    const normalizedUrl = normalizeExternalUrl(url);
+
+    if (!normalizedUrl) {
+      return true;
+    }
+
+    try {
+      const parsedUrl = new URL(normalizedUrl);
+      const isWebUrl = parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+      const hostLooksValid =
+        parsedUrl.hostname.includes(".") || parsedUrl.hostname === "localhost";
+
+      return isWebUrl && hostLooksValid;
+    } catch {
+      return false;
+    }
+  }
+
+  function getExternalUrlError(url: string | undefined) {
+    if (isValidExternalUrl(url)) {
+      return "";
+    }
+
+    return "Enter a valid website link, such as leaguepals.com or https://www.leaguesecretary.com.";
   }
 
   function hasEventChanged(event: EventSetup) {
@@ -3327,6 +3745,16 @@ function EventsPage({
       return;
     }
 
+    if (!isValidExternalUrl(draft.dashboardUrl)) {
+      window.alert(getExternalUrlError(draft.dashboardUrl));
+      return;
+    }
+
+    if (!isValidExternalUrl(draft.standingsUrl)) {
+      window.alert(getExternalUrlError(draft.standingsUrl));
+      return;
+    }
+
     const nameAlreadyExists = events.some(
       (event) =>
         event.id !== eventId &&
@@ -3352,6 +3780,8 @@ function EventsPage({
               scheduleCount: Math.max(1, Math.floor(draft.scheduleCount)),
               startDate: draft.startDate,
               endDate: draft.endDate,
+              dashboardUrl: normalizeExternalUrl(draft.dashboardUrl),
+              standingsUrl: normalizeExternalUrl(draft.standingsUrl),
               notes: draft.notes.trim(),
             }
           : event
@@ -3394,6 +3824,16 @@ function EventsPage({
       return;
     }
 
+    if (!isValidExternalUrl(newDashboardUrl)) {
+      window.alert(getExternalUrlError(newDashboardUrl));
+      return;
+    }
+
+    if (!isValidExternalUrl(newStandingsUrl)) {
+      window.alert(getExternalUrlError(newStandingsUrl));
+      return;
+    }
+
     setEvents((currentEvents) => [
       ...currentEvents,
       {
@@ -3408,6 +3848,8 @@ function EventsPage({
         startDate: newStartDate,
         endDate: newEndDate,
         centerId,
+        dashboardUrl: normalizeExternalUrl(newDashboardUrl),
+        standingsUrl: normalizeExternalUrl(newStandingsUrl),
         notes: newNotes.trim(),
       },
     ]);
@@ -3422,6 +3864,8 @@ function EventsPage({
     setNewStartDate("");
     setNewEndDate("");
     setNewCenterId("");
+    setNewDashboardUrl("");
+    setNewStandingsUrl("");
     setNewNotes("");
   }
 
@@ -3467,12 +3911,37 @@ function EventsPage({
     } • ${event.bowlersPerPair} per pair • ${getScheduleLabel(event)} • ${getCenterName(event.centerId)}`;
   }
 
-  const canAddEvent =
-    newEventName.trim() !== "" &&
-    Number(newSeriesGameCount) >= 1 &&
-    Number(newBowlersPerPair) >= 1 &&
-    Number(newScheduleCount) >= 1 &&
-    newCenterId !== "";
+  const trimmedNewEventName = newEventName.trim();
+  const newEventNameAlreadyExists =
+    trimmedNewEventName !== "" &&
+    events.some(
+      (event) =>
+        event.name.toLowerCase() === trimmedNewEventName.toLowerCase()
+    );
+  const newSeriesGameCountValue = Number(newSeriesGameCount);
+  const newBowlersPerPairValue = Number(newBowlersPerPair);
+  const newScheduleCountValue = Number(newScheduleCount);
+  const eventAddValidationMessages = [
+    !trimmedNewEventName ? "Enter a league or tournament name." : "",
+    newEventNameAlreadyExists
+      ? "A league or tournament with that name already exists."
+      : "",
+    !Number.isFinite(newSeriesGameCountValue) ||
+    newSeriesGameCountValue < 1
+      ? "Enter at least 1 game in the series/block."
+      : "",
+    !Number.isFinite(newBowlersPerPairValue) ||
+    newBowlersPerPairValue < 1
+      ? "Enter at least 1 bowler per pair."
+      : "",
+    !Number.isFinite(newScheduleCountValue) || newScheduleCountValue < 1
+      ? `Enter at least 1 ${newScheduleUnit.toLowerCase().slice(0, -1)}.`
+      : "",
+    newCenterId === "" ? "Choose a bowling center." : "",
+    getExternalUrlError(newDashboardUrl),
+    getExternalUrlError(newStandingsUrl),
+  ].filter(Boolean);
+  const canAddEvent = eventAddValidationMessages.length === 0;
 
   return (
     <>
@@ -3482,7 +3951,7 @@ function EventsPage({
       <details className="event-form-card add-form-card">
         <summary className="add-form-summary">
           <strong>Add League / Tournament</strong>
-          <span className="summary-hint">Open Form</span>
+          <span className="summary-hint">Open / Close Form</span>
         </summary>
 
         <div className="add-form-content">
@@ -3491,6 +3960,12 @@ function EventsPage({
             Name <span className="required">*</span>
             <input
               value={newEventName}
+              aria-invalid={
+                !trimmedNewEventName || newEventNameAlreadyExists
+              }
+              aria-describedby={
+                !canAddEvent ? "add-event-validation" : undefined
+              }
               onChange={(event) => setNewEventName(event.target.value)}
               placeholder="Example: Tuesday Night League"
             />
@@ -3535,6 +4010,13 @@ function EventsPage({
               type="number"
               min="1"
               value={newSeriesGameCount}
+              aria-invalid={
+                !Number.isFinite(newSeriesGameCountValue) ||
+                newSeriesGameCountValue < 1
+              }
+              aria-describedby={
+                !canAddEvent ? "add-event-validation" : undefined
+              }
               onChange={(event) => setNewSeriesGameCount(event.target.value)}
               placeholder="Example: 3"
             />
@@ -3546,6 +4028,13 @@ function EventsPage({
               type="number"
               min="1"
               value={newBowlersPerPair}
+              aria-invalid={
+                !Number.isFinite(newBowlersPerPairValue) ||
+                newBowlersPerPairValue < 1
+              }
+              aria-describedby={
+                !canAddEvent ? "add-event-validation" : undefined
+              }
               onChange={(event) => setNewBowlersPerPair(event.target.value)}
               placeholder="Example: 10"
             />
@@ -3570,6 +4059,13 @@ function EventsPage({
               type="number"
               min="1"
               value={newScheduleCount}
+              aria-invalid={
+                !Number.isFinite(newScheduleCountValue) ||
+                newScheduleCountValue < 1
+              }
+              aria-describedby={
+                !canAddEvent ? "add-event-validation" : undefined
+              }
               onChange={(event) => setNewScheduleCount(event.target.value)}
               placeholder={newScheduleUnit === "Weeks" ? "Example: 12" : "Example: 2"}
             />
@@ -3597,6 +4093,10 @@ function EventsPage({
             Bowling Center <span className="required">*</span>
             <select
               value={newCenterId}
+              aria-invalid={newCenterId === ""}
+              aria-describedby={
+                !canAddEvent ? "add-event-validation" : undefined
+              }
               onChange={(event) => setNewCenterId(event.target.value)}
             >
               <option value="">Select bowling center</option>
@@ -3606,6 +4106,48 @@ function EventsPage({
                 </option>
               ))}
             </select>
+          </label>
+
+          <label>
+            Scores / Dashboard URL
+            <input
+              type="url"
+              value={newDashboardUrl}
+              aria-invalid={!isValidExternalUrl(newDashboardUrl)}
+              aria-describedby={
+                !isValidExternalUrl(newDashboardUrl)
+                  ? "new-dashboard-url-error"
+                  : undefined
+              }
+              onChange={(event) => setNewDashboardUrl(event.target.value)}
+              placeholder="Optional, example: leaguepals.com/..."
+            />
+            {getExternalUrlError(newDashboardUrl) && (
+              <span className="field-error-text" id="new-dashboard-url-error">
+                {getExternalUrlError(newDashboardUrl)}
+              </span>
+            )}
+          </label>
+
+          <label>
+            Standings URL
+            <input
+              type="url"
+              value={newStandingsUrl}
+              aria-invalid={!isValidExternalUrl(newStandingsUrl)}
+              aria-describedby={
+                !isValidExternalUrl(newStandingsUrl)
+                  ? "new-standings-url-error"
+                  : undefined
+              }
+              onChange={(event) => setNewStandingsUrl(event.target.value)}
+              placeholder="Optional, example: tournamentbowl.com/..."
+            />
+            {getExternalUrlError(newStandingsUrl) && (
+              <span className="field-error-text" id="new-standings-url-error">
+                {getExternalUrlError(newStandingsUrl)}
+              </span>
+            )}
           </label>
 
           <label>
@@ -3619,6 +4161,21 @@ function EventsPage({
           </label>
         </div>
 
+          {!canAddEvent && (
+            <section
+              className="field-validation-card compact-validation-card"
+              id="add-event-validation"
+              aria-live="polite"
+            >
+              <h3>Before Adding</h3>
+              <ul>
+                {eventAddValidationMessages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <button
             className="primary-button"
             disabled={!canAddEvent}
@@ -3630,6 +4187,13 @@ function EventsPage({
       </details>
 
       <section className="event-list">
+        {events.length === 0 && (
+          <EmptyStateCard
+            title="No Leagues or Tournaments Yet"
+            description="Create a league or tournament when you want to track week/day-based sets."
+          />
+        )}
+
         {events.map((event) => {
           const draftEvent = getEventDraft(event);
           const isDirty = hasEventChanged(event);
@@ -3640,17 +4204,24 @@ function EventsPage({
                 <div>
                   <strong>{event.name}</strong>
                   <p>{formatEventSummary(event)}</p>
+                  {(event.dashboardUrl || event.standingsUrl) && (
+                    <p className="event-link-hint">External links saved</p>
+                  )}
                   {isDirty && <p className="unsaved-text">Unsaved changes</p>}
                 </div>
 
-                <span className="summary-hint">Open Details</span>
+                <span className="summary-hint">Open / Close Details</span>
               </summary>
 
               <div className="event-details-content">
                 <div className="event-actions-row">
                   <button
                     className="save-button"
-                    disabled={!isDirty}
+                    disabled={
+                      !isDirty ||
+                      !isValidExternalUrl(draftEvent.dashboardUrl) ||
+                      !isValidExternalUrl(draftEvent.standingsUrl)
+                    }
                     onClick={() => saveEvent(event.id)}
                   >
                     Save Event
@@ -3829,6 +4400,62 @@ function EventsPage({
                   </label>
 
                   <label>
+                    Scores / Dashboard URL
+                    <input
+                      type="url"
+                      value={draftEvent.dashboardUrl ?? ""}
+                      aria-invalid={!isValidExternalUrl(draftEvent.dashboardUrl)}
+                      aria-describedby={
+                        !isValidExternalUrl(draftEvent.dashboardUrl)
+                          ? `dashboard-url-error-${event.id}`
+                          : undefined
+                      }
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          dashboardUrl: inputEvent.target.value,
+                        })
+                      }
+                      placeholder="Optional, example: leaguepals.com/..."
+                    />
+                    {getExternalUrlError(draftEvent.dashboardUrl) && (
+                      <span
+                        className="field-error-text"
+                        id={`dashboard-url-error-${event.id}`}
+                      >
+                        {getExternalUrlError(draftEvent.dashboardUrl)}
+                      </span>
+                    )}
+                  </label>
+
+                  <label>
+                    Standings URL
+                    <input
+                      type="url"
+                      value={draftEvent.standingsUrl ?? ""}
+                      aria-invalid={!isValidExternalUrl(draftEvent.standingsUrl)}
+                      aria-describedby={
+                        !isValidExternalUrl(draftEvent.standingsUrl)
+                          ? `standings-url-error-${event.id}`
+                          : undefined
+                      }
+                      onChange={(inputEvent) =>
+                        updateEventDraft(event, {
+                          standingsUrl: inputEvent.target.value,
+                        })
+                      }
+                      placeholder="Optional, example: tournamentbowl.com/..."
+                    />
+                    {getExternalUrlError(draftEvent.standingsUrl) && (
+                      <span
+                        className="field-error-text"
+                        id={`standings-url-error-${event.id}`}
+                      >
+                        {getExternalUrlError(draftEvent.standingsUrl)}
+                      </span>
+                    )}
+                  </label>
+
+                  <label>
                     Notes
                     <textarea
                       value={draftEvent.notes}
@@ -3873,6 +4500,30 @@ function EventsPage({
                   <p>
                     <strong>Pattern:</strong> selected when logging each week/day
                   </p>
+
+                  {(draftEvent.dashboardUrl || draftEvent.standingsUrl) && (
+                    <div className="event-resource-links">
+                      {draftEvent.dashboardUrl && (
+                        <a
+                          href={normalizeExternalUrl(draftEvent.dashboardUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open Scores / Dashboard
+                        </a>
+                      )}
+
+                      {draftEvent.standingsUrl && (
+                        <a
+                          href={normalizeExternalUrl(draftEvent.standingsUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open Standings
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </section>
               </div>
             </details>
@@ -4028,6 +4679,21 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
     return details.length > 0 ? details.join(" • ") : "No specs entered";
   }
 
+  const trimmedNewPatternName = newPatternName.trim();
+  const newPatternNameAlreadyExists =
+    trimmedNewPatternName !== "" &&
+    patterns.some(
+      (pattern) =>
+        pattern.name.toLowerCase() === trimmedNewPatternName.toLowerCase()
+    );
+  const patternAddValidationMessages = [
+    !trimmedNewPatternName ? "Enter a pattern name." : "",
+    newPatternNameAlreadyExists
+      ? "A pattern with that name already exists."
+      : "",
+  ].filter(Boolean);
+  const canAddPattern = patternAddValidationMessages.length === 0;
+
   return (
     <>
       <h2>Patterns</h2>
@@ -4036,10 +4702,21 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
         additional notes.
       </p>
 
+      <p className="resource-link">
+        Resource:{" "}
+        <a
+          href="https://patternlibrary.kegel.net/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Kegel Pattern Library
+        </a>
+      </p>
+
       <details className="pattern-form-card add-form-card">
         <summary className="add-form-summary">
           <strong>Add Pattern</strong>
-          <span className="summary-hint">Open Form</span>
+          <span className="summary-hint">Open / Close Form</span>
         </summary>
 
         <div className="add-form-content">
@@ -4048,6 +4725,12 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
             Name <span className="required">*</span>
             <input
               value={newPatternName}
+              aria-invalid={
+                !trimmedNewPatternName || newPatternNameAlreadyExists
+              }
+              aria-describedby={
+                !canAddPattern ? "add-pattern-validation" : undefined
+              }
               onChange={(event) => setNewPatternName(event.target.value)}
               placeholder="Example: 2025 PBA Wolf"
             />
@@ -4109,9 +4792,24 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
           </label>
         </div>
 
+          {!canAddPattern && (
+            <section
+              className="field-validation-card compact-validation-card"
+              id="add-pattern-validation"
+              aria-live="polite"
+            >
+              <h3>Before Adding</h3>
+              <ul>
+                {patternAddValidationMessages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <button
             className="primary-button"
-            disabled={!newPatternName.trim()}
+            disabled={!canAddPattern}
             onClick={addPattern}
           >
             Add Pattern
@@ -4120,6 +4818,13 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       </details>
 
       <section className="pattern-list">
+        {patterns.length === 0 && (
+          <EmptyStateCard
+            title="No Patterns Yet"
+            description="Add a pattern or keep one fallback house shot pattern for general logging."
+          />
+        )}
+
         {patterns.map((pattern) => {
           const draftPattern = getPatternDraft(pattern);
           const isDirty = hasPatternChanged(pattern);
@@ -4135,7 +4840,7 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
                   )}
                 </div>
 
-                <span className="summary-hint">Open Details</span>
+                <span className="summary-hint">Open / Close Details</span>
               </summary>
 
               <div className="pattern-details-content">
@@ -4647,6 +5352,20 @@ function GameEntryPage({
   }
 
   function handleSaveAndExit() {
+    if (completedGames.length === 0) {
+      window.alert("Complete at least one game before saving.");
+      return;
+    }
+
+    if (
+      !isGameComplete &&
+      !window.confirm(
+        "The current game is not complete. Save only the completed games and discard the unfinished game?"
+      )
+    ) {
+      return;
+    }
+
     const savedAt = new Date().toISOString();
     const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -4655,6 +5374,7 @@ function GameEntryPage({
         completedGames.map((game) => ({
           id: `${sessionId}-${game.gameNumber}`,
           sessionId,
+          createdAt: savedAt,
           savedAt,
           competitionType,
           format,
@@ -5321,6 +6041,37 @@ function createScoreMark(value: string, isSplit = false): ScoreMark {
   };
 }
 
+function formatScoreMarksForExport(marks: ScoreMark[]) {
+  const markText = marks.map((mark) => mark.value).filter(Boolean).join("");
+
+  return markText || "";
+}
+
+function formatScorecardFrameForExport(
+  entry: FrameEntry | undefined,
+  cumulativeScore: number | string | undefined
+) {
+  if (!entry) {
+    return "";
+  }
+
+  const markText = formatScoreMarksForExport(getFrameMarks(entry));
+  const scoreText =
+    cumulativeScore === undefined || cumulativeScore === ""
+      ? ""
+      : ` (${cumulativeScore})`;
+
+  return `${markText}${scoreText}`;
+}
+
+function getUniqueBallSummary(entries: FrameEntry[]) {
+  const uniqueBalls = Array.from(
+    new Set(entries.map((entry) => entry.ballUsed).filter(Boolean))
+  );
+
+  return uniqueBalls.length > 0 ? uniqueBalls.join(", ") : "";
+}
+
 function getFrameMarks(frame: FrameEntry): ScoreMark[] {
   const first = frame.firstShotKnockedPins.length;
   const second = frame.secondShotKnockedPins.length;
@@ -5401,12 +6152,20 @@ function ScoreGrid({
     (a, b) => a.frameNumber - b.frameNumber
   );
   const cumulativeScores = getCumulativeFrameScores(orderedFrames);
+  const scoreGridId = `score-grid-${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}`;
+  const scoreGridDescriptionId = `${scoreGridId}-description`;
 
   return (
-    <section className="score-grid-card">
-      <h4>{title}</h4>
+    <section className="score-grid-card" aria-describedby={scoreGridDescriptionId}>
+      <h4 id={scoreGridId}>{title}</h4>
+      <p className="sr-only" id={scoreGridDescriptionId}>
+        Score grid for {title}. Each frame shows the frame number, roll marks,
+        and cumulative score.
+      </p>
 
-      <div className="score-grid">
+      <div className="score-grid" role="table" aria-labelledby={scoreGridId}>
         {Array.from({ length: 10 }, (_, index) => {
           const frameNumber = index + 1;
           const frame = framesByNumber.get(frameNumber);
@@ -5414,7 +6173,15 @@ function ScoreGrid({
           const cumulativeScore = cumulativeScores[index] ?? "";
 
           return (
-            <div className="score-frame" key={frameNumber}>
+            <div
+              className="score-frame"
+              key={frameNumber}
+              role="cell"
+              aria-label={`Frame ${frameNumber}: ${
+                marks.map((mark) => mark.value).filter(Boolean).join(" ") ||
+                "no marks"
+              }, cumulative score ${cumulativeScore || "not scored"}`}
+            >
               <div className="score-frame-number">{frameNumber}</div>
 
               <div
@@ -5607,6 +6374,12 @@ function StatsPage({
   const [selectedEventStage, setSelectedEventStage] = useState("All");
   const [selectedSetKey, setSelectedSetKey] = useState("All");
   const [selectedGameNumber, setSelectedGameNumber] = useState("All");
+  const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
+  const exportModalRef = useRef<HTMLElement | null>(null);
+  const [exportFormat, setExportFormat] = useState<StatsExportFormat>("html");
+  const [exportSections, setExportSections] = useState<StatsExportSections>({
+    ...defaultStatsExportSections,
+  });
   const [setMetadataDrafts, setSetMetadataDrafts] = useState<
     Record<string, SetMetadataDraft>
   >({});
@@ -5626,6 +6399,45 @@ function StatsPage({
     []
   );
   const [frameEditorIndex, setFrameEditorIndex] = useState(0);
+  const [toastMessage, setToastMessage] = useState("");
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setToastMessage(""), 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
+
+  useEffect(() => {
+    if (!isExportPanelOpen) {
+      return;
+    }
+
+    const unlockDocumentScroll = lockDocumentScroll();
+    const previouslyFocusedElement = document.activeElement as HTMLElement | null;
+
+    window.setTimeout(() => exportModalRef.current?.focus(), 0);
+
+    function handleExportModalKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsExportPanelOpen(false);
+        return;
+      }
+
+      trapFocusWithinElement(event, exportModalRef.current);
+    }
+
+    document.addEventListener("keydown", handleExportModalKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleExportModalKeyDown);
+      unlockDocumentScroll();
+      previouslyFocusedElement?.focus();
+    };
+  }, [isExportPanelOpen]);
 
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
   const usesEventFilter =
@@ -6118,20 +6930,6 @@ function StatsPage({
     setSelectedGameNumber("All");
   }
 
-  function escapeCsv(value: string | number) {
-    const stringValue = String(value);
-
-    if (
-      stringValue.includes(",") ||
-      stringValue.includes('"') ||
-      stringValue.includes("\n")
-    ) {
-      return `"${stringValue.replace(/"/g, '""')}"`;
-    }
-
-    return stringValue;
-  }
-
   function getSetMetadataDraft(
     session: ReturnType<typeof buildSessionGroups>[number]
   ) {
@@ -6201,6 +6999,14 @@ function StatsPage({
   ) {
     const draft = getSetMetadataDraft(session);
     const gameIds = new Set(session.games.map((game) => game.id));
+    const hasMissingLaneLabel = session.games.some(
+      (game) => !draft.gameLaneLabels[game.id]?.trim()
+    );
+
+    if (!draft.centerName.trim() || !draft.patternName.trim() || hasMissingLaneLabel) {
+      window.alert("Choose a bowling center, pattern, and lane/pair for each game before saving set data.");
+      return;
+    }
 
     setSavedGames((currentGames) =>
       currentGames.map((game) =>
@@ -6219,6 +7025,7 @@ function StatsPage({
 
     resetSetMetadataDraft(session);
     setEditingSetMetadataKey(null);
+    showStatsToast("Set data saved.");
   }
 
   function getGameMetadataDraft(game: SavedGameRecord) {
@@ -6227,17 +7034,21 @@ function StatsPage({
 
   function hasGameNotesChanges(game: SavedGameRecord) {
     return (
-      getGameMetadataDraft(game).gameNotes !==
-      createGameMetadataDraft(game).gameNotes
+      JSON.stringify(getGameMetadataDraft(game)) !==
+      JSON.stringify(createGameMetadataDraft(game))
     );
   }
 
-  function updateGameNotesDraft(game: SavedGameRecord, gameNotes: string) {
+  function updateGameNotesDraft(
+    game: SavedGameRecord,
+    field: keyof GameMetadataDraft,
+    value: string
+  ) {
     setGameMetadataDrafts((currentDrafts) => ({
       ...currentDrafts,
       [game.id]: {
         ...getGameMetadataDraft(game),
-        gameNotes,
+        [field]: value,
       },
     }));
   }
@@ -6261,6 +7072,9 @@ function StatsPage({
           ? {
               ...game,
               gameNotes: draft.gameNotes.trim(),
+              ballReactionNotes: draft.ballReactionNotes.trim(),
+              laneTransitionNotes: draft.laneTransitionNotes.trim(),
+              adjustmentNotes: draft.adjustmentNotes.trim(),
             }
           : game
       )
@@ -6268,6 +7082,7 @@ function StatsPage({
 
     resetGameMetadataDraft(gameToUpdate);
     setEditingGameMetadataId(null);
+    showStatsToast("Game notes saved.");
   }
 
   function openFrameEditor(game: SavedGameRecord) {
@@ -6323,54 +7138,11 @@ function StatsPage({
     );
     resetGameMetadataDraft(gameToUpdate);
     closeFrameEditor();
+    showStatsToast("Frame edits saved.");
   }
 
-  function exportFilteredCsv() {
-    const rows = [
-      [
-        "Saved At",
-        "Competition",
-        "Event",
-        "Week/Day",
-        "Game",
-        "Center",
-        "Pattern",
-        "Format",
-        "Lane",
-        "Set Notes",
-        "Game Notes",
-        "Score Label",
-        "Score",
-      ],
-      ...statsFilteredGames.flatMap((game) =>
-        game.scores.map((score) => [
-          new Date(game.savedAt).toLocaleString(),
-          game.competitionType,
-          game.eventName || "Open",
-          game.eventStageLabel || "",
-          game.gameNumber,
-          game.centerName,
-          game.patternName,
-          game.format,
-          game.laneLabel,
-          game.setNotes ?? "",
-          game.gameNotes ?? "",
-          score.label,
-          score.score,
-        ])
-      ),
-    ];
-
-    const csv = rows
-      .map((row) => row.map((cell) => escapeCsv(cell)).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = buildStatsExportFileName({
+  function getStatsExportFilters() {
+    return {
       selectedBowler,
       selectedBall,
       selectedCompetition,
@@ -6381,10 +7153,1245 @@ function StatsPage({
       selectedEventStage,
       selectedSetKey,
       selectedGameNumber,
-    });
+    };
+  }
+
+  function getStatsExportFileName(extension: string) {
+    return buildStatsExportFileName(getStatsExportFilters(), extension);
+  }
+
+  function getExportExtension() {
+    if (exportFormat === "excel") {
+      return "xls";
+    }
+
+    if (exportFormat === "pdf") {
+      return "pdf";
+    }
+
+    return exportFormat;
+  }
+
+  function getExportFormatLabel() {
+    if (exportFormat === "excel") {
+      return "Excel-compatible XLS";
+    }
+
+    if (exportFormat === "pdf") {
+      return "PDF / Print";
+    }
+
+    return exportFormat.toUpperCase();
+  }
+
+  function showStatsToast(message: string) {
+    setToastMessage(message);
+  }
+
+  function downloadTextFile(
+    fileName: string,
+    content: string,
+    mimeType: string
+  ) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = fileName;
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function escapeCsv(value: string | number) {
+    const stringValue = String(value);
+
+    if (
+      stringValue.includes(",") ||
+      stringValue.includes('"') ||
+      stringValue.includes("\n")
+    ) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+
+    return stringValue;
+  }
+
+  function escapeHtml(value: string | number) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function hasSelectedExportSections() {
+    return Object.values(exportSections).some(Boolean);
+  }
+
+  function toggleExportSection(sectionKey: StatsExportSectionKey) {
+    setExportSections((currentSections) => ({
+      ...currentSections,
+      [sectionKey]: !currentSections[sectionKey],
+    }));
+  }
+
+  function applyExportPreset(
+    preset: "summary" | "scores" | "scorecards" | "detailed" | "full"
+  ) {
+    if (preset === "summary") {
+      setExportSections({
+        overview: true,
+        activeFilters: true,
+        savedSets: true,
+        gameScores: false,
+        scorecards: false,
+        bowlerBreakdown: true,
+        detailedAnalysis: false,
+        spareLeaves: false,
+        targeting: false,
+        frameDetails: false,
+      });
+      return;
+    }
+
+    if (preset === "scores") {
+      setExportSections({
+        overview: false,
+        activeFilters: true,
+        savedSets: true,
+        gameScores: true,
+        scorecards: false,
+        bowlerBreakdown: false,
+        detailedAnalysis: false,
+        spareLeaves: false,
+        targeting: false,
+        frameDetails: false,
+      });
+      return;
+    }
+
+    if (preset === "scorecards") {
+      setExportSections({
+        overview: false,
+        activeFilters: true,
+        savedSets: true,
+        gameScores: true,
+        scorecards: true,
+        bowlerBreakdown: false,
+        detailedAnalysis: false,
+        spareLeaves: false,
+        targeting: false,
+        frameDetails: false,
+      });
+      return;
+    }
+
+    if (preset === "detailed") {
+      setExportSections({
+        overview: true,
+        activeFilters: true,
+        savedSets: false,
+        gameScores: false,
+        scorecards: false,
+        bowlerBreakdown: true,
+        detailedAnalysis: true,
+        spareLeaves: true,
+        targeting: true,
+        frameDetails: false,
+      });
+      return;
+    }
+
+    setExportSections({
+      overview: true,
+      activeFilters: true,
+      savedSets: true,
+      gameScores: true,
+      scorecards: true,
+      bowlerBreakdown: true,
+      detailedAnalysis: true,
+      spareLeaves: true,
+      targeting: true,
+      frameDetails: true,
+    });
+  }
+
+  function getActiveFilterRows() {
+    const filters = [
+      ["Bowler / Baker Team", selectedBowler],
+      ["Baker Bowler", selectedBakerBowler],
+      ["Ball", selectedBall],
+      ["Competition", selectedCompetition],
+      ["League / Tournament", selectedEventName],
+      ["Week / Day", selectedEventStage],
+      ["Set", selectedSetKey === "All" ? "All" : "Selected set"],
+      ["Game", selectedGameNumber],
+      ["Bowling Center", selectedCenter],
+      ["Lane / Pair", selectedLane],
+      ["Pattern", selectedPattern],
+    ];
+
+    return filters.filter(([, value]) => value !== "All");
+  }
+
+  function getOverviewExportRows() {
+    return [
+      ["Saved Sets", sessionGroups.length],
+      ["Total Games", statsFilteredGames.length],
+      ["Average", overallAverage.toFixed(1)],
+      ["Strikes", strikeCount],
+      ["Spares", spareCount],
+      ["Opens", openCount],
+      ["Splits", splitCount],
+      ["Clean Games", cleanGameCount],
+      ["High Game", overviewHighGame || "—"],
+      ["High Series (3-game)", overviewHighThreeGameSeries || "—"],
+    ];
+  }
+
+  function getSetSummaryExportRows() {
+    return sessionGroups.map((session) => [
+      session.title,
+      session.games.length,
+      session.games[0]?.centerName ?? "",
+      session.games[0]?.patternName ?? "",
+      session.games.map((game) => game.laneLabel).join(" → "),
+      session.games
+        .flatMap((game) =>
+          game.scores.map((score) => `${score.label}: ${score.score}`)
+        )
+        .join(" • "),
+      session.games[0]?.setNotes ?? "",
+    ]);
+  }
+
+  function getGameSummaryExportRows() {
+    return statsFilteredGames.flatMap((game) =>
+      game.scores.map((score) => [
+        new Date(game.createdAt ?? game.savedAt).toLocaleString(),
+        new Date(game.savedAt).toLocaleString(),
+        game.competitionType,
+        game.eventName || "Open",
+        game.eventStageLabel || "",
+        game.gameNumber,
+        game.centerName,
+        game.patternName,
+        game.format,
+        game.laneLabel,
+        game.setNotes ?? "",
+        game.gameNotes ?? "",
+        game.ballReactionNotes ?? "",
+        game.laneTransitionNotes ?? "",
+        game.adjustmentNotes ?? "",
+        score.label,
+        score.score,
+      ])
+    );
+  }
+
+  function getScorecardExportRows() {
+    return statsFilteredGames.flatMap((game) => {
+      const scorecardGroups =
+        game.format === "Baker"
+          ? [
+              {
+                label: game.scores[0]?.label ?? "Baker Team",
+                score: game.scores[0]?.score ?? "",
+                entries: game.entries,
+              },
+            ]
+          : game.scores.map((score) => ({
+              label: score.label,
+              score: score.score,
+              entries: game.entries.filter((entry) => {
+                const matchesBowler = entry.bowlerName === score.label;
+                const matchesBall =
+                  selectedBall === "All" || entry.ballUsed === selectedBall;
+
+                return matchesBowler && matchesBall;
+              }),
+            }));
+
+      return scorecardGroups.map((group) => {
+        const framesByNumber = new Map<number, FrameEntry>();
+
+        group.entries.forEach((entry) => {
+          framesByNumber.set(entry.frameNumber, entry);
+        });
+
+        const orderedEntries = Array.from(framesByNumber.values()).sort(
+          (a, b) => a.frameNumber - b.frameNumber
+        );
+        const cumulativeScores = getCumulativeFrameScores(orderedEntries);
+        const frameCells = Array.from({ length: 10 }, (_, index) => {
+          const frameNumber = index + 1;
+          const frame = framesByNumber.get(frameNumber);
+          const cumulativeScore = frame ? cumulativeScores[index] : "";
+
+          return formatScorecardFrameForExport(frame, cumulativeScore);
+        });
+
+        return [
+          game.eventName || "Open",
+          game.eventStageLabel || "",
+          game.gameNumber,
+          game.laneLabel,
+          group.label,
+          ...frameCells,
+          group.score || cumulativeScores[cumulativeScores.length - 1] || "",
+          getUniqueBallSummary(group.entries),
+        ];
+      });
+    });
+  }
+
+  function getBowlerBreakdownExportRows() {
+    return bowlerRows.map((row) => [
+      row.bowlerName,
+      row.games,
+      row.average.toFixed(1),
+      row.highGame || "—",
+      row.highSeries || "—",
+      row.frames,
+      row.strikes,
+      row.spares,
+      row.opens,
+      row.cleanGames,
+      `${row.strikeRate.toFixed(1)}%`,
+      `${row.cleanRate.toFixed(1)}%`,
+      `${row.splitRate.toFixed(1)}%`,
+    ]);
+  }
+
+  function getDetailedAnalysisTitle() {
+    if (!detailedStats) {
+      return "Detailed Stat Analysis";
+    }
+
+    return `Detailed Stat Analysis — ${selectedBowler}${
+      selectedBall !== "All" ? ` with ${selectedBall}` : ""
+    }`;
+  }
+
+  function getDetailedAnalysisUnavailableRows() {
+    return [
+      [
+        "Detailed Stat Analysis",
+        "Select one individual bowler in the Stats filters to export detailed bowler analysis.",
+      ],
+    ];
+  }
+
+  function getDetailedAnalysisStatsExportRows() {
+    if (!detailedStats) {
+      return getDetailedAnalysisUnavailableRows();
+    }
+
+    return [
+      ["Total Games", detailedStats.numGames],
+      ["Average", detailedStats.average.toFixed(1)],
+      [
+        "High 3-Game Series",
+        detailedStats.highThreeGameSeries > 0
+          ? detailedStats.highThreeGameSeries
+          : "—",
+      ],
+      [
+        "High 4-Game Series",
+        detailedStats.highFourGameSeries > 0
+          ? detailedStats.highFourGameSeries
+          : "—",
+      ],
+      ["Pocket Percentage", `${detailedStats.pocketPercentage.toFixed(1)}%`],
+      ["Carry Percentage", `${detailedStats.carryPercentage.toFixed(1)}%`],
+      ["Double Percentage", `${detailedStats.doublePercentage.toFixed(1)}%`],
+      [
+        "Makeable Spare Conversion",
+        `${detailedStats.makeableSpareConversion.toFixed(1)}%`,
+      ],
+      [
+        "Fill Frames Percentage",
+        `${detailedStats.fillFramesPercentage.toFixed(1)}%`,
+      ],
+      ["Clean Percentage", `${detailedStats.cleanPercentage.toFixed(1)}%`],
+      ["Split Percentage", `${detailedStats.splitPercentage.toFixed(1)}%`],
+      ["Clean Games", detailedStats.cleanGames],
+      ["First Ball Average", detailedStats.firstBallAverage.toFixed(2)],
+    ];
+  }
+
+  function getAverageFrameScoreExportRows() {
+    if (!detailedStats) {
+      return getDetailedAnalysisUnavailableRows();
+    }
+
+    return detailedStats.frameScoreRows.map((row) => [
+      `Frame ${row.frameNumber}`,
+      row.average.toFixed(1),
+    ]);
+  }
+
+  function getAverageByGameExportRows() {
+    if (!detailedStats) {
+      return getDetailedAnalysisUnavailableRows();
+    }
+
+    return detailedStats.averageByGameRows.map((row) => [
+      `Game ${row.gameNumber}`,
+      row.count,
+      row.average.toFixed(1),
+      row.high,
+      row.low,
+    ]);
+  }
+
+  function getGameScoreDistributionExportHeaders() {
+    if (!detailedStats) {
+      return ["Section", "Message"];
+    }
+
+    return [
+      "Games",
+      ...detailedStats.scoreDistribution.gameNumbers.map(
+        (gameNumber) => `Game ${gameNumber}`
+      ),
+      "Total",
+      "%",
+    ];
+  }
+
+  function getGameScoreDistributionExportRows() {
+    if (!detailedStats) {
+      return getDetailedAnalysisUnavailableRows();
+    }
+
+    return detailedStats.scoreDistribution.gameRows.map((row) => [
+      row.label,
+      ...detailedStats.scoreDistribution.gameNumbers.map(
+        (gameNumber) => row.gameCounts[gameNumber] ?? 0
+      ),
+      row.total,
+      `${row.percentage.toFixed(1)}%`,
+    ]);
+  }
+
+  function getSeriesScoreDistributionExportRows() {
+    if (!detailedStats) {
+      return getDetailedAnalysisUnavailableRows();
+    }
+
+    return detailedStats.scoreDistribution.seriesRows.map((row) => [
+      row.label,
+      row.total,
+      `${row.percentage.toFixed(1)}%`,
+    ]);
+  }
+
+  function getTransitionPhaseExportRows() {
+    if (!detailedStats) {
+      return getDetailedAnalysisUnavailableRows();
+    }
+
+    return detailedStats.transitionRows.map((row) => [
+      row.phase,
+      row.frames,
+      row.strikes,
+      row.spares,
+      row.opens,
+      row.splits,
+      `${row.strikePercentage.toFixed(1)}%`,
+      `${row.cleanPercentage.toFixed(1)}%`,
+    ]);
+  }
+
+  function getSpareLeaveSummaryExportRows() {
+    return [
+      [
+        "Makeable Pickup",
+        spareLeaveSummary.makeable.attempts,
+        spareLeaveSummary.makeable.conversions,
+        `${spareLeaveSummary.makeable.percentage.toFixed(1)}%`,
+      ],
+      [
+        "Single Pin Pickup",
+        spareLeaveSummary.singlePin.attempts,
+        spareLeaveSummary.singlePin.conversions,
+        `${spareLeaveSummary.singlePin.percentage.toFixed(1)}%`,
+      ],
+      [
+        "Multi Pin Pickup",
+        spareLeaveSummary.multiPin.attempts,
+        spareLeaveSummary.multiPin.conversions,
+        `${spareLeaveSummary.multiPin.percentage.toFixed(1)}%`,
+      ],
+      [
+        "Split Pickup",
+        spareLeaveSummary.split.attempts,
+        spareLeaveSummary.split.conversions,
+        `${spareLeaveSummary.split.percentage.toFixed(1)}%`,
+      ],
+    ];
+  }
+
+  function getSpareLeaveExportRows() {
+    return spareLeaveRows.map((row) => [
+      row.leave,
+      row.attempts,
+      row.conversions,
+      row.misses,
+      `${row.conversionPercentage.toFixed(1)}%`,
+    ]);
+  }
+
+  function getTargetingSummaryExportRows() {
+    return [
+      ["Tracked Shots", boardStats.trackedShots],
+      ["Avg Arrow Miss", formatSignedNumber(boardStats.averageArrowMiss)],
+      ["Avg Abs Arrow Miss", formatMaybeNumber(boardStats.averageAbsoluteArrowMiss)],
+      ["Arrow ±1 Board", formatPercentValue(boardStats.arrowHitRate)],
+      ["Avg Breakpoint Miss", formatSignedNumber(boardStats.averageBreakpointMiss)],
+      [
+        "Avg Abs Breakpoint Miss",
+        formatMaybeNumber(boardStats.averageAbsoluteBreakpointMiss),
+      ],
+      ["Breakpoint ±1 Board", formatPercentValue(boardStats.breakpointHitRate)],
+    ];
+  }
+
+  function getTargetingByBallExportRows() {
+    return boardStats.byBallRows.map((row) => [
+      row.ball,
+      row.shots,
+      formatSignedNumber(row.averageArrowMiss),
+      formatMaybeNumber(row.averageAbsoluteArrowMiss),
+      formatPercentValue(row.arrowHitRate),
+      formatSignedNumber(row.averageBreakpointMiss),
+      formatMaybeNumber(row.averageAbsoluteBreakpointMiss),
+      formatPercentValue(row.breakpointHitRate),
+    ]);
+  }
+
+  function getFrameExportRows() {
+    return statsFilteredGames.flatMap((game) =>
+      game.entries.map((entry) => [
+        game.eventName || "Open",
+        game.eventStageLabel || "",
+        game.gameNumber,
+        game.centerName,
+        game.patternName,
+        game.laneLabel,
+        entry.bowlerName,
+        entry.frameNumber,
+        entry.ballUsed || "",
+        entry.firstShotKnockedPins.join("-") || "0",
+        entry.secondShotKnockedPins.join("-") || "0",
+        entry.thirdShotKnockedPins.join("-") || "0",
+        getPinsStanding(entry.firstShotKnockedPins).join("-") || "None",
+        entry.footBoard || "",
+        entry.targetArrow || "",
+        entry.actualArrow || "",
+        entry.targetBreakpoint || "",
+        entry.actualBreakpoint || "",
+      ])
+    );
+  }
+
+  function buildHtmlTable(
+    title: string,
+    headers: string[],
+    rows: (string | number)[][]
+  ) {
+    const headerHtml = headers
+      .map((header) => `<th>${escapeHtml(header)}</th>`)
+      .join("");
+    const rowHtml =
+      rows.length > 0
+        ? rows
+            .map(
+              (row) =>
+                `<tr>${row
+                  .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+                  .join("")}</tr>`
+            )
+            .join("")
+        : `<tr><td colspan="${headers.length}">No data for this section.</td></tr>`;
+
+    return `
+      <section class="report-section">
+        <h2>${escapeHtml(title)}</h2>
+        <table>
+          <thead><tr>${headerHtml}</tr></thead>
+          <tbody>${rowHtml}</tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  function buildStatsReportHtml(
+    options: {
+      autoPrint?: boolean;
+      sections?: StatsExportSections;
+    } = {}
+  ) {
+    const sections = options.sections ?? exportSections;
+    const activeFilterRows = getActiveFilterRows();
+    const exportedAt = new Date().toLocaleString();
+    const reportSections: string[] = [];
+
+    if (sections.activeFilters) {
+      reportSections.push(
+        buildHtmlTable(
+          "Active Filters",
+          ["Filter", "Value"],
+          activeFilterRows.length > 0 ? activeFilterRows : [["Filters", "All"]]
+        )
+      );
+    }
+
+    if (sections.savedSets) {
+      reportSections.push(
+        buildHtmlTable(
+          "Saved Sets",
+          [
+            "Set",
+            "Games",
+            "Center",
+            "Pattern",
+            "Lane / Pair Flow",
+            "Scores",
+            "Set Notes",
+          ],
+          getSetSummaryExportRows()
+        )
+      );
+    }
+
+    if (sections.gameScores) {
+      reportSections.push(
+        buildHtmlTable(
+          "Game Scores",
+          [
+            "Created At",
+            "Saved At",
+            "Competition",
+            "Event",
+            "Week / Day",
+            "Game",
+            "Center",
+            "Pattern",
+            "Format",
+            "Lane / Pair",
+            "Set Notes",
+            "Game Notes",
+            "Ball Reaction Notes",
+            "Lane Transition Notes",
+            "Adjustment Notes",
+            "Score Label",
+            "Score",
+          ],
+          getGameSummaryExportRows()
+        )
+      );
+    }
+
+    if (sections.scorecards) {
+      reportSections.push(
+        buildHtmlTable(
+          "Scorecards",
+          [
+            "Event",
+            "Week / Day",
+            "Game",
+            "Lane / Pair",
+            "Bowler / Team",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "Total",
+            "Ball(s)",
+          ],
+          getScorecardExportRows()
+        )
+      );
+    }
+
+    if (sections.bowlerBreakdown) {
+      reportSections.push(
+        buildHtmlTable(
+          "Bowler Breakdown",
+          [
+            "Bowler",
+            "Games",
+            "Average",
+            "High Game",
+            "High Series",
+            "Frames",
+            "Strikes",
+            "Spares",
+            "Opens",
+            "Clean Games",
+            "Strike %",
+            "Clean %",
+            "Split %",
+          ],
+          getBowlerBreakdownExportRows()
+        )
+      );
+    }
+
+    if (sections.detailedAnalysis) {
+      reportSections.push(
+        buildHtmlTable(
+          getDetailedAnalysisTitle(),
+          detailedStats ? ["Metric", "Value"] : ["Section", "Message"],
+          getDetailedAnalysisStatsExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Average Frame Score",
+          detailedStats ? ["Frame", "Average Score"] : ["Section", "Message"],
+          getAverageFrameScoreExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Average by Game",
+          detailedStats
+            ? ["Game", "Games Tracked", "Average", "High", "Low"]
+            : ["Section", "Message"],
+          getAverageByGameExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Score Distribution — Games",
+          getGameScoreDistributionExportHeaders(),
+          getGameScoreDistributionExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Score Distribution — Series",
+          detailedStats ? ["Series", "Total", "%"] : ["Section", "Message"],
+          getSeriesScoreDistributionExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Transitional Phase Breakdown",
+          detailedStats
+            ? [
+                "Phase",
+                "Frames",
+                "Strikes",
+                "Spares",
+                "Opens",
+                "Splits",
+                "Strike %",
+                "Clean %",
+              ]
+            : ["Section", "Message"],
+          getTransitionPhaseExportRows()
+        )
+      );
+    }
+
+    if (sections.spareLeaves) {
+      reportSections.push(
+        buildHtmlTable(
+          "Spare Pickup Summary",
+          ["Category", "Attempts", "Conversions", "Pickup %"],
+          getSpareLeaveSummaryExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Spare Leave Breakdown",
+          ["Leave", "Attempts", "Conversions", "Misses", "Pickup %"],
+          getSpareLeaveExportRows()
+        )
+      );
+    }
+
+    if (sections.targeting) {
+      reportSections.push(
+        buildHtmlTable(
+          "Targeting Summary",
+          ["Metric", "Value"],
+          getTargetingSummaryExportRows()
+        )
+      );
+      reportSections.push(
+        buildHtmlTable(
+          "Targeting by Ball",
+          [
+            "Ball",
+            "Shots",
+            "Avg Arrow Miss",
+            "Avg Abs Arrow Miss",
+            "Arrow ±1 Board",
+            "Avg Breakpoint Miss",
+            "Avg Abs Breakpoint Miss",
+            "Breakpoint ±1 Board",
+          ],
+          getTargetingByBallExportRows()
+        )
+      );
+    }
+
+    if (sections.frameDetails) {
+      reportSections.push(
+        buildHtmlTable(
+          "Frame / Shot Details",
+          [
+            "Event",
+            "Week / Day",
+            "Game",
+            "Center",
+            "Pattern",
+            "Lane / Pair",
+            "Bowler",
+            "Frame",
+            "Ball",
+            "First Shot Pins",
+            "Second Shot Pins",
+            "Third Shot Pins",
+            "First Ball Leave",
+            "Foot Board",
+            "Target Arrow",
+            "Actual Arrow",
+            "Target Breakpoint",
+            "Actual Breakpoint",
+          ],
+          getFrameExportRows()
+        )
+      );
+    }
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Pin-Sighter Stats Export</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #111827;
+      margin: 32px;
+      line-height: 1.45;
+    }
+
+    h1 {
+      margin-bottom: 4px;
+      color: #1e3a8a;
+    }
+
+    h2 {
+      margin-top: 28px;
+      color: #111827;
+    }
+
+    .report-meta {
+      color: #4b5563;
+      margin-top: 0;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .summary-card {
+      border: 1px solid #111827;
+      padding: 10px;
+      background: #f9fafb;
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 1.35rem;
+      margin-bottom: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.92rem;
+    }
+
+    th,
+    td {
+      border: 1px solid #111827;
+      padding: 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #dbeafe;
+    }
+
+    .report-section {
+      margin-top: 24px;
+      page-break-inside: avoid;
+    }
+
+    @media print {
+      body {
+        margin: 18px;
+      }
+
+      .no-print {
+        display: none;
+      }
+
+      table {
+        font-size: 0.78rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pin-Sighter Stats Export</h1>
+  <p class="report-meta">Exported: ${escapeHtml(exportedAt)} • Games: ${
+      statsFilteredGames.length
+    } • Saved Sets: ${sessionGroups.length}</p>
+
+  ${
+    sections.overview
+      ? `<div class="summary-grid">
+          ${getOverviewExportRows()
+            .map(
+              ([label, value]) => `
+                <article class="summary-card">
+                  <strong>${escapeHtml(value)}</strong>
+                  <span>${escapeHtml(label)}</span>
+                </article>
+              `
+            )
+            .join("")}
+        </div>`
+      : ""
+  }
+
+  ${reportSections.join("")}
+
+  ${
+    options.autoPrint
+      ? `<script>
+          window.addEventListener("load", () => {
+            window.focus();
+            window.print();
+          });
+        </script>`
+      : ""
+  }
+</body>
+</html>`;
+  }
+
+  function appendCsvSection(
+    rows: (string | number)[][],
+    title: string,
+    headers: string[],
+    dataRows: (string | number)[][]
+  ) {
+    rows.push([title]);
+    rows.push(headers);
+    rows.push(...dataRows);
+    rows.push([]);
+  }
+
+  function buildSelectedCsv(sections: StatsExportSections) {
+    const rows: (string | number)[][] = [];
+
+    if (sections.overview) {
+      appendCsvSection(rows, "Overview", ["Metric", "Value"], getOverviewExportRows());
+    }
+
+    if (sections.activeFilters) {
+      const activeFilterRows = getActiveFilterRows();
+
+      appendCsvSection(
+        rows,
+        "Active Filters",
+        ["Filter", "Value"],
+        activeFilterRows.length > 0 ? activeFilterRows : [["Filters", "All"]]
+      );
+    }
+
+    if (sections.savedSets) {
+      appendCsvSection(
+        rows,
+        "Saved Sets",
+        ["Set", "Games", "Center", "Pattern", "Lane / Pair Flow", "Scores", "Set Notes"],
+        getSetSummaryExportRows()
+      );
+    }
+
+    if (sections.gameScores) {
+      appendCsvSection(
+        rows,
+        "Game Scores",
+        [
+          "Created At",
+          "Saved At",
+          "Competition",
+          "Event",
+          "Week/Day",
+          "Game",
+          "Center",
+          "Pattern",
+          "Format",
+          "Lane",
+          "Set Notes",
+          "Game Notes",
+          "Score Label",
+          "Score",
+        ],
+        getGameSummaryExportRows()
+      );
+    }
+
+    if (sections.scorecards) {
+      appendCsvSection(
+        rows,
+        "Scorecards",
+        [
+          "Event",
+          "Week/Day",
+          "Game",
+          "Lane/Pair",
+          "Bowler/Team",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "Total",
+          "Ball(s)",
+        ],
+        getScorecardExportRows()
+      );
+    }
+
+    if (sections.bowlerBreakdown) {
+      appendCsvSection(
+        rows,
+        "Bowler Breakdown",
+        [
+          "Bowler",
+          "Games",
+          "Average",
+          "High Game",
+          "High Series",
+          "Frames",
+          "Strikes",
+          "Spares",
+          "Opens",
+          "Clean Games",
+          "Strike %",
+          "Clean %",
+          "Split %",
+        ],
+        getBowlerBreakdownExportRows()
+      );
+    }
+
+    if (sections.detailedAnalysis) {
+      appendCsvSection(
+        rows,
+        getDetailedAnalysisTitle(),
+        detailedStats ? ["Metric", "Value"] : ["Section", "Message"],
+        getDetailedAnalysisStatsExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Average Frame Score",
+        detailedStats ? ["Frame", "Average Score"] : ["Section", "Message"],
+        getAverageFrameScoreExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Average by Game",
+        detailedStats
+          ? ["Game", "Games Tracked", "Average", "High", "Low"]
+          : ["Section", "Message"],
+        getAverageByGameExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Score Distribution - Games",
+        getGameScoreDistributionExportHeaders(),
+        getGameScoreDistributionExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Score Distribution - Series",
+        detailedStats ? ["Series", "Total", "%"] : ["Section", "Message"],
+        getSeriesScoreDistributionExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Transitional Phase Breakdown",
+        detailedStats
+          ? [
+              "Phase",
+              "Frames",
+              "Strikes",
+              "Spares",
+              "Opens",
+              "Splits",
+              "Strike %",
+              "Clean %",
+            ]
+          : ["Section", "Message"],
+        getTransitionPhaseExportRows()
+      );
+    }
+
+    if (sections.spareLeaves) {
+      appendCsvSection(
+        rows,
+        "Spare Pickup Summary",
+        ["Category", "Attempts", "Conversions", "Pickup %"],
+        getSpareLeaveSummaryExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Spare Leave Breakdown",
+        ["Leave", "Attempts", "Conversions", "Misses", "Pickup %"],
+        getSpareLeaveExportRows()
+      );
+    }
+
+    if (sections.targeting) {
+      appendCsvSection(
+        rows,
+        "Targeting Summary",
+        ["Metric", "Value"],
+        getTargetingSummaryExportRows()
+      );
+      appendCsvSection(
+        rows,
+        "Targeting by Ball",
+        [
+          "Ball",
+          "Shots",
+          "Avg Arrow Miss",
+          "Avg Abs Arrow Miss",
+          "Arrow ±1 Board",
+          "Avg Breakpoint Miss",
+          "Avg Abs Breakpoint Miss",
+          "Breakpoint ±1 Board",
+        ],
+        getTargetingByBallExportRows()
+      );
+    }
+
+    if (sections.frameDetails) {
+      appendCsvSection(
+        rows,
+        "Frame / Shot Details",
+        [
+          "Event",
+          "Week/Day",
+          "Game",
+          "Center",
+          "Pattern",
+          "Lane",
+          "Bowler",
+          "Frame",
+          "Ball",
+          "First Shot Pins",
+          "Second Shot Pins",
+          "Third Shot Pins",
+          "First Ball Leave",
+          "Foot Board",
+          "Target Arrow",
+          "Actual Arrow",
+          "Target Breakpoint",
+          "Actual Breakpoint",
+        ],
+        getFrameExportRows()
+      );
+    }
+
+    return rows.map((row) => row.map((cell) => escapeCsv(cell)).join(",")).join("\n");
+  }
+
+  function runStatsExport() {
+    if (!hasSelectedExportSections()) {
+      window.alert("Select at least one export section.");
+      return;
+    }
+
+    if (exportFormat === "csv") {
+      downloadTextFile(
+        getStatsExportFileName("csv"),
+        buildSelectedCsv(exportSections),
+        "text/csv;charset=utf-8"
+      );
+      showStatsToast(`CSV exported as ${getStatsExportFileName("csv")}.`);
+      setIsExportPanelOpen(false);
+      return;
+    }
+
+    if (exportFormat === "excel") {
+      downloadTextFile(
+        getStatsExportFileName("xls"),
+        `\ufeff${buildStatsReportHtml({ sections: exportSections })}`,
+        "application/vnd.ms-excel;charset=utf-8"
+      );
+      showStatsToast(`Excel export created as ${getStatsExportFileName("xls")}.`);
+      setIsExportPanelOpen(false);
+      return;
+    }
+
+    if (exportFormat === "html") {
+      downloadTextFile(
+        getStatsExportFileName("html"),
+        buildStatsReportHtml({ sections: exportSections }),
+        "text/html;charset=utf-8"
+      );
+      showStatsToast(`HTML report exported as ${getStatsExportFileName("html")}.`);
+      setIsExportPanelOpen(false);
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+      window.alert("Allow pop-ups to export this report as a PDF.");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(
+      buildStatsReportHtml({ autoPrint: true, sections: exportSections })
+    );
+    printWindow.document.close();
+    showStatsToast("PDF print window opened.");
+    setIsExportPanelOpen(false);
   }
 
   function deleteSavedSet(sessionKey: string) {
@@ -6410,6 +8417,7 @@ function StatsPage({
     const remainingGames = savedGames.filter((game) => !idsToDelete.has(game.id));
 
     setSavedGames(remainingGames);
+    showStatsToast("Saved set deleted.");
 
     eventKeysToCheck.forEach((eventLogKey) => {
       const stillHasEventLogRecords = remainingGames.some(
@@ -6444,6 +8452,7 @@ function StatsPage({
     );
 
     setSavedGames(remainingGames);
+    showStatsToast("Game deleted.");
     setSetMetadataDrafts((currentDrafts) => {
       const currentDraft = currentDrafts[session.sessionKey];
 
@@ -6582,9 +8591,14 @@ function StatsPage({
     <>
       <h2>Stats</h2>
       <p>
-        Review saved sets, narrow stats with filters, export CSVs, and remove
+        Review saved sets, narrow stats with filters, export data, and remove
         logs that need to be entered again.
       </p>
+
+      <ToastMessage
+        message={toastMessage}
+        onDismiss={() => setToastMessage("")}
+      />
 
       {savedGames.length === 0 ? (
         <section className="empty-state-card">
@@ -6606,7 +8620,7 @@ function StatsPage({
                 </p>
 
               </div>
-              <span className="summary-hint">Open Section</span>
+              <span className="summary-hint">Open / Close Section</span>
             </summary>
 
             <div className="stats-collapsible-content">
@@ -6803,13 +8817,146 @@ function StatsPage({
                 <button
                   className="primary-button"
                   disabled={statsFilteredGames.length === 0}
-                  onClick={exportFilteredCsv}
+                  onClick={() => setIsExportPanelOpen(true)}
                 >
-                  Export Filtered CSV
+                  Export Options
                 </button>
               </div>
             </div>
           </details>
+
+          {isExportPanelOpen && (
+            <div className="export-modal-overlay">
+              <section
+                className="export-modal-card"
+                ref={exportModalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="export-options-title"
+                tabIndex={-1}
+              >
+                <div className="export-modal-header">
+                  <div>
+                    <p className="eyebrow">Export Options</p>
+                    <h3 id="export-options-title">Choose What to Export</h3>
+                    <p>
+                      The export uses the current Stats filters. To export a
+                      specific league, set, or game, choose it in the filters
+                      before exporting.
+                    </p>
+                  </div>
+
+                  <button
+                    className="secondary-button"
+                    onClick={() => setIsExportPanelOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="form-grid compact-grid">
+                  <label>
+                    Export Format
+                    <select
+                      value={exportFormat}
+                      onChange={(event) =>
+                        setExportFormat(event.target.value as StatsExportFormat)
+                      }
+                    >
+                      <option value="html">HTML Report</option>
+                      <option value="pdf">PDF / Print</option>
+                      <option value="csv">CSV</option>
+                      <option value="excel">Excel-compatible XLS</option>
+                    </select>
+                  </label>
+
+                  <div className="export-scope-card">
+                    <strong>Current Scope</strong>
+                    <p>
+                      {statsFilteredGames.length} game
+                      {statsFilteredGames.length === 1 ? "" : "s"} •{" "}
+                      {sessionGroups.length} saved set
+                      {sessionGroups.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="export-file-preview">
+                  <strong>File Name Preview</strong>
+                  <code>{getStatsExportFileName(getExportExtension())}</code>
+                  <p>{getExportFormatLabel()}</p>
+                </div>
+
+                <div className="export-preset-row">
+                  <button
+                    className="secondary-button"
+                    onClick={() => applyExportPreset("scores")}
+                  >
+                    Scores Only
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => applyExportPreset("scorecards")}
+                  >
+                    Scores + Scorecards
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => applyExportPreset("summary")}
+                  >
+                    Summary Report
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => applyExportPreset("detailed")}
+                  >
+                    Detailed Stat Analysis
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => applyExportPreset("full")}
+                  >
+                    Full Export
+                  </button>
+                </div>
+
+                <div className="export-section-grid">
+                  {statsExportSectionOptions.map((section) => (
+                    <label className="export-section-option" key={section.key}>
+                      <input
+                        type="checkbox"
+                        checked={exportSections[section.key]}
+                        onChange={() => toggleExportSection(section.key)}
+                      />
+                      <span>
+                        <strong>{section.label}</strong>
+                        <small>{section.description}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="export-modal-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={() => setExportSections({ ...defaultStatsExportSections })}
+                  >
+                    Reset Choices
+                  </button>
+                  <button
+                    className="primary-button"
+                    disabled={
+                      statsFilteredGames.length === 0 ||
+                      !hasSelectedExportSections()
+                    }
+                    onClick={runStatsExport}
+                  >
+                    Export Selected
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
 
           <details className="stats-collapsible-card">
             <summary className="stats-section-summary">
@@ -6822,7 +8969,7 @@ function StatsPage({
                     : ""}
                 </p>
               </div>
-              <span className="summary-hint">Open Section</span>
+              <span className="summary-hint">Open / Close Section</span>
             </summary>
 
             <div className="stats-collapsible-content stats-summary-grid">
@@ -6894,7 +9041,7 @@ function StatsPage({
                 <strong>Bowler Breakdown</strong>
                 <p>Individual bowler stats.</p>
               </div>
-              <span className="summary-hint">Open Section</span>
+              <span className="summary-hint">Open / Close Section</span>
             </summary>
 
             <div className="stats-collapsible-content">
@@ -6903,6 +9050,7 @@ function StatsPage({
             ) : (
               <div className="table-scroll">
                 <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -7055,6 +9203,7 @@ function StatsPage({
 
                     <div className="table-scroll">
                       <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                         <thead>
                           <tr>
                             <th>Game</th>
@@ -7091,6 +9240,7 @@ function StatsPage({
 
                         <div className="table-scroll">
                           <table className="stats-table distribution-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                             <thead>
                               <tr>
                                 <th>Games</th>
@@ -7130,6 +9280,7 @@ function StatsPage({
 
                         <div className="table-scroll">
                           <table className="stats-table distribution-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                             <thead>
                               <tr>
                                 <th>Series</th>
@@ -7174,6 +9325,7 @@ function StatsPage({
 
                     <div className="table-scroll">
                       <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                         <thead>
                           <tr>
                             <th>Phase</th>
@@ -7222,12 +9374,13 @@ function StatsPage({
                     Team totals and averages for the current set filters.
                   </p>
                 </div>
-                <span className="summary-hint">Open Section</span>
+                <span className="summary-hint">Open / Close Section</span>
               </summary>
 
               <div className="stats-collapsible-content">
                 <div className="table-scroll">
                   <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                     <thead>
                       <tr>
                         <th>Set</th>
@@ -7281,7 +9434,7 @@ function StatsPage({
                   percentages.
                 </p>
               </div>
-              <span className="summary-hint">Open Section</span>
+              <span className="summary-hint">Open / Close Section</span>
             </summary>
 
             <div className="stats-collapsible-content">
@@ -7339,6 +9492,7 @@ function StatsPage({
             ) : (
               <div className="table-scroll">
                 <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                   <thead>
                     <tr>
                       <th>Leave</th>
@@ -7379,7 +9533,7 @@ function StatsPage({
                   averages, and progression over filtered sets.
                 </p>
               </div>
-              <span className="summary-hint">Open Section</span>
+              <span className="summary-hint">Open / Close Section</span>
             </summary>
 
             <div className="stats-collapsible-content">
@@ -7438,6 +9592,7 @@ function StatsPage({
 
                   <div className="table-scroll">
                     <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                       <thead>
                         <tr>
                           <th>Ball</th>
@@ -7502,6 +9657,7 @@ function StatsPage({
                   ) : (
                     <div className="table-scroll">
                       <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                         <thead>
                           <tr>
                             <th>Set</th>
@@ -7554,6 +9710,7 @@ function StatsPage({
 
                   <div className="table-scroll">
                     <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
                       <thead>
                         <tr>
                           <th>Bowler</th>
@@ -7610,12 +9767,15 @@ function StatsPage({
                 <strong>Saved Sets</strong>
                 <p>Expandable saved sets matching the active filters.</p>
               </div>
-              <span className="summary-hint">Open Section</span>
+              <span className="summary-hint">Open / Close Section</span>
             </summary>
 
             <div className="stats-collapsible-content">
               {sessionGroups.length === 0 ? (
-              <p className="helper-text">No saved sets match the current filters.</p>
+              <EmptyStateCard
+                title="No Saved Sets Match"
+                description="Try clearing filters, choosing a different set, or logging a new game."
+              />
             ) : (
               sessionGroups.map((session) => (
                 <details className="saved-set-card" key={session.sessionKey}>
@@ -7630,7 +9790,7 @@ function StatsPage({
                       </p>
                     </div>
 
-                    <span className="summary-hint">Open Details</span>
+                    <span className="summary-hint">Open / Close Details</span>
                   </summary>
 
                   <div className="saved-set-details">
@@ -7692,96 +9852,160 @@ function StatsPage({
                     )}
 
                     {session.games.map((game) => (
-                      <article className="saved-game-detail-card" key={game.id}>
-                        <h4>Game {game.gameNumber}</h4>
-                        <p>
-                          <strong>Lane:</strong> {game.laneLabel}
-                        </p>
-                        <p>
-                          <strong>Scores:</strong>{" "}
-                          {game.scores
-                            .map((score) => `${score.label}: ${score.score}`)
-                            .join(" • ")}
-                        </p>
+                      <details
+                        className="saved-game-detail-card saved-game-collapsible-card"
+                        key={game.id}
+                      >
+                        <summary className="saved-game-summary">
+                          <div>
+                            <strong>
+                              Game {game.gameNumber} • {getSavedGameScoreSummary(game)}
+                            </strong>
+                            <span>
+                              {game.laneLabel} • {getSavedGameBallSummary(game)}
+                            </span>
+                          </div>
+                          <div className="saved-game-summary-meta">
+                            <span>
+                              Created:{" "}
+                              {new Date(
+                                game.createdAt ?? game.savedAt
+                              ).toLocaleString()}
+                            </span>
+                            {hasSavedGameNotes(game) && <span>Notes</span>}
+                          </div>
+                        </summary>
 
-                        {game.format === "Baker" && (
-                          <>
-                            <ScoreGrid
-                              title={`Baker Team Game ${game.gameNumber}`}
-                              entries={game.entries}
-                            />
-                            <BakerFrameTable game={game} />
-                          </>
-                        )}
-
-                        {selectedBowler !== "All" && game.format !== "Baker" && (
-                          <ScoreGrid
-                            title={`${selectedBowler} Game ${game.gameNumber}`}
-                            entries={game.entries.filter(
-                              (entry) =>
-                                entry.bowlerName === selectedBowler &&
-                                (selectedBall === "All" ||
-                                  entry.ballUsed === selectedBall)
-                            )}
-                          />
-                        )}
-
-                        <p>
-                          <strong>Saved:</strong>{" "}
-                          {new Date(game.savedAt).toLocaleString()}
-                        </p>
-
-                        {game.gameNotes && (
+                        <div className="saved-game-detail-content">
                           <p>
-                            <strong>Game Notes:</strong> {game.gameNotes}
+                            <strong>Lane:</strong> {game.laneLabel}
                           </p>
-                        )}
+                          <p>
+                            <strong>Scores:</strong>{" "}
+                            {game.scores
+                              .map((score) => `${score.label}: ${score.score}`)
+                              .join(" • ")}
+                          </p>
 
-                        <div className="saved-game-actions-row">
-                          <button
-                            className="secondary-button"
-                            onClick={() =>
-                              setEditingGameMetadataId(
-                                editingGameMetadataId === game.id
-                                  ? null
-                                  : game.id
-                              )
-                            }
-                          >
-                            {editingGameMetadataId === game.id
-                              ? "Close Notes"
-                              : game.gameNotes
-                              ? "Edit Notes"
-                              : "Add Notes"}
-                          </button>
-                          <button
-                            className="secondary-button"
-                            onClick={() => openFrameEditor(game)}
-                          >
-                            Edit Frames
-                          </button>
-                          <button
-                            className="danger-button"
-                            onClick={() => deleteSavedGame(session, game)}
-                          >
-                            Delete Game {game.gameNumber}
-                          </button>
+                          {game.format === "Baker" && (
+                            <>
+                              <ScoreGrid
+                                title={`Baker Team Game ${game.gameNumber}`}
+                                entries={game.entries}
+                              />
+                              <BakerFrameTable game={game} />
+                            </>
+                          )}
+
+                          {game.format !== "Baker" && (
+                            <ScoreGrid
+                              title={
+                                selectedBowler === "All"
+                                  ? `Game ${game.gameNumber} Score Grid`
+                                  : `${selectedBowler} Game ${game.gameNumber}`
+                              }
+                              entries={
+                                selectedBowler === "All"
+                                  ? game.entries.filter(
+                                      (entry) =>
+                                        selectedBall === "All" ||
+                                        entry.ballUsed === selectedBall
+                                    )
+                                  : game.entries.filter(
+                                      (entry) =>
+                                        entry.bowlerName === selectedBowler &&
+                                        (selectedBall === "All" ||
+                                          entry.ballUsed === selectedBall)
+                                    )
+                              }
+                            />
+                          )}
+
+                          <p>
+                            <strong>Created:</strong>{" "}
+                            {new Date(
+                              game.createdAt ?? game.savedAt
+                            ).toLocaleString()}
+                          </p>
+                          <p>
+                            <strong>Saved:</strong>{" "}
+                            {new Date(game.savedAt).toLocaleString()}
+                          </p>
+
+                          {hasSavedGameNotes(game) && (
+                            <div className="saved-notes-summary">
+                              {game.gameNotes && (
+                                <p>
+                                  <strong>Game Notes:</strong> {game.gameNotes}
+                                </p>
+                              )}
+                              {game.ballReactionNotes && (
+                                <p>
+                                  <strong>Ball Reaction:</strong>{" "}
+                                  {game.ballReactionNotes}
+                                </p>
+                              )}
+                              {game.laneTransitionNotes && (
+                                <p>
+                                  <strong>Lane Transition:</strong>{" "}
+                                  {game.laneTransitionNotes}
+                                </p>
+                              )}
+                              {game.adjustmentNotes && (
+                                <p>
+                                  <strong>Adjustments:</strong>{" "}
+                                  {game.adjustmentNotes}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="saved-game-actions-row">
+                            <button
+                              className="secondary-button"
+                              onClick={() =>
+                                setEditingGameMetadataId(
+                                  editingGameMetadataId === game.id
+                                    ? null
+                                    : game.id
+                                )
+                              }
+                            >
+                              {editingGameMetadataId === game.id
+                                ? "Close Notes"
+                                : game.gameNotes
+                                ? "Edit Notes"
+                                : "Add Notes"}
+                            </button>
+                            <button
+                              className="secondary-button"
+                              onClick={() => openFrameEditor(game)}
+                            >
+                              Edit Frames
+                            </button>
+                            <button
+                              className="danger-button"
+                              onClick={() => deleteSavedGame(session, game)}
+                            >
+                              Delete Game {game.gameNumber}
+                            </button>
+                          </div>
+
+                          {editingGameMetadataId === game.id && (
+                            <SavedGameNotesEditor
+                              draft={getGameMetadataDraft(game)}
+                              hasExistingNotes={hasSavedGameNotes(game)}
+                              hasChanges={hasGameNotesChanges(game)}
+                              onNotesChange={(field, value) =>
+                                updateGameNotesDraft(game, field, value)
+                              }
+                              onSave={() => saveGameMetadata(game)}
+                              onReset={() => resetGameMetadataDraft(game)}
+                              onClose={() => setEditingGameMetadataId(null)}
+                            />
+                          )}
                         </div>
-
-                        {editingGameMetadataId === game.id && (
-                          <SavedGameNotesEditor
-                            draft={getGameMetadataDraft(game)}
-                            hasExistingNotes={Boolean(game.gameNotes)}
-                            hasChanges={hasGameNotesChanges(game)}
-                            onNotesChange={(gameNotes) =>
-                              updateGameNotesDraft(game, gameNotes)
-                            }
-                            onSave={() => saveGameMetadata(game)}
-                            onReset={() => resetGameMetadataDraft(game)}
-                            onClose={() => setEditingGameMetadataId(null)}
-                          />
-                        )}
-                      </article>
+                      </details>
                     ))}
 
                   </div>
@@ -8032,18 +10256,108 @@ function calculateBoardProgressionRows(
 // Stats Export
 // ==================
 
-function buildStatsExportFileName(filters: {
-  selectedBowler: string;
-  selectedBall: string;
-  selectedCompetition: string;
-  selectedEventName: string;
-  selectedCenter: string;
-  selectedLane: string;
-  selectedPattern: string;
-  selectedEventStage: string;
-  selectedSetKey: string;
-  selectedGameNumber: string;
-}) {
+type StatsExportFormat = "csv" | "excel" | "html" | "pdf";
+
+type StatsExportSectionKey =
+  | "overview"
+  | "activeFilters"
+  | "savedSets"
+  | "gameScores"
+  | "scorecards"
+  | "bowlerBreakdown"
+  | "detailedAnalysis"
+  | "spareLeaves"
+  | "targeting"
+  | "frameDetails";
+
+type StatsExportSections = Record<StatsExportSectionKey, boolean>;
+
+const defaultStatsExportSections: StatsExportSections = {
+  overview: true,
+  activeFilters: true,
+  savedSets: true,
+  gameScores: true,
+  scorecards: false,
+  bowlerBreakdown: false,
+  detailedAnalysis: false,
+  spareLeaves: false,
+  targeting: false,
+  frameDetails: false,
+};
+
+const statsExportSectionOptions: Array<{
+  key: StatsExportSectionKey;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "overview",
+    label: "Overview",
+    description: "Main totals, average, high game, and high series.",
+  },
+  {
+    key: "activeFilters",
+    label: "Active Filters",
+    description: "Shows the filters used to create this export.",
+  },
+  {
+    key: "savedSets",
+    label: "Saved Sets",
+    description: "One row per saved set with center, pattern, lanes, and scores.",
+  },
+  {
+    key: "gameScores",
+    label: "Game Scores",
+    description: "Simple score rows for each game and bowler/team.",
+  },
+  {
+    key: "scorecards",
+    label: "Scorecards",
+    description: "Spreadsheet-style score rows with frames 1-10 and total.",
+  },
+  {
+    key: "bowlerBreakdown",
+    label: "Bowler Breakdown",
+    description: "Games, average, high game, high series, and mark totals.",
+  },
+  {
+    key: "detailedAnalysis",
+    label: "Detailed Stat Analysis",
+    description:
+      "Analysis stats, average frame score, average by game, score distribution, and transition phases.",
+  },
+  {
+    key: "spareLeaves",
+    label: "Spare Leave Breakdown",
+    description: "Leave attempts, conversions, misses, and pickup percentages.",
+  },
+  {
+    key: "targeting",
+    label: "Targeting Analysis",
+    description: "Arrow and breakpoint accuracy summary, plus ball breakdown.",
+  },
+  {
+    key: "frameDetails",
+    label: "Frame / Shot Details",
+    description: "Raw frame-level pinfall, leave, target, and board data.",
+  },
+];
+
+function buildStatsExportFileName(
+  filters: {
+    selectedBowler: string;
+    selectedBall: string;
+    selectedCompetition: string;
+    selectedEventName: string;
+    selectedCenter: string;
+    selectedLane: string;
+    selectedPattern: string;
+    selectedEventStage: string;
+    selectedSetKey: string;
+    selectedGameNumber: string;
+  },
+  extension = "csv"
+) {
   const activeFilterParts = [
     "pin-sighter-stats",
     filters.selectedBowler !== "All" ? filters.selectedBowler : "",
@@ -8067,7 +10381,7 @@ function buildStatsExportFileName(filters: {
         .replace(/^-+|-+$/g, "")
     );
 
-  return `${activeFilterParts.join("_") || "pin-sighter-stats"}.csv`;
+  return `${activeFilterParts.join("_") || "pin-sighter-stats"}.${extension}`;
 }
 
 
@@ -8372,9 +10686,41 @@ function SavedSetMetadataEditor({
   );
 }
 
+function getSavedGameBallSummary(game: SavedGameRecord) {
+  const uniqueBalls = Array.from(
+    new Set(game.entries.map((entry) => entry.ballUsed).filter(Boolean))
+  );
+
+  if (uniqueBalls.length === 0) {
+    return "No ball logged";
+  }
+
+  if (uniqueBalls.length <= 2) {
+    return uniqueBalls.join(", ");
+  }
+
+  return `${uniqueBalls.slice(0, 2).join(", ")} +${uniqueBalls.length - 2} more`;
+}
+
+function getSavedGameScoreSummary(game: SavedGameRecord) {
+  return game.scores.map((score) => `${score.label}: ${score.score}`).join(" • ");
+}
+
+function hasSavedGameNotes(game: SavedGameRecord) {
+  return Boolean(
+    game.gameNotes ||
+      game.ballReactionNotes ||
+      game.laneTransitionNotes ||
+      game.adjustmentNotes
+  );
+}
+
 function createGameMetadataDraft(game: SavedGameRecord): GameMetadataDraft {
   return {
     gameNotes: game.gameNotes ?? "",
+    ballReactionNotes: game.ballReactionNotes ?? "",
+    laneTransitionNotes: game.laneTransitionNotes ?? "",
+    adjustmentNotes: game.adjustmentNotes ?? "",
   };
 }
 
@@ -8390,7 +10736,7 @@ function SavedGameNotesEditor({
   draft: GameMetadataDraft;
   hasExistingNotes: boolean;
   hasChanges: boolean;
-  onNotesChange: (gameNotes: string) => void;
+  onNotesChange: (field: keyof GameMetadataDraft, value: string) => void;
   onSave: () => void;
   onReset: () => void;
   onClose: () => void;
@@ -8403,15 +10749,55 @@ function SavedGameNotesEditor({
         ball, and board corrections.
       </p>
 
-      <label className="full-width-field">
-        Game Notes
-        <textarea
-          rows={3}
-          value={draft.gameNotes}
-          placeholder="Add notes for this specific game."
-          onChange={(event) => onNotesChange(event.target.value)}
-        />
-      </label>
+      <div className="structured-notes-grid">
+        <label>
+          Game Notes
+          <textarea
+            rows={3}
+            value={draft.gameNotes}
+            placeholder="General notes for this specific game."
+            onChange={(event) =>
+              onNotesChange("gameNotes", event.target.value)
+            }
+          />
+        </label>
+
+        <label>
+          Ball Reaction Notes
+          <textarea
+            rows={3}
+            value={draft.ballReactionNotes}
+            placeholder="Shape, read, carry, over/under, or ball reaction."
+            onChange={(event) =>
+              onNotesChange("ballReactionNotes", event.target.value)
+            }
+          />
+        </label>
+
+        <label>
+          Lane Transition Notes
+          <textarea
+            rows={3}
+            value={draft.laneTransitionNotes}
+            placeholder="How the lane changed throughout the game."
+            onChange={(event) =>
+              onNotesChange("laneTransitionNotes", event.target.value)
+            }
+          />
+        </label>
+
+        <label>
+          Adjustment Notes
+          <textarea
+            rows={3}
+            value={draft.adjustmentNotes}
+            placeholder="Moves, target changes, surface notes, or ball changes."
+            onChange={(event) =>
+              onNotesChange("adjustmentNotes", event.target.value)
+            }
+          />
+        </label>
+      </div>
 
       <div className="saved-game-actions-row">
         <button className="primary-button" onClick={onSave}>
@@ -8487,11 +10873,20 @@ function SavedFrameEditModal({
     game.bowlerNames,
     game.format
   );
+  const previewScoreSummary = previewScores
+    .map((score) => `${score.label}: ${score.score}`)
+    .join(" • ");
   const hasFrameChanges = frameEntriesHaveChanges(entries, game.entries);
+  const hasFrameChangesRef = useRef(hasFrameChanges);
+  const frameEditorModalRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    hasFrameChangesRef.current = hasFrameChanges;
+  }, [hasFrameChanges]);
 
   function handleCloseFrameEditor() {
     if (
-      hasFrameChanges &&
+      hasFrameChangesRef.current &&
       !window.confirm(
         "Discard unsaved frame edits and close? The saved game will revert to the previous frame data."
       )
@@ -8513,6 +10908,30 @@ function SavedFrameEditModal({
 
     onSave();
   }
+
+  useEffect(() => {
+    const unlockDocumentScroll = lockDocumentScroll();
+    const previouslyFocusedElement = document.activeElement as HTMLElement | null;
+
+    window.setTimeout(() => frameEditorModalRef.current?.focus(), 0);
+
+    function handleFrameEditorKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        handleCloseFrameEditor();
+        return;
+      }
+
+      trapFocusWithinElement(event, frameEditorModalRef.current);
+    }
+
+    document.addEventListener("keydown", handleFrameEditorKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleFrameEditorKeyDown);
+      unlockDocumentScroll();
+      previouslyFocusedElement?.focus();
+    };
+  }, [onClose]);
 
   if (!currentEntry) {
     return null;
@@ -8620,37 +11039,69 @@ function SavedFrameEditModal({
 
   return (
     <div className="frame-editor-overlay">
-      <section className="frame-editor-modal">
-        <div className="frame-editor-header">
-          <div>
-            <p className="eyebrow">Editing Saved Game</p>
-            <h3>
-              Game {game.gameNumber} • Frame {currentEntry.frameNumber}
-            </h3>
-            <p>
-              Original saved frame data is loaded here. Move through each frame
-              and save when the correction is complete.
-            </p>
+      <section
+        className="frame-editor-modal"
+        ref={frameEditorModalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="frame-editor-title"
+        tabIndex={-1}
+      >
+        <div className="frame-editor-sticky-bar">
+          <div className="frame-editor-header">
+            <div>
+              <p className="eyebrow">Editing Saved Game</p>
+              <h3 id="frame-editor-title">
+                Game {game.gameNumber} • Frame {currentEntry.frameNumber}
+              </h3>
+              <p>
+                Original saved frame data is loaded here. Move through each
+                frame and save when the correction is complete.
+              </p>
+            </div>
+
+            <button className="secondary-button" onClick={handleCloseFrameEditor}>
+              Close
+            </button>
           </div>
 
-          <button className="secondary-button" onClick={handleCloseFrameEditor}>
-            Close
-          </button>
-        </div>
+          <div className="frame-editor-status-grid">
+            <article className="mini-stat-card">
+              <span>Game</span>
+              <strong>{game.gameNumber}</strong>
+            </article>
+            <article className="mini-stat-card">
+              <span>Bowler</span>
+              <strong>{currentEntry.bowlerName}</strong>
+            </article>
+            <article className="mini-stat-card">
+              <span>Frame</span>
+              <strong>{currentEntry.frameNumber}</strong>
+            </article>
+            <article className="mini-stat-card">
+              <span>Result</span>
+              <strong>{frameResult}</strong>
+            </article>
+            <article className="mini-stat-card wide-mini-stat-card">
+              <span>Preview Score</span>
+              <strong>{previewScoreSummary}</strong>
+            </article>
+          </div>
 
-        <div className="frame-editor-progress">
-          {entries.map((entry, index) => (
-            <button
-              key={`${entry.bowlerName}-${entry.frameNumber}-${index}`}
-              className={`small-button ${
-                index === currentIndex ? "active-frame-button" : ""
-              }`}
-              onClick={() => onIndexChange(index)}
-            >
-              {entry.frameNumber}
-              {game.format === "Baker" ? ` • ${entry.bowlerName}` : ""}
-            </button>
-          ))}
+          <div className="frame-editor-progress">
+            {entries.map((entry, index) => (
+              <button
+                key={`${entry.bowlerName}-${entry.frameNumber}-${index}`}
+                className={`small-button ${
+                  index === currentIndex ? "active-frame-button" : ""
+                }`}
+                onClick={() => onIndexChange(index)}
+              >
+                {entry.frameNumber}
+                {game.format === "Baker" ? ` • ${entry.bowlerName}` : ""}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="form-grid compact-grid">
@@ -8765,45 +11216,48 @@ function SavedFrameEditModal({
             )}
           </div>
 
-          <div className="shot-summary">
-            <p>
-              <strong>First Shot Count:</strong> {firstShotPinCount}
-            </p>
-            {shouldShowSecondShot && (
+          <aside className="frame-editor-side-panel">
+            <div className="shot-summary">
+              <h4>Frame Summary</h4>
               <p>
-                <strong>Second Shot Count:</strong> {secondShotPinCount}
+                <strong>First Shot Count:</strong> {firstShotPinCount}
               </p>
-            )}
-            {shouldShowThirdShot && (
+              {shouldShowSecondShot && (
+                <p>
+                  <strong>Second Shot Count:</strong> {secondShotPinCount}
+                </p>
+              )}
+              {shouldShowThirdShot && (
+                <p>
+                  <strong>Third Shot Count:</strong> {thirdShotPinCount}
+                </p>
+              )}
               <p>
-                <strong>Third Shot Count:</strong> {thirdShotPinCount}
+                <strong>Frame Pin Count:</strong> {totalFramePinCount}
               </p>
-            )}
-            <p>
-              <strong>Frame Pin Count:</strong> {totalFramePinCount}
-            </p>
-            <p>
-              <strong>Pins Standing After Frame:</strong>{" "}
-              {pinsStandingAfterFrame.length === 0
-                ? "None"
-                : pinsStandingAfterFrame.join("-")}
-            </p>
-            <p>
-              <strong>Result:</strong> {frameResult}
-            </p>
-          </div>
-        </div>
+              <p>
+                <strong>Pins Standing After Frame:</strong>{" "}
+                {pinsStandingAfterFrame.length === 0
+                  ? "None"
+                  : pinsStandingAfterFrame.join("-")}
+              </p>
+              <p>
+                <strong>Result:</strong> {frameResult}
+              </p>
+            </div>
 
-        <section className="frame-editor-score-preview">
-          <strong>Preview Scores</strong>
-          <div className="score-list">
-            {previewScores.map((score) => (
-              <p key={score.label}>
-                <strong>{score.label}:</strong> {score.score}
-              </p>
-            ))}
-          </div>
-        </section>
+            <section className="frame-editor-score-preview">
+              <strong>Preview Scores</strong>
+              <div className="score-list">
+                {previewScores.map((score) => (
+                  <p key={score.label}>
+                    <strong>{score.label}:</strong> {score.score}
+                  </p>
+                ))}
+              </div>
+            </section>
+          </aside>
+        </div>
 
         <div className="frame-navigation">
           <button
@@ -9115,7 +11569,7 @@ function BakerStatsSection({
             10th-frame fill shots.
           </p>
         </div>
-        <span className="summary-hint">Open Section</span>
+        <span className="summary-hint">Open / Close Section</span>
       </summary>
 
       <div className="stats-collapsible-content">
@@ -9124,6 +11578,7 @@ function BakerStatsSection({
 
           <div className="table-scroll">
             <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
               <thead>
                 <tr>
                   <th>Baker Team</th>
@@ -9171,6 +11626,7 @@ function BakerStatsSection({
 
           <div className="table-scroll">
             <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
               <thead>
                 <tr>
                   <th>Position</th>
@@ -9206,6 +11662,7 @@ function BakerStatsSection({
 
           <div className="table-scroll">
             <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
               <thead>
                 <tr>
                   <th>Bowler</th>
@@ -9297,6 +11754,7 @@ function BakerSetBreakdown({
 
       <div className="table-scroll">
         <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
           <thead>
             <tr>
               <th>Bowler</th>
@@ -9348,6 +11806,7 @@ function BakerFrameTable({ game }: { game: SavedGameRecord }) {
 
       <div className="table-scroll">
         <table className="stats-table">
+                    <caption className="sr-only">Bowling statistics table for this section.</caption>
           <thead>
             <tr>
               <th>Frame</th>
