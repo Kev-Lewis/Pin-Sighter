@@ -920,16 +920,6 @@ function createEmptyBackupData(): PinSighterBackupData {
   };
 }
 
-function createSampleBackupData(): PinSighterBackupData {
-  return {
-    bowlers: defaultBowlers,
-    centers: defaultCenters,
-    patterns: defaultPatterns,
-    events: defaultEvents,
-    savedEventLogs: createSampleSavedEventLogs(),
-    savedGames: createSampleSavedGames(),
-  };
-}
 
 function saveToLocalStorage<T>(key: string, value: T) {
   try {
@@ -1328,6 +1318,7 @@ function lockDocumentScroll() {
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [hasCheckedAppDataFile, setHasCheckedAppDataFile] = useState(false);
+  const [setupMessage, setSetupMessage] = useState("");
   const [hasCompletedSetup, setHasCompletedSetup] = useState(() =>
     hasCompletedFirstLaunchSetup()
   );
@@ -1393,8 +1384,34 @@ function App() {
     completeSetup(createEmptyBackupData());
   }
 
-  function handleStartWithSampleData() {
-    completeSetup(createSampleBackupData());
+  async function handleSetupImportData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsedBackup = JSON.parse(await file.text()) as
+        | PinSighterBackup
+        | PinSighterBackupData;
+      const importResult = getImportedBackupData(parsedBackup);
+
+      completeSetup(importResult.data);
+
+      if (importResult.warnings.length > 0) {
+        setSetupMessage(
+          `Backup imported with warnings: ${importResult.warnings.join(" ")}`
+        );
+      }
+    } catch (error) {
+      console.error("First-launch import failed.", error);
+      setSetupMessage(
+        "Import failed. Make sure the file is a Pin-Sighter JSON backup."
+      );
+    } finally {
+      event.target.value = "";
+    }
   }
 
   useEffect(() => {
@@ -1553,15 +1570,26 @@ function App() {
         <section className="setup-card">
           <h2>Set Up Pin-Sighter</h2>
           <p>
-            Choose how you want to start. You can load sample data for testing
-            or start empty and build your own bowlers, centers, patterns, and
+            Import an existing Pin-Sighter backup if you are opening the app in a
+            new browser, on a new device, or after clearing browser data. You can
+            also start empty and build your own bowlers, centers, patterns, and
             saved sets from scratch.
           </p>
 
+          <ToastMessage
+            message={setupMessage}
+            onDismiss={() => setSetupMessage("")}
+          />
+
           <div className="setup-button-row">
-            <button className="primary-button" onClick={handleStartWithSampleData}>
-              Load Sample Data
-            </button>
+            <label className="import-button setup-import-button">
+              Import Data
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={handleSetupImportData}
+              />
+            </label>
             <button className="secondary-button" onClick={handleStartEmpty}>
               Start Empty
             </button>
