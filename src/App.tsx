@@ -1527,8 +1527,21 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="logo-card" onClick={() => setActiveTab("home")}>
-        <h1>Pin-Sighter</h1>
+      <section
+        className="logo-card"
+        onClick={() => setActiveTab("home")}
+        aria-label="Go to Pin-Sighter home"
+      >
+        <div className="logo-title-row">
+          <img
+            src="/pin-sighter-logo-mark-110x160.png"
+            srcSet="/pin-sighter-logo-mark-110x160.png 1x, /pin-sighter-logo-mark-176x256.png 2x, /pin-sighter-logo-mark-353x512.png 3x"
+            alt=""
+            className="app-logo-mark"
+            aria-hidden="true"
+          />
+          <h1>Pin-Sighter</h1>
+        </div>
         <p>Bowling scorekeeping, set tracking, and performance reports</p>
       </section>
 
@@ -2750,6 +2763,25 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
       return;
     }
 
+    const editedBallNames = draft.arsenal.map((ball) => ball.name.trim());
+
+    if (editedBallNames.some((name) => !name)) {
+      window.alert("Every ball in the arsenal needs a ball name.");
+      return;
+    }
+
+    const duplicateBallName = editedBallNames.find(
+      (name, index) =>
+        editedBallNames.findIndex(
+          (otherName) => otherName.toLowerCase() === name.toLowerCase()
+        ) !== index
+    );
+
+    if (duplicateBallName) {
+      window.alert(`Duplicate ball name found: ${duplicateBallName}`);
+      return;
+    }
+
     setBowlers((currentBowlers) =>
       currentBowlers.map((bowler) =>
         bowler.id === bowlerId
@@ -2890,6 +2922,20 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
       ...currentForms,
       [bowler.id]: emptyBallForm,
     }));
+  }
+
+  function updateBallInBowler(
+    bowler: Bowler,
+    ballId: number,
+    updates: Partial<BowlingBall>
+  ) {
+    const draftBowler = getBowlerDraft(bowler);
+
+    updateBowlerDraft(bowler, {
+      arsenal: draftBowler.arsenal.map((ball) =>
+        ball.id === ballId ? { ...ball, ...updates } : ball
+      ),
+    });
   }
 
   function deleteBall(bowler: Bowler, ballId: number) {
@@ -3122,33 +3168,176 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                     <p className="helper-text">No balls added yet.</p>
                   ) : (
                     <div className="arsenal-list">
-                      {draftBowler.arsenal.map((ball) => (
-                        <div className="ball-card" key={ball.id}>
-                          <div>
-                            <strong>{ball.name}</strong>
-                            <p>
-                              {[ball.brand, ball.surface]
-                                .filter(Boolean)
-                                .join(" • ") || "No brand/surface entered"}
-                            </p>
+                      {draftBowler.arsenal.map((ball) => {
+                        const trimmedEditedBallName = ball.name.trim();
+                        const editedBallNameAlreadyExists =
+                          trimmedEditedBallName !== "" &&
+                          draftBowler.arsenal.some(
+                            (currentBall) =>
+                              currentBall.id !== ball.id &&
+                              currentBall.name.toLowerCase() ===
+                                trimmedEditedBallName.toLowerCase()
+                          );
+                        const ballEditValidationMessages = [
+                          !trimmedEditedBallName ? "Enter a ball name." : "",
+                          editedBallNameAlreadyExists
+                            ? "This bowler already has another ball with that name."
+                            : "",
+                        ].filter(Boolean);
+                        const canSaveBallEdit =
+                          ballEditValidationMessages.length === 0;
+                        const originalBall = bowler.arsenal.find(
+                          (currentBall) => currentBall.id === ball.id
+                        );
+                        const hasBallEditChanges =
+                          JSON.stringify(originalBall) !== JSON.stringify(ball);
 
-                            {ball.layout && (
-                              <p>
-                                <strong>Layout:</strong> {ball.layout}
-                              </p>
-                            )}
+                        return (
+                          <div className="ball-card" key={ball.id}>
+                            <div className="ball-card-header">
+                              <div>
+                                <strong>{ball.name || "Unnamed Ball"}</strong>
+                                <p>
+                                  {[ball.brand, ball.surface]
+                                    .filter(Boolean)
+                                    .join(" • ") || "No brand/surface entered"}
+                                </p>
 
-                            {ball.notes && <p>{ball.notes}</p>}
+                                {ball.layout && (
+                                  <p>
+                                    <strong>Layout:</strong> {ball.layout}
+                                  </p>
+                                )}
+
+                                {ball.notes && <p>{ball.notes}</p>}
+                              </div>
+
+
+                            </div>
+
+                            <details className="ball-edit-card">
+                              <summary className="ball-edit-summary">
+                                <strong>Edit Ball Details</strong>
+                                <span className="summary-hint">
+                                  Open / Close Details
+                                </span>
+                              </summary>
+
+                              <div className="ball-edit-content">
+                                <div className="form-grid">
+                                  <label>
+                                    Ball Name <span className="required">*</span>
+                                    <input
+                                      value={ball.name}
+                                      aria-invalid={!canSaveBallEdit}
+                                      aria-describedby={
+                                        !canSaveBallEdit
+                                          ? `edit-ball-validation-${bowler.id}-${ball.id}`
+                                          : undefined
+                                      }
+                                      onChange={(event) =>
+                                        updateBallInBowler(bowler, ball.id, {
+                                          name: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Example: Venom Shock"
+                                    />
+                                  </label>
+
+                                  <label>
+                                    Brand
+                                    <input
+                                      value={ball.brand}
+                                      onChange={(event) =>
+                                        updateBallInBowler(bowler, ball.id, {
+                                          brand: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Optional"
+                                    />
+                                  </label>
+
+                                  <label>
+                                    Surface
+                                    <input
+                                      value={ball.surface}
+                                      onChange={(event) =>
+                                        updateBallInBowler(bowler, ball.id, {
+                                          surface: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Example: 2K, box, polish"
+                                    />
+                                  </label>
+
+                                  <label>
+                                    Layout
+                                    <input
+                                      value={ball.layout}
+                                      onChange={(event) =>
+                                        updateBallInBowler(bowler, ball.id, {
+                                          layout: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Optional, example: 5 x 4 x 2"
+                                    />
+                                  </label>
+
+                                  <label>
+                                    Notes
+                                    <textarea
+                                      value={ball.notes}
+                                      onChange={(event) =>
+                                        updateBallInBowler(bowler, ball.id, {
+                                          notes: event.target.value,
+                                        })
+                                      }
+                                      rows={3}
+                                      placeholder="Optional notes"
+                                    />
+                                  </label>
+                                </div>
+
+                                {!canSaveBallEdit && (
+                                  <section
+                                    className="field-validation-card compact-validation-card"
+                                    id={`edit-ball-validation-${bowler.id}-${ball.id}`}
+                                    aria-live="polite"
+                                  >
+                                    <h3>Before Saving</h3>
+                                    <ul>
+                                      {ballEditValidationMessages.map(
+                                        (message) => (
+                                          <li key={message}>{message}</li>
+                                        )
+                                      )}
+                                    </ul>
+                                  </section>
+                                )}
+
+                                <div className="ball-edit-actions-row">
+                                  <button
+                                    className="save-button"
+                                    disabled={
+                                      !canSaveBallEdit || !hasBallEditChanges
+                                    }
+                                    onClick={() => saveBowler(bowler.id)}
+                                  >
+                                    Save Ball Details
+                                  </button>
+
+                                  <button
+                                    className="danger-button"
+                                    onClick={() => deleteBall(bowler, ball.id)}
+                                  >
+                                    Remove Ball
+                                  </button>
+                                </div>
+                              </div>
+                            </details>
                           </div>
-
-                          <button
-                            className="danger-button small-button"
-                            onClick={() => deleteBall(bowler, ball.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
