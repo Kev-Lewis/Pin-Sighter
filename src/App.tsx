@@ -211,7 +211,6 @@ type DataManagementPageProps = {
   setPatterns: Dispatch<SetStateAction<Pattern[]>>;
   events: EventSetup[];
   setEvents: Dispatch<SetStateAction<EventSetup[]>>;
-  savedEventLogs: SavedEventLog[];
   setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
   savedGames: SavedGameRecord[];
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
@@ -1636,7 +1635,6 @@ function App() {
               setPatterns={setPatterns}
               events={events}
               setEvents={setEvents}
-              savedEventLogs={savedEventLogs}
               setSavedEventLogs={setSavedEventLogs}
               savedGames={savedGames}
               setSavedGames={setSavedGames}
@@ -1696,7 +1694,6 @@ function DataManagementPage({
   setPatterns,
   events,
   setEvents,
-  savedEventLogs,
   setSavedEventLogs,
   savedGames,
   setSavedGames,
@@ -6657,11 +6654,6 @@ function StatsPage({
       ? savedGames.find((game) => game.id === frameEditorGameId) ?? null
       : null;
 
-  function getEventStageLabelForGame(game: SavedGameRecord) {
-    return game.eventName && game.eventStageLabel
-      ? `${game.eventName} — ${game.eventStageLabel}`
-      : "";
-  }
 
   function getBakerTeamLabelFromNames(names: string[]) {
     const sortedNames = Array.from(new Set(names)).sort((a, b) =>
@@ -6997,14 +6989,7 @@ function StatsPage({
   const strikeCount = filteredEntries.filter(isStrikeEntry).length;
   const spareCount = filteredEntries.filter(isSpareEntry).length;
   const openCount = filteredEntries.length - strikeCount - spareCount;
-  const cleanFrameCount = filteredEntries.filter(isCleanFrame).length;
   const splitCount = filteredEntries.filter(isSplitEntry).length;
-  const cleanPercentage =
-    filteredEntries.length > 0
-      ? (cleanFrameCount / filteredEntries.length) * 100
-      : 0;
-  const splitPercentage =
-    filteredEntries.length > 0 ? (splitCount / filteredEntries.length) * 100 : 0;
   const cleanGameCount = countCleanGames(
     statsFilteredGames,
     isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
@@ -8703,13 +8688,6 @@ function StatsPage({
     }
   }
 
-  function updateSavedGameNotes(gameId: string, gameNotes: string) {
-    setSavedGames((currentGames) =>
-      currentGames.map((game) =>
-        game.id === gameId ? { ...game, gameNotes } : game
-      )
-    );
-  }
 
   function handleBowlerChange(value: string) {
     setSelectedBowler(value);
