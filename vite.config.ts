@@ -9,7 +9,7 @@ const host = process.env.TAURI_DEV_HOST;
 // @ts-expect-error process is a nodejs global
 const isTauri = Boolean(process.env.TAURI_ENV_PLATFORM);
 
-const base = isTauri ? "/" : "/Pin-Sighter/";
+const base = isTauri ? "/" : "/";
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
