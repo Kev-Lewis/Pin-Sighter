@@ -3960,3 +3960,56 @@ Frame Editor Scroll Bleed Patch
     height: 300px;
   }
 }
+
+/*
+Duel Pattern Form Polish
+==================
+*/
+
+.duel-pattern-toggle-card {
+  border: 2px solid #111827;
+  background: #ffffff;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.duel-pattern-toggle-card.active {
+  background: #f8fafc;
+}
+
+.duel-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-weight: 800;
+}
+
+.duel-toggle-row input {
+  width: auto;
+  margin-top: 3px;
+}
+
+.duel-toggle-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.duel-toggle-row small {
+  color: #6b7280;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.duel-pattern-fields {
+  border-top: 2px solid #111827;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.duel-pattern-preview {
+  margin-top: 16px;
+}
+
+.duel-pattern-preview h4 {
+  margin-top: 0;
+}

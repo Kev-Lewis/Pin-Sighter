@@ -71,6 +71,11 @@ type Pattern = {
   dropBrush: string;
   source: string;
   notes: string;
+  isDuelPattern?: boolean;
+  firstPatternId?: number;
+  secondPatternId?: number;
+  firstPatternName?: string;
+  secondPatternName?: string;
 };
 
 type EventScheduleUnit = "Weeks" | "Days";
@@ -307,6 +312,7 @@ type GameEntryPageProps = {
   eventId: number | null;
   laneMode: string;
   startingLaneOrPair: string;
+  startingLane: string;
   laneOptions: LaneOption[];
   seriesGameCount: number | null;
   onSavedEventLog: (savedLog: SavedEventLog) => void;
@@ -349,7 +355,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.0.3";
+const appVersion = "1.0.4";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -410,6 +416,56 @@ function ensureUnknownPattern(patterns: Pattern[]) {
   });
 
   return [{ ...unknownPattern }, ...editablePatterns];
+}
+
+function isDuelPattern(pattern: Pattern | undefined) {
+  return pattern?.isDuelPattern === true;
+}
+
+function buildDuelPatternName(firstPatternName: string, secondPatternName: string) {
+  return `${firstPatternName} / ${secondPatternName} (Duel Pattern)`;
+}
+
+function getPatternNameById(
+  patterns: Pattern[],
+  patternId: number | undefined,
+  fallbackName = ""
+) {
+  return (
+    patterns.find((pattern) => pattern.id === patternId)?.name ||
+    fallbackName ||
+    "Unknown Pattern"
+  );
+}
+
+function formatPatternDropdownLabel(pattern: Pattern): string {
+  if (isDuelPattern(pattern)) {
+    return pattern.name;
+  }
+
+  const trimmedLength = pattern.length.trim();
+
+  if (!trimmedLength) {
+    return pattern.name;
+  }
+
+  const normalizedLength = trimmedLength
+    .replace(/\s*(feet|foot|ft|')$/i, "")
+    .trim();
+
+  return `${pattern.name} - ${normalizedLength}'`;
+}
+
+function getDuelPatternBaseOptions(
+  patterns: Pattern[],
+  currentPatternId?: number
+) {
+  return patterns.filter(
+    (pattern) =>
+      pattern.id !== currentPatternId &&
+      !isUnknownPattern(pattern) &&
+      !isDuelPattern(pattern)
+  );
 }
 
 const defaultEvents: EventSetup[] = [
@@ -2029,6 +2085,7 @@ function LogGamesPage({
   const [selectedPatternId, setSelectedPatternId] = useState("0");
   const [laneMode, setLaneMode] = useState("Pair");
   const [startingLaneOrPair, setStartingLaneOrPair] = useState("");
+  const [startingLane, setStartingLane] = useState("");
   const [selectedBowlers, setSelectedBowlers] = useState<string[]>([""]);
 
   const isOpen = competitionType === "Open";
@@ -2128,6 +2185,12 @@ function LogGamesPage({
     );
   }, [selectedCenter, laneMode]);
 
+  const startingLaneOptions = getStartingLaneOptions(laneMode, startingLaneOrPair);
+
+  useEffect(() => {
+    setStartingLane(getDefaultStartingLane(laneMode, startingLaneOrPair));
+  }, [laneMode, startingLaneOrPair]);
+
   function handleCompetitionTypeChange(newCompetitionType: CompetitionType) {
     setCompetitionType(newCompetitionType);
     setSelectedEventId("");
@@ -2136,6 +2199,7 @@ function LogGamesPage({
     setSelectedCenterId("");
     setSelectedPatternId("0");
     setStartingLaneOrPair("");
+    setStartingLane("");
   }
 
   function handleFormatChange(newFormat: BowlingFormat) {
@@ -2159,6 +2223,7 @@ function LogGamesPage({
     setSelectedEventId(newEventId);
     setSelectedEventStage("");
     setStartingLaneOrPair("");
+    setStartingLane("");
 
     const nextEvent = events.find((event) => String(event.id) === newEventId);
 
@@ -2183,11 +2248,13 @@ function LogGamesPage({
   function handleCenterChange(newCenterId: string) {
     setSelectedCenterId(newCenterId);
     setStartingLaneOrPair("");
+    setStartingLane("");
   }
 
   function handleLaneModeChange(newLaneMode: string) {
     setLaneMode(newLaneMode);
     setStartingLaneOrPair("");
+    setStartingLane("");
   }
 
   function handleBowlerChange(index: number, bowlerName: string) {
@@ -2212,12 +2279,16 @@ function LogGamesPage({
   const hasRequiredEventStage =
     isOpen || eventStageOptions.length === 0 || selectedEventStage !== "";
 
+  const selectedPatternIsDuelPattern = isDuelPattern(selectedPattern);
+
   const canStartGame =
     hasRequiredEvent &&
     hasRequiredEventStage &&
     selectedCenter !== undefined &&
     selectedPattern !== undefined &&
+    (!selectedPatternIsDuelPattern || laneMode === "Pair") &&
     startingLaneOrPair !== "" &&
+    (laneMode !== "Pair" || startingLane !== "") &&
     hasEnoughBowlers &&
     !hasDuplicateBowlers &&
     activeBowlersPerPair >= 1 &&
@@ -2232,8 +2303,14 @@ function LogGamesPage({
       : "",
     selectedCenter === undefined ? "Choose a bowling center." : "",
     selectedPattern === undefined ? "Choose a pattern." : "",
+    selectedPatternIsDuelPattern && laneMode !== "Pair"
+      ? "Duel patterns can only be used when Lane Mode is set to Pair."
+      : "",
     activeBowlersPerPair < 1 ? "Enter at least 1 bowler per pair." : "",
     startingLaneOrPair === "" ? "Choose a starting lane or pair." : "",
+    laneMode === "Pair" && startingLane === ""
+      ? "Choose which lane you are starting on."
+      : "",
     !hasEnoughBowlers
       ? activeFormat === "Baker"
         ? "Choose at least the first 2 Baker bowlers."
@@ -2263,6 +2340,7 @@ function LogGamesPage({
         eventId={selectedEvent?.id ?? null}
         laneMode={laneMode}
         startingLaneOrPair={startingLaneOrPair}
+        startingLane={startingLane || getDefaultStartingLane(laneMode, startingLaneOrPair)}
         laneOptions={laneOptions}
         seriesGameCount={seriesGameCount}
         onSavedEventLog={(savedLog) =>
@@ -2404,15 +2482,21 @@ function LogGamesPage({
           Pattern
           <select
             value={selectedPatternId}
-            aria-invalid={selectedPattern === undefined}
+            aria-invalid={
+              selectedPattern === undefined ||
+              (selectedPatternIsDuelPattern && laneMode !== "Pair")
+            }
             aria-describedby={
-              selectedPattern === undefined ? "log-setup-validation" : undefined
+              selectedPattern === undefined ||
+              (selectedPatternIsDuelPattern && laneMode !== "Pair")
+                ? "log-setup-validation"
+                : undefined
             }
             onChange={(event) => setSelectedPatternId(event.target.value)}
           >
             {patterns.map((pattern) => (
               <option key={pattern.id} value={pattern.id}>
-                {pattern.name}
+                {formatPatternDropdownLabel(pattern)}
               </option>
             ))}
           </select>
@@ -2475,6 +2559,26 @@ function LogGamesPage({
             ))}
           </select>
         </label>
+
+        {laneMode === "Pair" && startingLaneOrPair && (
+          <label>
+            Starting Lane <span className="required">*</span>
+            <select
+              value={startingLane}
+              aria-invalid={startingLane === ""}
+              aria-describedby={
+                startingLane === "" ? "log-setup-validation" : undefined
+              }
+              onChange={(event) => setStartingLane(event.target.value)}
+            >
+              {startingLaneOptions.map((lane) => (
+                <option key={lane} value={lane}>
+                  Lane {lane}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {selectedEvent && (
@@ -4710,6 +4814,9 @@ function EventsPage({
 // ==================
 
 function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
+  const [isNewDuelPattern, setIsNewDuelPattern] = useState(false);
+  const [newDuelFirstPatternId, setNewDuelFirstPatternId] = useState("");
+  const [newDuelSecondPatternId, setNewDuelSecondPatternId] = useState("");
   const [newPatternName, setNewPatternName] = useState("");
   const [newPatternLength, setNewPatternLength] = useState("");
   const [newPatternVolume, setNewPatternVolume] = useState("");
@@ -4739,7 +4846,12 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       draft.ratio !== pattern.ratio ||
       draft.dropBrush !== pattern.dropBrush ||
       draft.source !== pattern.source ||
-      draft.notes !== pattern.notes
+      draft.notes !== pattern.notes ||
+      draft.isDuelPattern !== pattern.isDuelPattern ||
+      draft.firstPatternId !== pattern.firstPatternId ||
+      draft.secondPatternId !== pattern.secondPatternId ||
+      draft.firstPatternName !== pattern.firstPatternName ||
+      draft.secondPatternName !== pattern.secondPatternName
     );
   }
 
@@ -4764,9 +4876,17 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       return;
     }
 
+    const patternToSave = isDuelPattern(draft)
+      ? prepareDuelPatternForSave(draft, patternId)
+      : { ...draft, isDuelPattern: false };
+
+    if (!patternToSave) {
+      return;
+    }
+
     setPatterns((currentPatterns) =>
       currentPatterns.map((pattern) =>
-        pattern.id === patternId ? { ...draft } : pattern
+        pattern.id === patternId ? patternToSave : pattern
       )
     );
 
@@ -4777,7 +4897,86 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
     });
   }
 
+  function prepareDuelPatternForSave(
+    pattern: Pattern,
+    currentPatternId?: number
+  ) {
+    const firstPattern = patterns.find(
+      (currentPattern) => currentPattern.id === pattern.firstPatternId
+    );
+    const secondPattern = patterns.find(
+      (currentPattern) => currentPattern.id === pattern.secondPatternId
+    );
+
+    if (!firstPattern || !secondPattern) {
+      window.alert("Choose both duel pattern lanes before saving.");
+      return null;
+    }
+
+    if (firstPattern.id === secondPattern.id) {
+      window.alert("Choose two different patterns for duel pattern play.");
+      return null;
+    }
+
+    const duelPatternName = buildDuelPatternName(
+      firstPattern.name,
+      secondPattern.name
+    );
+    const nameAlreadyExists = patterns.some(
+      (currentPattern) =>
+        currentPattern.id !== currentPatternId &&
+        currentPattern.name.toLowerCase() === duelPatternName.toLowerCase()
+    );
+
+    if (nameAlreadyExists) {
+      window.alert("A duel pattern with that pair already exists.");
+      return null;
+    }
+
+    return {
+      ...pattern,
+      name: duelPatternName,
+      length: "",
+      volume: "",
+      ratio: "",
+      dropBrush: "",
+      source: "Duel Pattern",
+      notes: "",
+      isDuelPattern: true,
+      firstPatternId: firstPattern.id,
+      secondPatternId: secondPattern.id,
+      firstPatternName: firstPattern.name,
+      secondPatternName: secondPattern.name,
+    };
+  }
+
   function addPattern() {
+    if (isNewDuelPattern) {
+      const draftDuelPattern: Pattern = {
+        id: Date.now(),
+        name: "",
+        length: "",
+        volume: "",
+        ratio: "",
+        dropBrush: "",
+        source: "Duel Pattern",
+        notes: "",
+        isDuelPattern: true,
+        firstPatternId: Number(newDuelFirstPatternId),
+        secondPatternId: Number(newDuelSecondPatternId),
+      };
+      const duelPatternToSave = prepareDuelPatternForSave(draftDuelPattern);
+
+      if (!duelPatternToSave) {
+        return;
+      }
+
+      setPatterns((currentPatterns) => [...currentPatterns, duelPatternToSave]);
+      setNewDuelFirstPatternId("");
+      setNewDuelSecondPatternId("");
+      return;
+    }
+
     const trimmedName = newPatternName.trim();
 
     if (!trimmedName) {
@@ -4804,6 +5003,7 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
         dropBrush: newPatternDropBrush.trim(),
         source: newPatternSource.trim(),
         notes: newPatternNotes.trim(),
+        isDuelPattern: false,
       },
     ]);
 
@@ -4830,7 +5030,7 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
     }
 
     const shouldDelete = window.confirm(
-      `Delete ${pattern.name}? This will remove it from pattern selection.`
+      `Delete ${formatPatternDropdownLabel(pattern)}? This will remove it from pattern selection.`
     );
 
     if (!shouldDelete) {
@@ -4851,6 +5051,21 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
   }
 
   function formatPatternSummary(pattern: Pattern) {
+    if (isDuelPattern(pattern)) {
+      const firstPatternName = getPatternNameById(
+        patterns,
+        pattern.firstPatternId,
+        pattern.firstPatternName
+      );
+      const secondPatternName = getPatternNameById(
+        patterns,
+        pattern.secondPatternId,
+        pattern.secondPatternName
+      );
+
+      return `Duel Pattern • Left: ${firstPatternName} • Right: ${secondPatternName}`;
+    }
+
     const details = [
       pattern.length ? `${pattern.length} ft` : "",
       pattern.volume ? `${pattern.volume} mL` : "",
@@ -4860,6 +5075,26 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
     return details.length > 0 ? details.join(" • ") : "No specs entered";
   }
 
+  const duelPatternBaseOptions = getDuelPatternBaseOptions(patterns);
+  const selectedNewDuelFirstPattern = patterns.find(
+    (pattern) => String(pattern.id) === newDuelFirstPatternId
+  );
+  const selectedNewDuelSecondPattern = patterns.find(
+    (pattern) => String(pattern.id) === newDuelSecondPatternId
+  );
+  const newDuelPatternName =
+    selectedNewDuelFirstPattern && selectedNewDuelSecondPattern
+      ? buildDuelPatternName(
+          selectedNewDuelFirstPattern.name,
+          selectedNewDuelSecondPattern.name
+        )
+      : "";
+  const newDuelPatternNameAlreadyExists =
+    newDuelPatternName !== "" &&
+    patterns.some(
+      (pattern) =>
+        pattern.name.toLowerCase() === newDuelPatternName.toLowerCase()
+    );
   const trimmedNewPatternName = newPatternName.trim();
   const newPatternNameAlreadyExists =
     trimmedNewPatternName !== "" &&
@@ -4867,12 +5102,27 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       (pattern) =>
         pattern.name.toLowerCase() === trimmedNewPatternName.toLowerCase()
     );
-  const patternAddValidationMessages = [
-    !trimmedNewPatternName ? "Enter a pattern name." : "",
-    newPatternNameAlreadyExists
-      ? "A pattern with that name already exists."
-      : "",
-  ].filter(Boolean);
+  const patternAddValidationMessages = isNewDuelPattern
+    ? [
+        duelPatternBaseOptions.length < 2
+          ? "Create at least two normal patterns before adding a duel pattern."
+          : "",
+        newDuelFirstPatternId === "" ? "Choose the left lane pattern." : "",
+        newDuelSecondPatternId === "" ? "Choose the right lane pattern." : "",
+        newDuelFirstPatternId !== "" &&
+        newDuelFirstPatternId === newDuelSecondPatternId
+          ? "Choose two different patterns."
+          : "",
+        newDuelPatternNameAlreadyExists
+          ? "A duel pattern with that pair already exists."
+          : "",
+      ].filter(Boolean)
+    : [
+        !trimmedNewPatternName ? "Enter a pattern name." : "",
+        newPatternNameAlreadyExists
+          ? "A pattern with that name already exists."
+          : "",
+      ].filter(Boolean);
   const canAddPattern = patternAddValidationMessages.length === 0;
 
   return (
@@ -4881,7 +5131,8 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       <p>
         Add oil patterns with length, volume, ratio, drop brush, source, and
         additional notes. Pin-Sighter always includes a locked Unknown pattern
-        for games where the condition is not known.
+        for games where the condition is not known. Duel patterns combine two
+        saved patterns for left-lane/right-lane play on a pair.
       </p>
 
       <p className="resource-link">
@@ -4902,77 +5153,174 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
         </summary>
 
         <div className="add-form-content">
-          <div className="form-grid">
-          <label>
-            Name <span className="required">*</span>
-            <input
-              value={newPatternName}
-              aria-invalid={
-                !trimmedNewPatternName || newPatternNameAlreadyExists
-              }
-              aria-describedby={
-                !canAddPattern ? "add-pattern-validation" : undefined
-              }
-              onChange={(event) => setNewPatternName(event.target.value)}
-              placeholder="Example: 2025 PBA Wolf"
-            />
-          </label>
+          {!isNewDuelPattern && (
+            <div className="form-grid">
+              <label>
+                Name <span className="required">*</span>
+                <input
+                  value={newPatternName}
+                  aria-invalid={
+                    !trimmedNewPatternName || newPatternNameAlreadyExists
+                  }
+                  aria-describedby={
+                    !canAddPattern ? "add-pattern-validation" : undefined
+                  }
+                  onChange={(event) => setNewPatternName(event.target.value)}
+                  placeholder="Example: 2025 PBA Wolf"
+                />
+              </label>
 
-          <label>
-            Length
-            <input
-              value={newPatternLength}
-              onChange={(event) => setNewPatternLength(event.target.value)}
-              placeholder="Example: 32"
-            />
-          </label>
+              <label>
+                Length
+                <input
+                  value={newPatternLength}
+                  onChange={(event) => setNewPatternLength(event.target.value)}
+                  placeholder="Example: 32"
+                />
+              </label>
 
-          <label>
-            Volume
-            <input
-              value={newPatternVolume}
-              onChange={(event) => setNewPatternVolume(event.target.value)}
-              placeholder="Example: 28.5"
-            />
-          </label>
+              <label>
+                Volume
+                <input
+                  value={newPatternVolume}
+                  onChange={(event) => setNewPatternVolume(event.target.value)}
+                  placeholder="Example: 28.5"
+                />
+              </label>
 
-          <label>
-            Ratio
-            <input
-              value={newPatternRatio}
-              onChange={(event) => setNewPatternRatio(event.target.value)}
-              placeholder="Example: 2.0"
-            />
-          </label>
+              <label>
+                Ratio
+                <input
+                  value={newPatternRatio}
+                  onChange={(event) => setNewPatternRatio(event.target.value)}
+                  placeholder="Example: 2.0"
+                />
+              </label>
 
-          <label>
-            Drop Brush
-            <input
-              value={newPatternDropBrush}
-              onChange={(event) => setNewPatternDropBrush(event.target.value)}
-              placeholder="Optional"
-            />
-          </label>
+              <label>
+                Drop Brush
+                <input
+                  value={newPatternDropBrush}
+                  onChange={(event) =>
+                    setNewPatternDropBrush(event.target.value)
+                  }
+                  placeholder="Optional"
+                />
+              </label>
 
-          <label>
-            Source
-            <input
-              value={newPatternSource}
-              onChange={(event) => setNewPatternSource(event.target.value)}
-              placeholder="Example: Kegel, PBA, custom"
-            />
-          </label>
+              <label>
+                Source
+                <input
+                  value={newPatternSource}
+                  onChange={(event) => setNewPatternSource(event.target.value)}
+                  placeholder="Example: Kegel, PBA, custom"
+                />
+              </label>
 
-          <label>
-            Notes
-            <textarea
-              value={newPatternNotes}
-              onChange={(event) => setNewPatternNotes(event.target.value)}
-              placeholder="Optional notes"
-              rows={3}
-            />
-          </label>
-        </div>
+              <label>
+                Notes
+                <textarea
+                  value={newPatternNotes}
+                  onChange={(event) => setNewPatternNotes(event.target.value)}
+                  placeholder="Optional notes"
+                  rows={3}
+                />
+              </label>
+            </div>
+          )}
+
+          <section
+            className={`duel-pattern-toggle-card ${
+              isNewDuelPattern ? "active" : ""
+            }`}
+          >
+            <label className="duel-toggle-row">
+              <input
+                type="checkbox"
+                checked={isNewDuelPattern}
+                onChange={(event) => {
+                  setIsNewDuelPattern(event.target.checked);
+                  setNewDuelFirstPatternId("");
+                  setNewDuelSecondPatternId("");
+                }}
+              />
+              <span>
+                <strong>Duel Pattern</strong>
+                <small>
+                  Use this when the left and right lanes have different oil
+                  patterns.
+                </small>
+              </span>
+            </label>
+
+            {isNewDuelPattern && (
+              <div className="duel-pattern-fields">
+                <div className="form-grid">
+                  <label>
+                    First Pattern — Left Lane <span className="required">*</span>
+                    <select
+                      value={newDuelFirstPatternId}
+                      aria-invalid={newDuelFirstPatternId === ""}
+                      aria-describedby={
+                        !canAddPattern ? "add-pattern-validation" : undefined
+                      }
+                      onChange={(event) =>
+                        setNewDuelFirstPatternId(event.target.value)
+                      }
+                    >
+                      <option value="">Select left lane pattern</option>
+                      {duelPatternBaseOptions.map((pattern) => (
+                        <option key={pattern.id} value={pattern.id}>
+                          {formatPatternDropdownLabel(pattern)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Second Pattern — Right Lane{" "}
+                    <span className="required">*</span>
+                    <select
+                      value={newDuelSecondPatternId}
+                      aria-invalid={newDuelSecondPatternId === ""}
+                      aria-describedby={
+                        !canAddPattern ? "add-pattern-validation" : undefined
+                      }
+                      onChange={(event) =>
+                        setNewDuelSecondPatternId(event.target.value)
+                      }
+                    >
+                      <option value="">Select right lane pattern</option>
+                      {duelPatternBaseOptions.map((pattern) => (
+                        <option key={pattern.id} value={pattern.id}>
+                          {formatPatternDropdownLabel(pattern)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <section className="pattern-preview-card duel-pattern-preview">
+                  <h4>Duel Pattern Summary</h4>
+                  <p>
+                    <strong>Saved Name:</strong>{" "}
+                    {newDuelPatternName || "Choose two patterns"}
+                  </p>
+                  <p>
+                    <strong>Left Lane:</strong>{" "}
+                    {selectedNewDuelFirstPattern?.name || "Not selected"}
+                  </p>
+                  <p>
+                    <strong>Right Lane:</strong>{" "}
+                    {selectedNewDuelSecondPattern?.name || "Not selected"}
+                  </p>
+                  <p className="helper-text">
+                    Duel patterns can only be selected when logging on a pair.
+                  </p>
+                </section>
+              </div>
+            )}
+          </section>
 
           {!canAddPattern && (
             <section
@@ -4994,7 +5342,7 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
             disabled={!canAddPattern}
             onClick={addPattern}
           >
-            Add Pattern
+            {isNewDuelPattern ? "Add Duel Pattern" : "Add Pattern"}
           </button>
         </div>
       </details>
@@ -5035,6 +5383,117 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
                       Use Unknown when you do not know the oil pattern, house
                       shot, volume, or lane condition. It will always appear as
                       the default option when logging games.
+                    </p>
+                  </section>
+                </div>
+              </details>
+            );
+          }
+
+          if (isDuelPattern(pattern)) {
+            const duelPatternOptions = getDuelPatternBaseOptions(
+              patterns,
+              pattern.id
+            );
+            const firstPatternName = getPatternNameById(
+              patterns,
+              draftPattern.firstPatternId,
+              draftPattern.firstPatternName
+            );
+            const secondPatternName = getPatternNameById(
+              patterns,
+              draftPattern.secondPatternId,
+              draftPattern.secondPatternName
+            );
+
+            return (
+              <details className="pattern-card duel-pattern-card" key={pattern.id}>
+                <summary className="pattern-summary">
+                  <div>
+                    <strong>{pattern.name}</strong>
+                    <p>{formatPatternSummary(pattern)}</p>
+                    {isDirty && (
+                      <p className="unsaved-text">Unsaved changes</p>
+                    )}
+                  </div>
+
+                  <span className="summary-hint">Open / Close Details</span>
+                </summary>
+
+                <div className="pattern-details-content">
+                  <div className="pattern-actions-row">
+                    <button
+                      className="save-button"
+                      disabled={!isDirty}
+                      onClick={() => savePattern(pattern.id)}
+                    >
+                      Save Duel Pattern
+                    </button>
+
+                    <button
+                      className="danger-button"
+                      onClick={() => deletePattern(pattern.id)}
+                    >
+                      Delete Pattern
+                    </button>
+                  </div>
+
+                  <div className="form-grid">
+                    <label>
+                      First Pattern — Left Lane
+                      <select
+                        value={draftPattern.firstPatternId ?? ""}
+                        onChange={(event) =>
+                          updatePatternDraft(pattern, {
+                            firstPatternId: Number(event.target.value),
+                          })
+                        }
+                      >
+                        <option value="">Select left lane pattern</option>
+                        {duelPatternOptions.map((optionPattern) => (
+                          <option key={optionPattern.id} value={optionPattern.id}>
+                            {formatPatternDropdownLabel(optionPattern)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      Second Pattern — Right Lane
+                      <select
+                        value={draftPattern.secondPatternId ?? ""}
+                        onChange={(event) =>
+                          updatePatternDraft(pattern, {
+                            secondPatternId: Number(event.target.value),
+                          })
+                        }
+                      >
+                        <option value="">Select right lane pattern</option>
+                        {duelPatternOptions.map((optionPattern) => (
+                          <option key={optionPattern.id} value={optionPattern.id}>
+                            {formatPatternDropdownLabel(optionPattern)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <section className="pattern-preview-card duel-pattern-preview">
+                    <h4>Duel Pattern Summary</h4>
+                    <p>
+                      <strong>Saved Name:</strong>{" "}
+                      {draftPattern.firstPatternId && draftPattern.secondPatternId
+                        ? buildDuelPatternName(firstPatternName, secondPatternName)
+                        : pattern.name}
+                    </p>
+                    <p>
+                      <strong>Left Lane:</strong> {firstPatternName}
+                    </p>
+                    <p>
+                      <strong>Right Lane:</strong> {secondPatternName}
+                    </p>
+                    <p className="helper-text">
+                      Duel patterns can only be selected when logging on a pair.
                     </p>
                   </section>
                 </div>
@@ -5223,6 +5682,7 @@ function GameEntryPage({
   eventId,
   laneMode,
   startingLaneOrPair,
+  startingLane,
   laneOptions,
   seriesGameCount,
   onSavedEventLog,
@@ -5253,10 +5713,26 @@ function GameEntryPage({
     return orderedEntries;
   }, [bowlerNames, format]);
 
+  const initialStartingLane = getDefaultStartingLane(
+    laneMode,
+    startingLaneOrPair,
+    startingLane
+  );
+
   const [gameNumber, setGameNumber] = useState(1);
   const [currentStartingLaneOrPair, setCurrentStartingLaneOrPair] =
     useState(startingLaneOrPair);
+  const [currentStartingLane, setCurrentStartingLane] =
+    useState(initialStartingLane);
   const [nextLaneOrPair, setNextLaneOrPair] = useState(startingLaneOrPair);
+  const [nextStartingLane, setNextStartingLane] = useState(() =>
+    getDefaultNextStartingLane(
+      laneMode,
+      startingLaneOrPair,
+      initialStartingLane,
+      competitionType
+    )
+  );
   const [showNextGameSetup, setShowNextGameSetup] = useState(false);
 
   const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>(
@@ -5267,11 +5743,25 @@ function GameEntryPage({
     Record<string, CarryoverFields>
   >({});
 
+  function getCarryoverSlot(frameNumber: number) {
+    if (laneMode !== "Pair") {
+      return "single";
+    }
+
+    return frameNumber % 2 === 1 ? "pair-odd" : "pair-even";
+  }
+
+  function getCarryoverKey(bowlerName: string, frameNumber: number) {
+    return `${bowlerName}:${getCarryoverSlot(frameNumber)}`;
+  }
+
   function buildEntries(
     carryovers: Record<string, CarryoverFields>
   ): FrameEntry[] {
     return frameOrder.map((entry) => {
-      const carryover = carryovers[entry.bowlerName];
+      const carryover = carryovers[
+        getCarryoverKey(entry.bowlerName, entry.frameNumber)
+      ];
 
       return {
         frameNumber: entry.frameNumber,
@@ -5494,22 +5984,26 @@ function GameEntryPage({
 
     return {
       ...entry,
-      ballUsed: entry.ballUsed || carryover.ballUsed,
-      footBoard: entry.footBoard || carryover.footBoard,
-      targetArrow: entry.targetArrow || carryover.targetArrow,
-      targetBreakpoint: entry.targetBreakpoint || carryover.targetBreakpoint,
-      actualArrow: entry.actualArrow || carryover.actualArrow,
-      actualBreakpoint: entry.actualBreakpoint || carryover.actualBreakpoint,
+      ballUsed: carryover.ballUsed,
+      footBoard: carryover.footBoard,
+      targetArrow: carryover.targetArrow,
+      targetBreakpoint: carryover.targetBreakpoint,
+      actualArrow: carryover.actualArrow,
+      actualBreakpoint: carryover.actualBreakpoint,
     };
   }
 
   function completeCurrentEntry() {
     const nextIndex = currentEntryIndex + 1;
     const currentCarryover = getCarryoverFromEntry(currentEntry);
+    const currentCarryoverKey = getCarryoverKey(
+      currentEntry.bowlerName,
+      currentEntry.frameNumber
+    );
 
     const updatedCarryovers = {
       ...bowlerCarryovers,
-      [currentEntry.bowlerName]: currentCarryover,
+      [currentCarryoverKey]: currentCarryover,
     };
 
     setBowlerCarryovers(updatedCarryovers);
@@ -5522,11 +6016,15 @@ function GameEntryPage({
     };
 
     if (nextIndex < updatedEntries.length) {
-      const nextBowlerName = updatedEntries[nextIndex].bowlerName;
+      const nextEntry = updatedEntries[nextIndex];
+      const nextCarryoverKey = getCarryoverKey(
+        nextEntry.bowlerName,
+        nextEntry.frameNumber
+      );
 
       updatedEntries[nextIndex] = applyCarryoverToEntry(
-        updatedEntries[nextIndex],
-        updatedCarryovers[nextBowlerName]
+        nextEntry,
+        updatedCarryovers[nextCarryoverKey]
       );
     }
 
@@ -5534,7 +6032,11 @@ function GameEntryPage({
 
     if (isLastEntry) {
       const scores = calculateScoresForGame(updatedEntries, bowlerNames, format);
-      const laneLabel = formatLaneLabel(laneMode, currentStartingLaneOrPair);
+      const laneLabel = formatGameLaneLabel(
+        laneMode,
+        currentStartingLaneOrPair,
+        currentStartingLane
+      );
 
       setCompletedGames((currentGames) => {
         const otherGames = currentGames.filter(
@@ -5606,6 +6108,7 @@ function GameEntryPage({
             ...entry,
             firstShotKnockedPins: [...entry.firstShotKnockedPins],
             secondShotKnockedPins: [...entry.secondShotKnockedPins],
+            thirdShotKnockedPins: [...entry.thirdShotKnockedPins],
           })),
         }))
       );
@@ -5629,16 +6132,35 @@ function GameEntryPage({
     onBack();
   }
 
+  function handleNextLaneOrPairChange(newLaneOrPair: string) {
+    setNextLaneOrPair(newLaneOrPair);
+    setNextStartingLane(getDefaultStartingLane(laneMode, newLaneOrPair));
+  }
+
   function handleStartAnotherGame() {
     if (isLastGameInSeries) {
       return;
     }
 
+    const nextGameStartingLane =
+      laneMode === "Pair"
+        ? nextStartingLane || getDefaultStartingLane(laneMode, nextLaneOrPair)
+        : nextLaneOrPair;
+
     setCurrentStartingLaneOrPair(nextLaneOrPair);
+    setCurrentStartingLane(nextGameStartingLane);
     setGameNumber((currentGameNumber) => currentGameNumber + 1);
     setEntries(buildEntries(bowlerCarryovers));
     setCurrentEntryIndex(0);
     setMaxUnlockedIndex(0);
+    setNextStartingLane(
+      getDefaultNextStartingLane(
+        laneMode,
+        nextLaneOrPair,
+        nextGameStartingLane,
+        competitionType
+      )
+    );
     setShowNextGameSetup(false);
   }
 
@@ -5678,6 +6200,11 @@ function GameEntryPage({
           <strong>Pair/Lane:</strong>{" "}
           {formatLaneLabel(laneMode, currentStartingLaneOrPair)}
         </p>
+        {laneMode === "Pair" && (
+          <p>
+            <strong>Starting Lane:</strong> Lane {currentStartingLane}
+          </p>
+        )}
         <p>
           <strong>Bowler Order:</strong> {bowlerNames.join(" → ")}
         </p>
@@ -5702,6 +6229,14 @@ function GameEntryPage({
             Entry {currentEntryIndex + 1} of {entries.length}
           </span>
           <span>Frame {currentEntry.frameNumber} of 10</span>
+          <span>
+            {formatFrameLaneLabel(
+              laneMode,
+              currentStartingLaneOrPair,
+              currentStartingLane,
+              currentEntry.frameNumber
+            )}
+          </span>
           <span>{frameResult}</span>
           {currentEntry.isComplete && <span>Completed</span>}
           {format === "Baker" && <span>Baker rotation</span>}
@@ -5945,7 +6480,9 @@ function GameEntryPage({
                   Next Pair/Lane
                   <select
                     value={nextLaneOrPair}
-                    onChange={(event) => setNextLaneOrPair(event.target.value)}
+                    onChange={(event) =>
+                      handleNextLaneOrPairChange(event.target.value)
+                    }
                   >
                     {laneOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -5955,9 +6492,29 @@ function GameEntryPage({
                   </select>
                 </label>
 
+                {laneMode === "Pair" && nextLaneOrPair && (
+                  <label>
+                    Starting Lane
+                    <select
+                      value={nextStartingLane}
+                      onChange={(event) =>
+                        setNextStartingLane(event.target.value)
+                      }
+                    >
+                      {getStartingLaneOptions(laneMode, nextLaneOrPair).map(
+                        (lane) => (
+                          <option key={lane} value={lane}>
+                            Lane {lane}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                )}
+
                 <button
                   className="primary-button"
-                  disabled={!nextLaneOrPair}
+                  disabled={!nextLaneOrPair || (laneMode === "Pair" && !nextStartingLane)}
                   onClick={handleStartAnotherGame}
                 >
                   Start Game {gameNumber + 1}
@@ -6099,8 +6656,105 @@ function getFrameResult(
   return "Open";
 }
 
+function getStartingLaneOptions(laneMode: string, laneOrPair: string) {
+  if (!laneOrPair) {
+    return [];
+  }
+
+  if (laneMode !== "Pair") {
+    return [laneOrPair];
+  }
+
+  return laneOrPair.split("/").filter(Boolean);
+}
+
+function getDefaultStartingLane(
+  laneMode: string,
+  laneOrPair: string,
+  preferredStartingLane = ""
+) {
+  const laneOptions = getStartingLaneOptions(laneMode, laneOrPair);
+
+  if (preferredStartingLane && laneOptions.includes(preferredStartingLane)) {
+    return preferredStartingLane;
+  }
+
+  return laneOptions[0] ?? "";
+}
+
+function getOppositeStartingLane(laneOrPair: string, currentStartingLane: string) {
+  const laneOptions = getStartingLaneOptions("Pair", laneOrPair);
+
+  if (laneOptions.length < 2) {
+    return currentStartingLane || laneOptions[0] || "";
+  }
+
+  return currentStartingLane === laneOptions[0] ? laneOptions[1] : laneOptions[0];
+}
+
+function getDefaultNextStartingLane(
+  laneMode: string,
+  laneOrPair: string,
+  currentStartingLane: string,
+  competitionType: CompetitionType
+) {
+  if (laneMode !== "Pair") {
+    return getDefaultStartingLane(laneMode, laneOrPair, currentStartingLane);
+  }
+
+  if (competitionType === "League") {
+    return getOppositeStartingLane(laneOrPair, currentStartingLane);
+  }
+
+  return getDefaultStartingLane(laneMode, laneOrPair, currentStartingLane);
+}
+
+function getActiveFrameLane(
+  laneMode: string,
+  laneOrPair: string,
+  startingLane: string,
+  frameNumber: number
+) {
+  if (laneMode !== "Pair") {
+    return laneOrPair;
+  }
+
+  const laneOptions = getStartingLaneOptions(laneMode, laneOrPair);
+  const firstLane = getDefaultStartingLane(laneMode, laneOrPair, startingLane);
+  const otherLane =
+    laneOptions.find((lane) => lane !== firstLane) ?? firstLane;
+
+  return frameNumber % 2 === 1 ? firstLane : otherLane;
+}
+
 function formatLaneLabel(laneMode: string, laneOrPair: string) {
   return laneMode === "Pair" ? `Pair ${laneOrPair}` : `Lane ${laneOrPair}`;
+}
+
+function formatGameLaneLabel(
+  laneMode: string,
+  laneOrPair: string,
+  startingLane: string
+) {
+  if (laneMode !== "Pair") {
+    return formatLaneLabel(laneMode, laneOrPair);
+  }
+
+  return `${formatLaneLabel(laneMode, laneOrPair)} — Start Lane ${startingLane}`;
+}
+
+function formatFrameLaneLabel(
+  laneMode: string,
+  laneOrPair: string,
+  startingLane: string,
+  frameNumber: number
+) {
+  return `Lane ${getActiveFrameLane(
+    laneMode,
+    laneOrPair,
+    startingLane,
+    frameNumber
+  )}`;
 }
 
 function calculateScoresForGame(
