@@ -4013,3 +4013,22 @@ Duel Pattern Form Polish
 .duel-pattern-preview h4 {
   margin-top: 0;
 }
+
+/*
+Continue Saved Sets
+==================
+*/
+
+.saved-set-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.saved-set-top-actions .primary-button,
+.saved-set-top-actions .secondary-button,
+.saved-set-top-actions .danger-button {
+  margin-top: 0;
+}

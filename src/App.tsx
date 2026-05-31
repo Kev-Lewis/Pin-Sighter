@@ -166,6 +166,29 @@ type SavedGameRecord = {
   entries: FrameEntry[];
 };
 
+
+type ContinueSavedSetRequest = {
+  sessionId: string;
+  createdAt?: string;
+  competitionType: CompetitionType;
+  format: BowlingFormat;
+  bowlersPerTeam: number;
+  centerName: string;
+  patternName: string;
+  eventLogKey: string;
+  eventId: number | null;
+  eventName: string;
+  eventStageLabel: string;
+  bowlerNames: string[];
+  laneMode: string;
+  startingLaneOrPair: string;
+  startingLane: string;
+  seriesGameCount: number | null;
+  initialGameNumber: number;
+  firstGameNumberToSave: number;
+  existingCompletedGames: CompletedGameSummary[];
+};
+
 type LogGamesPageProps = {
   bowlers: Bowler[];
   centers: Center[];
@@ -174,6 +197,8 @@ type LogGamesPageProps = {
   savedEventLogs: SavedEventLog[];
   setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
+  continueSavedSetRequest: ContinueSavedSetRequest | null;
+  onConsumeContinueSavedSetRequest: () => void;
 };
 
 type BowlersPageProps = {
@@ -201,10 +226,12 @@ type StatsPageProps = {
   bowlers: Bowler[];
   centers: Center[];
   patterns: Pattern[];
+  events: EventSetup[];
   savedGames: SavedGameRecord[];
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
   savedEventLogs: SavedEventLog[];
   setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
+  onContinueSavedSet: (request: ContinueSavedSetRequest) => void;
 };
 
 type DataManagementPageProps = {
@@ -315,6 +342,11 @@ type GameEntryPageProps = {
   startingLane: string;
   laneOptions: LaneOption[];
   seriesGameCount: number | null;
+  resumeSessionId?: string;
+  resumeCreatedAt?: string;
+  initialGameNumber?: number;
+  firstGameNumberToSave?: number;
+  initialCompletedGames?: CompletedGameSummary[];
   onSavedEventLog: (savedLog: SavedEventLog) => void;
   onSaveCompletedGames: (savedGames: SavedGameRecord[]) => void;
   onBack: () => void;
@@ -355,7 +387,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.0.4";
+const appVersion = "1.0.5";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -1431,6 +1463,9 @@ function App() {
       : []
   );
 
+  const [continueSavedSetRequest, setContinueSavedSetRequest] =
+    useState<ContinueSavedSetRequest | null>(null);
+
   const backupData = useMemo(
     () => ({
       bowlers,
@@ -1701,6 +1736,10 @@ function App() {
               savedEventLogs={savedEventLogs}
               setSavedEventLogs={setSavedEventLogs}
               setSavedGames={setSavedGames}
+              continueSavedSetRequest={continueSavedSetRequest}
+              onConsumeContinueSavedSetRequest={() =>
+                setContinueSavedSetRequest(null)
+              }
             />
           )}
           {activeTab === "stats" && (
@@ -1708,10 +1747,15 @@ function App() {
               bowlers={bowlers}
               centers={centers}
               patterns={patterns}
+              events={events}
               savedGames={savedGames}
               setSavedGames={setSavedGames}
               savedEventLogs={savedEventLogs}
               setSavedEventLogs={setSavedEventLogs}
+              onContinueSavedSet={(request) => {
+                setContinueSavedSetRequest(request);
+                setActiveTab("log-games");
+              }}
             />
           )}
           {activeTab === "bowlers" && (
@@ -2070,8 +2114,12 @@ function LogGamesPage({
   savedEventLogs,
   setSavedEventLogs,
   setSavedGames,
+  continueSavedSetRequest,
+  onConsumeContinueSavedSetRequest,
 }: LogGamesPageProps) {
   const [showGameEntry, setShowGameEntry] = useState(false);
+  const [resumeSavedSetRequest, setResumeSavedSetRequest] =
+    useState<ContinueSavedSetRequest | null>(null);
 
   const [competitionType, setCompetitionType] =
     useState<CompetitionType>("Open");
@@ -2087,6 +2135,47 @@ function LogGamesPage({
   const [startingLaneOrPair, setStartingLaneOrPair] = useState("");
   const [startingLane, setStartingLane] = useState("");
   const [selectedBowlers, setSelectedBowlers] = useState<string[]>([""]);
+
+  useEffect(() => {
+    if (!continueSavedSetRequest) {
+      return;
+    }
+
+    const matchingEvent = events.find(
+      (event) => event.id === continueSavedSetRequest.eventId
+    );
+    const matchingCenter = centers.find(
+      (center) => center.name === continueSavedSetRequest.centerName
+    );
+    const matchingPattern = patterns.find(
+      (pattern) => pattern.name === continueSavedSetRequest.patternName
+    );
+
+    setResumeSavedSetRequest(continueSavedSetRequest);
+    setCompetitionType(continueSavedSetRequest.competitionType);
+    setFormat(continueSavedSetRequest.format);
+    setBowlersPerTeam(String(continueSavedSetRequest.bowlersPerTeam));
+    setSelectedBowlers(continueSavedSetRequest.bowlerNames);
+    setSelectedEventId(matchingEvent ? String(matchingEvent.id) : "");
+    setSelectedEventStage(
+      extractEventStageNumber(continueSavedSetRequest.eventStageLabel)
+    );
+    setSelectedCenterId(matchingCenter ? String(matchingCenter.id) : "");
+    setSelectedPatternId(
+      matchingPattern ? String(matchingPattern.id) : String(unknownPatternId)
+    );
+    setLaneMode(continueSavedSetRequest.laneMode);
+    setStartingLaneOrPair(continueSavedSetRequest.startingLaneOrPair);
+    setStartingLane(continueSavedSetRequest.startingLane);
+    setShowGameEntry(true);
+    onConsumeContinueSavedSetRequest();
+  }, [
+    continueSavedSetRequest,
+    centers,
+    events,
+    patterns,
+    onConsumeContinueSavedSetRequest,
+  ]);
 
   const isOpen = competitionType === "Open";
   const isLimitedSeries = !isOpen;
@@ -2155,13 +2244,18 @@ function LogGamesPage({
   const bowlerSlotCount = getBowlerSlotCount(activeFormat);
   const activeBowlers = selectedBowlers.filter(Boolean);
 
+  const gameEntryCenter =
+    resumeSavedSetRequest !== null
+      ? centers.find((center) => center.name === resumeSavedSetRequest.centerName)
+      : selectedCenter;
+
   const laneOptions = useMemo<LaneOption[]>(() => {
-    if (!selectedCenter) {
+    if (!gameEntryCenter) {
       return [];
     }
 
     if (laneMode === "Single Lane") {
-      return Array.from({ length: selectedCenter.laneCount }, (_, index) => {
+      return Array.from({ length: gameEntryCenter.laneCount }, (_, index) => {
         const laneNumber = index + 1;
 
         return {
@@ -2172,7 +2266,7 @@ function LogGamesPage({
     }
 
     return Array.from(
-      { length: Math.floor(selectedCenter.laneCount / 2) },
+      { length: Math.floor(gameEntryCenter.laneCount / 2) },
       (_, index) => {
         const leftLane = index * 2 + 1;
         const rightLane = leftLane + 1;
@@ -2183,7 +2277,7 @@ function LogGamesPage({
         };
       }
     );
-  }, [selectedCenter, laneMode]);
+  }, [gameEntryCenter, laneMode]);
 
   const startingLaneOptions = getStartingLaneOptions(laneMode, startingLaneOrPair);
 
@@ -2325,24 +2419,38 @@ function LogGamesPage({
   const bowlersForGame = activeBowlers;
 
   if (showGameEntry) {
+    const gameEntryRequest = resumeSavedSetRequest;
+    const gameEntryStartingLaneOrPair =
+      gameEntryRequest?.startingLaneOrPair ?? startingLaneOrPair;
+    const gameEntryLaneMode = gameEntryRequest?.laneMode ?? laneMode;
+    const gameEntryStartingLane =
+      gameEntryRequest?.startingLane ||
+      startingLane ||
+      getDefaultStartingLane(gameEntryLaneMode, gameEntryStartingLaneOrPair);
+
     return (
       <GameEntryPage
         bowlers={bowlers}
-        bowlerNames={bowlersForGame}
-        competitionType={competitionType}
-        format={activeFormat}
-        bowlersPerTeam={activeBowlersPerPair}
-        centerName={selectedCenter?.name ?? "Unknown Center"}
-        patternName={selectedPattern?.name ?? "Unknown Pattern"}
-        eventStageLabel={eventStageLabel}
-        eventLogKey={eventLogKey}
-        eventName={selectedEvent?.name ?? ""}
-        eventId={selectedEvent?.id ?? null}
-        laneMode={laneMode}
-        startingLaneOrPair={startingLaneOrPair}
-        startingLane={startingLane || getDefaultStartingLane(laneMode, startingLaneOrPair)}
+        bowlerNames={gameEntryRequest?.bowlerNames ?? bowlersForGame}
+        competitionType={gameEntryRequest?.competitionType ?? competitionType}
+        format={gameEntryRequest?.format ?? activeFormat}
+        bowlersPerTeam={gameEntryRequest?.bowlersPerTeam ?? activeBowlersPerPair}
+        centerName={gameEntryRequest?.centerName ?? selectedCenter?.name ?? "Unknown Center"}
+        patternName={gameEntryRequest?.patternName ?? selectedPattern?.name ?? "Unknown Pattern"}
+        eventStageLabel={gameEntryRequest?.eventStageLabel ?? eventStageLabel}
+        eventLogKey={gameEntryRequest?.eventLogKey ?? eventLogKey}
+        eventName={gameEntryRequest?.eventName ?? selectedEvent?.name ?? ""}
+        eventId={gameEntryRequest?.eventId ?? selectedEvent?.id ?? null}
+        laneMode={gameEntryLaneMode}
+        startingLaneOrPair={gameEntryStartingLaneOrPair}
+        startingLane={gameEntryStartingLane}
         laneOptions={laneOptions}
-        seriesGameCount={seriesGameCount}
+        seriesGameCount={gameEntryRequest?.seriesGameCount ?? seriesGameCount}
+        resumeSessionId={gameEntryRequest?.sessionId}
+        resumeCreatedAt={gameEntryRequest?.createdAt}
+        initialGameNumber={gameEntryRequest?.initialGameNumber}
+        firstGameNumberToSave={gameEntryRequest?.firstGameNumberToSave}
+        initialCompletedGames={gameEntryRequest?.existingCompletedGames}
         onSavedEventLog={(savedLog) =>
           setSavedEventLogs((currentLogs) =>
             currentLogs.some((currentLog) => currentLog.key === savedLog.key)
@@ -2356,7 +2464,10 @@ function LogGamesPage({
             ...newSavedGames,
           ])
         }
-        onBack={() => setShowGameEntry(false)}
+        onBack={() => {
+          setShowGameEntry(false);
+          setResumeSavedSetRequest(null);
+        }}
       />
     );
   }
@@ -5685,6 +5796,11 @@ function GameEntryPage({
   startingLane,
   laneOptions,
   seriesGameCount,
+  resumeSessionId,
+  resumeCreatedAt,
+  initialGameNumber = 1,
+  firstGameNumberToSave = 1,
+  initialCompletedGames = [],
   onSavedEventLog,
   onSaveCompletedGames,
   onBack,
@@ -5719,7 +5835,12 @@ function GameEntryPage({
     startingLane
   );
 
-  const [gameNumber, setGameNumber] = useState(1);
+  const sessionIdRef = useRef(
+    resumeSessionId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+  const sessionCreatedAtRef = useRef(resumeCreatedAt ?? new Date().toISOString());
+
+  const [gameNumber, setGameNumber] = useState(initialGameNumber);
   const [currentStartingLaneOrPair, setCurrentStartingLaneOrPair] =
     useState(startingLaneOrPair);
   const [currentStartingLane, setCurrentStartingLane] =
@@ -5736,7 +5857,12 @@ function GameEntryPage({
   const [showNextGameSetup, setShowNextGameSetup] = useState(false);
 
   const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>(
-    []
+    () =>
+      initialCompletedGames.map((game) => ({
+        ...game,
+        scores: game.scores.map((score) => ({ ...score })),
+        entries: game.entries.map(cloneFrameEntryForEditing),
+      }))
   );
 
   const [bowlerCarryovers, setBowlerCarryovers] = useState<
@@ -6067,8 +6193,12 @@ function GameEntryPage({
   }
 
   function handleSaveAndExit() {
-    if (completedGames.length === 0) {
-      window.alert("Complete at least one game before saving.");
+    const completedGamesToSave = completedGames.filter(
+      (game) => game.gameNumber >= firstGameNumberToSave
+    );
+
+    if (completedGamesToSave.length === 0) {
+      window.alert("Complete at least one new game before saving.");
       return;
     }
 
@@ -6082,14 +6212,15 @@ function GameEntryPage({
     }
 
     const savedAt = new Date().toISOString();
-    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const sessionId = sessionIdRef.current;
+    const createdAt = sessionCreatedAtRef.current;
 
-    if (completedGames.length > 0) {
+    if (completedGamesToSave.length > 0) {
       onSaveCompletedGames(
-        completedGames.map((game) => ({
+        completedGamesToSave.map((game) => ({
           id: `${sessionId}-${game.gameNumber}`,
           sessionId,
-          createdAt: savedAt,
+          createdAt,
           savedAt,
           competitionType,
           format,
@@ -6654,6 +6785,67 @@ function getFrameResult(
   }
 
   return "Open";
+}
+
+
+function extractEventStageNumber(eventStageLabel: string) {
+  const match = eventStageLabel.match(/\d+/);
+
+  return match?.[0] ?? "";
+}
+
+function parseSavedGameLaneLabel(laneLabel: string) {
+  const pairMatch = laneLabel.match(/Pair\s+([0-9]+\/[0-9]+)/i);
+  const laneMatch = laneLabel.match(/Lane\s+([0-9]+)/i);
+  const startLaneMatch = laneLabel.match(/Start Lane\s+([0-9]+)/i);
+
+  if (pairMatch) {
+    return {
+      laneMode: "Pair",
+      startingLaneOrPair: pairMatch[1],
+      startingLane: startLaneMatch?.[1] ?? pairMatch[1].split("/")[0] ?? "",
+    };
+  }
+
+  if (laneMatch) {
+    return {
+      laneMode: "Single Lane",
+      startingLaneOrPair: laneMatch[1],
+      startingLane: laneMatch[1],
+    };
+  }
+
+  return {
+    laneMode: "Pair",
+    startingLaneOrPair: "",
+    startingLane: "",
+  };
+}
+
+function getNextGameLaneSetup(game: SavedGameRecord) {
+  const currentLaneSetup = parseSavedGameLaneLabel(game.laneLabel);
+  const nextStartingLane = getDefaultNextStartingLane(
+    currentLaneSetup.laneMode,
+    currentLaneSetup.startingLaneOrPair,
+    currentLaneSetup.startingLane,
+    game.competitionType
+  );
+
+  return {
+    ...currentLaneSetup,
+    startingLane: nextStartingLane,
+  };
+}
+
+function savedGameToCompletedGameSummary(
+  game: SavedGameRecord
+): CompletedGameSummary {
+  return {
+    gameNumber: game.gameNumber,
+    laneLabel: game.laneLabel,
+    scores: game.scores.map((score) => ({ ...score })),
+    entries: game.entries.map(cloneFrameEntryForEditing),
+  };
 }
 
 function getStartingLaneOptions(laneMode: string, laneOrPair: string) {
@@ -7226,9 +7418,11 @@ function StatsPage({
   bowlers,
   centers,
   patterns,
+  events,
   savedGames,
   setSavedGames,
   setSavedEventLogs,
+  onContinueSavedSet,
 }: StatsPageProps) {
   const [selectedBowler, setSelectedBowler] = useState("All");
   const [selectedBakerBowler, setSelectedBakerBowler] = useState("All");
@@ -9437,6 +9631,98 @@ function StatsPage({
   }
 
 
+
+  function getSavedSetCompletionStatus(
+    session: ReturnType<typeof buildSessionGroups>[number]
+  ) {
+    const firstGame = session.games[0];
+
+    if (!firstGame) {
+      return {
+        canContinue: false,
+        label: "No games in this set",
+      };
+    }
+
+    const highestGameNumber = Math.max(
+      ...session.games.map((game) => game.gameNumber)
+    );
+
+    if (firstGame.competitionType === "Open") {
+      return {
+        canContinue: true,
+        label: "Add another open bowling game",
+      };
+    }
+
+    const event = events.find((currentEvent) => currentEvent.id === firstGame.eventId);
+    const seriesGameCount = event?.seriesGameCount ?? null;
+
+    if (seriesGameCount === null) {
+      return {
+        canContinue: false,
+        label: "Series length unavailable",
+      };
+    }
+
+    const gamesRemaining = Math.max(0, seriesGameCount - highestGameNumber);
+
+    return {
+      canContinue: gamesRemaining > 0,
+      label:
+        gamesRemaining > 0
+          ? `Add ${gamesRemaining} remaining game${gamesRemaining === 1 ? "" : "s"}`
+          : "Set complete",
+    };
+  }
+
+  function continueSavedSet(session: ReturnType<typeof buildSessionGroups>[number]) {
+    const firstGame = session.games[0];
+    const lastGame = session.games[session.games.length - 1];
+
+    if (!firstGame || !lastGame) {
+      return;
+    }
+
+    const completionStatus = getSavedSetCompletionStatus(session);
+
+    if (!completionStatus.canContinue) {
+      window.alert("This saved set does not have any remaining games to add.");
+      return;
+    }
+
+    const laneSetup = getNextGameLaneSetup(lastGame);
+    const event = events.find((currentEvent) => currentEvent.id === firstGame.eventId);
+    const highestGameNumber = Math.max(
+      ...session.games.map((game) => game.gameNumber)
+    );
+
+    onContinueSavedSet({
+      sessionId: firstGame.sessionId || session.sessionKey,
+      createdAt: firstGame.createdAt ?? firstGame.savedAt,
+      competitionType: firstGame.competitionType,
+      format: firstGame.format,
+      bowlersPerTeam: firstGame.bowlersPerTeam,
+      centerName: session.centerName,
+      patternName: session.patternName,
+      eventLogKey: firstGame.eventLogKey,
+      eventId: firstGame.eventId,
+      eventName: firstGame.eventName,
+      eventStageLabel: firstGame.eventStageLabel,
+      bowlerNames: firstGame.bowlerNames,
+      laneMode: laneSetup.laneMode,
+      startingLaneOrPair: laneSetup.startingLaneOrPair,
+      startingLane: laneSetup.startingLane,
+      seriesGameCount:
+        firstGame.competitionType === "Open"
+          ? null
+          : event?.seriesGameCount ?? highestGameNumber,
+      initialGameNumber: highestGameNumber + 1,
+      firstGameNumberToSave: highestGameNumber + 1,
+      existingCompletedGames: session.games.map(savedGameToCompletedGameSummary),
+    });
+  }
+
   function handleBowlerChange(value: string) {
     setSelectedBowler(value);
     setSelectedBakerBowler("All");
@@ -10638,6 +10924,21 @@ function StatsPage({
 
                   <div className="saved-set-details">
                     <div className="saved-set-top-actions">
+                      {(() => {
+                        const completionStatus =
+                          getSavedSetCompletionStatus(session);
+
+                        return (
+                          <button
+                            className="primary-button"
+                            disabled={!completionStatus.canContinue}
+                            onClick={() => continueSavedSet(session)}
+                            title={completionStatus.label}
+                          >
+                            {completionStatus.label}
+                          </button>
+                        );
+                      })()}
                       <button
                         className="secondary-button"
                         onClick={() =>
