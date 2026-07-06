@@ -1,0 +1,466 @@
+/* =========================================================
+   Pin-Sighter — theme layer (kl-ui design system)
+   ---------------------------------------------------------
+   Ported from kevinlewis.net's "kl-ui" kit. This single file
+   restyles the app's existing class vocabulary to the kl-ui
+   look: soft white surfaces, hairline borders, rounded corners,
+   gentle elevation, Inter + Space Mono, and a themeable accent.
+
+   It also FLATTENS the app's nested "boxes-in-boxes" layout:
+   collapsible sections become clean header rows separated by
+   hairlines (not stacked bordered cards), and inner stat tiles
+   become a light tinted grid — so pages flow like a modern web
+   app instead of nested panels.
+
+   ACTIVATION — one line. In src/App.tsx, directly under
+   `import "./App.css";` add:  import "./theme.css";
+   Everything is scoped under `.app-shell` (already the app root),
+   so it wins over App.css by specificity and needs no other edit.
+   Revert by deleting that import line.
+
+   RE-THEME — change the four --accent* tokens below; every
+   button, pill, active state, hover, focus ring and highlight
+   follows.
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+.app-shell {
+  /* --- Neutrals (from kl-ui) --- */
+  --ink: #0e1526;
+  --ink-soft: #46536b;
+  --ink-faint: #75839a;
+  --line: #ece9f2;
+  --line-strong: #dfe1ea;
+  --paper: #ffffff;
+  --bg: #f6f7f9;
+  --bg-tint: #f4f5f8;
+
+  /* --- Accent: SCOPE RED (from the logo reticle) --- */
+  --accent: #e5241f;
+  --accent-ink: #c11a17;
+  --accent-soft: #fdeceb;
+  --accent-soft-bd: #f7cecc;
+
+  /* --- Shape + motion --- */
+  --radius-sm: 12px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --pill: 999px;
+  --shadow-1: 0 2px 4px rgba(16,25,45,.03), 0 12px 30px -10px rgba(16,25,45,.10);
+  --shadow-2: 0 3px 8px rgba(16,25,45,.04), 0 24px 50px -16px rgba(16,25,45,.15);
+  --shadow-3: 0 14px 32px -12px rgba(16,25,45,.14), 0 44px 80px -22px rgba(16,25,45,.22);
+  --spring: cubic-bezier(.2,.8,.2,1);
+
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+body:has(.app-shell) { background: var(--bg); }
+
+.app-shell *, .app-shell *::before, .app-shell *::after { box-sizing: border-box; }
+
+.app-shell h1, .app-shell h2, .app-shell h3, .app-shell h4 {
+  font-family: 'Inter', sans-serif; font-weight: 800;
+  letter-spacing: -.025em; line-height: 1.12; color: var(--ink);
+}
+.app-shell h2 { font-size: clamp(1.6rem, 3.4vw, 2.05rem); margin: 0 0 8px; }
+.app-shell h3 { font-size: 1.12rem; margin: 22px 0 10px; }
+.app-shell p { line-height: 1.6; color: var(--ink-soft); }
+.app-shell a { color: var(--accent-ink); }
+
+/* Monospace eyebrow/label */
+.app-shell .eyebrow {
+  font-family: 'Space Mono', monospace; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-faint); font-size: .72rem;
+}
+
+/* =========================================================
+   Brand / logo card (home header)
+   ========================================================= */
+.app-shell .logo-card {
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(720px 220px at 88% -40%, var(--accent-soft), transparent 70%),
+    var(--paper);
+  border-radius: var(--radius-lg);
+  padding: 30px 28px; text-align: center; cursor: pointer;
+  margin-bottom: 26px; box-shadow: var(--shadow-1);
+  transition: transform .3s var(--spring), box-shadow .3s var(--spring), border-color .3s;
+}
+.app-shell .logo-card:hover {
+  transform: translateY(-3px); box-shadow: var(--shadow-2); border-color: var(--accent-soft-bd);
+}
+.app-shell .logo-title-row {
+  display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;
+}
+.app-shell .app-logo-mark { height: clamp(52px, 10vw, 76px); width: auto; }
+.app-shell .logo-card h1 { font-size: clamp(2.2rem, 7vw, 3.6rem); margin: 0; letter-spacing: -.04em; }
+.app-shell .logo-card p { margin: 12px auto 0; color: var(--ink-soft); max-width: 46ch; font-size: 1rem; }
+
+/* =========================================================
+   Home navigation (tile grid)
+   ========================================================= */
+.app-shell .home-nav {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px; justify-content: stretch;
+}
+.app-shell .nav-button {
+  min-width: 0; width: 100%; border: 1px solid var(--line); background: var(--paper);
+  border-radius: var(--radius); padding: 22px; font-size: 1.15rem; font-weight: 700;
+  color: var(--ink); text-align: left; cursor: pointer; box-shadow: var(--shadow-1);
+  transition: transform .28s var(--spring), box-shadow .28s var(--spring), border-color .28s;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.app-shell .nav-button::after {
+  content: "→"; color: var(--accent); font-weight: 700; opacity: 0; transform: translateX(-6px);
+  transition: opacity .25s var(--spring), transform .25s var(--spring);
+}
+.app-shell .nav-button:hover {
+  transform: translateY(-4px); box-shadow: var(--shadow-2); border-color: var(--accent-soft-bd);
+}
+.app-shell .nav-button:hover::after { opacity: 1; transform: translateX(0); }
+
+/* =========================================================
+   Page frame — one calm outer surface
+   ========================================================= */
+.app-shell .page-card {
+  border: 1px solid var(--line); background: var(--paper);
+  border-radius: var(--radius-lg); padding: 30px 32px; box-shadow: var(--shadow-1);
+}
+.app-shell .back-button {
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+  border-radius: var(--pill); padding: 9px 16px 9px 12px; margin-bottom: 20px;
+  font-weight: 600; font-size: .92rem; cursor: pointer; box-shadow: var(--shadow-1);
+  transition: transform .2s var(--spring), border-color .2s, color .2s;
+}
+.app-shell .back-button:hover { border-color: var(--accent); color: var(--accent-ink); transform: translateX(-2px); }
+
+.app-shell .setup-card {
+  border: 1px solid var(--line); background: var(--paper);
+  border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-1);
+}
+.app-shell .setup-button-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+
+/* =========================================================
+   FLATTEN THE NESTING  ★ the important part ★
+   Collapsible sections stop being stacked bordered boxes and
+   become header rows separated by hairlines, with a chevron.
+   ========================================================= */
+.app-shell .stats-collapsible-card,
+.app-shell .saved-game-collapsible-card {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--line) !important;
+}
+/* first section under a heading needs no top rule */
+.app-shell .stats-collapsible-card:first-of-type { border-top: 0 !important; }
+
+/* Summary → a clean, full-width clickable header row */
+.app-shell .stats-collapsible-card > .stats-section-summary,
+.app-shell .stats-collapsible-card[open] > .stats-section-summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 20px 4px !important; margin: 0 !important;
+  background: transparent !important; border: 0 !important;
+  transition: color .2s var(--spring);
+}
+.app-shell .stats-section-summary::-webkit-details-marker { display: none; }
+.app-shell .stats-section-summary:hover strong { color: var(--accent-ink); }
+.app-shell .stats-section-summary > div { display: flex; flex-direction: column; gap: 3px; }
+.app-shell .stats-section-summary strong {
+  font: 800 1.18rem/1.2 'Inter'; letter-spacing: -.02em; color: var(--ink);
+  transition: color .2s var(--spring);
+}
+.app-shell .stats-section-summary p { margin: 0; font-size: .9rem; color: var(--ink-faint); max-width: 70ch; }
+
+/* Hide the redundant "Open / Close Section" text + old "+" box */
+.app-shell .stats-section-summary .summary-hint { display: none !important; }
+
+/* Single clean chevron control (rotates when open) */
+.app-shell .stats-section-summary::after {
+  content: "" !important; flex: none;
+  width: 11px !important; height: 11px !important; margin: 0 6px 0 0 !important;
+  border: 0 !important;
+  border-right: 2.5px solid var(--ink-faint) !important;
+  border-bottom: 2.5px solid var(--ink-faint) !important;
+  border-radius: 0 !important;
+  transform: rotate(45deg); transition: transform .28s var(--spring), border-color .2s;
+  background: none !important; box-shadow: none !important; padding: 0 !important;
+}
+.app-shell .stats-section-summary:hover::after {
+  border-right-color: var(--accent) !important; border-bottom-color: var(--accent) !important;
+}
+.app-shell .stats-collapsible-card[open] > .stats-section-summary::after {
+  content: "" !important; transform: rotate(-135deg);
+}
+
+/* Content flows directly under the header — no inner box */
+.app-shell .stats-collapsible-content {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  padding: 0 4px 26px !important; margin: 0 !important;
+}
+
+/* =========================================================
+   Buttons
+   ========================================================= */
+.app-shell .primary-button {
+  border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: var(--pill);
+  padding: 12px 22px; margin-top: 20px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-1);
+  transition: transform .25s var(--spring), box-shadow .25s var(--spring);
+}
+.app-shell .primary-button:hover:not(:disabled) {
+  transform: translateY(-2px); box-shadow: var(--shadow-2);
+}
+.app-shell .primary-button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Save = "safe/positive" action → green-outline pill (App.css forces green
+   with !important, so match it and make it readable + on-theme) */
+.app-shell .save-button {
+  border: 1px solid #129d6a !important; background: var(--paper) !important; color: #0a7d55 !important;
+  border-radius: var(--pill); padding: 12px 22px; margin-top: 20px; font-weight: 600; cursor: pointer;
+  box-shadow: var(--shadow-1); transition: transform .25s var(--spring), background .25s, box-shadow .25s;
+}
+.app-shell .save-button:hover:not(:disabled) { background: #e9f9f1 !important; transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.app-shell .save-button:disabled { opacity: .45; cursor: not-allowed; }
+
+.app-shell .secondary-button, .app-shell .import-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+  border-radius: var(--pill); padding: 12px 22px; margin-top: 20px; font-weight: 600;
+  cursor: pointer; box-shadow: var(--shadow-1);
+  transition: transform .25s var(--spring), border-color .25s, color .25s;
+}
+.app-shell .secondary-button:hover:not(:disabled), .app-shell .import-button:hover {
+  transform: translateY(-2px); border-color: var(--accent); color: var(--accent-ink);
+}
+.app-shell .secondary-button:disabled { opacity: .45; cursor: not-allowed; }
+
+.app-shell .danger-button {
+  border: 1px solid var(--accent); background: var(--paper); color: var(--accent-ink);
+  border-radius: var(--pill); padding: 12px 22px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-1);
+  transition: transform .25s var(--spring), background .25s, color .25s;
+}
+.app-shell .danger-button:hover { background: var(--accent); color: #fff; transform: translateY(-2px); }
+
+/* =========================================================
+   Forms & inputs
+   ========================================================= */
+.app-shell .form-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 18px;
+}
+.app-shell label { display: block; font-weight: 600; color: var(--ink); }
+.app-shell input, .app-shell select, .app-shell textarea {
+  width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  padding: 11px 12px; background: var(--paper); color: var(--ink);
+  transition: border-color .2s var(--spring), box-shadow .2s var(--spring);
+}
+.app-shell input:focus, .app-shell select:focus, .app-shell textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.app-shell .required { color: var(--accent-ink); margin-left: 2px; }
+
+/* =========================================================
+   Stat tiles — a light grid, not nested boxes
+   ========================================================= */
+.app-shell .stat-card, .app-shell .mini-stat-card, .app-shell .wide-mini-stat-card {
+  border: 1px solid var(--line); background: var(--bg-tint); border-radius: var(--radius);
+  box-shadow: none; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;
+}
+.app-shell .stat-card strong {
+  font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
+}
+.app-shell .stat-card span {
+  font-family: 'Space Mono', monospace; font-size: .72rem; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.app-shell .stat-card-button { cursor: pointer; transition: transform .22s var(--spring), box-shadow .22s var(--spring), border-color .22s, background .22s; }
+.app-shell .stat-card-button:hover {
+  transform: translateY(-3px); box-shadow: var(--shadow-1);
+  border-color: var(--accent-soft-bd); background: var(--paper);
+}
+
+/* Secondary content cards → soft, single-level surfaces */
+.app-shell .data-card, .app-shell .pattern-card, .app-shell .pattern-preview-card,
+.app-shell .team-set-card, .app-shell .transition-card, .app-shell .second-shot-card,
+.app-shell .baker-breakdown-card, .app-shell .about-card,
+.app-shell .field-validation-card, .app-shell .compact-validation-card,
+.app-shell .empty-state-card {
+  border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius); box-shadow: none;
+}
+
+/* Non-collapsible "add form" cards → light, flat */
+.app-shell .add-form-card {
+  border: 1px solid var(--line); background: var(--bg-tint); border-radius: var(--radius); box-shadow: none;
+}
+
+/* =========================================================
+   Tables
+   ========================================================= */
+.app-shell .table-scroll {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper);
+}
+.app-shell .stats-table, .app-shell .distribution-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.app-shell .stats-table th, .app-shell .distribution-table th {
+  background: var(--bg-tint); color: var(--ink); font-family: 'Space Mono', monospace;
+  font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; text-align: left;
+  padding: 11px 14px; border-bottom: 1px solid var(--line-strong); position: sticky; top: 0;
+}
+.app-shell .stats-table td, .app-shell .distribution-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--ink-soft);
+}
+.app-shell .stats-table tr:last-child td { border-bottom: 0; }
+.app-shell .stats-table tbody tr:hover td { background: var(--accent-soft); }
+
+/* =========================================================
+   Text states / toasts
+   ========================================================= */
+.app-shell .helper-text { color: var(--ink-faint); }
+.app-shell .summary-hint { color: var(--ink-faint); }
+.app-shell .error-text, .app-shell .field-error-text { color: var(--accent-ink); font-weight: 600; }
+.app-shell .success-text { color: #0f766e; font-weight: 600; }
+.app-shell .unsaved-text { color: var(--accent-ink); }
+.app-shell .toast-message {
+  border: 1px solid var(--accent-soft-bd); background: var(--accent-soft); color: var(--accent-ink);
+  border-radius: var(--radius-sm); padding: 12px 14px; box-shadow: var(--shadow-1);
+}
+
+/* =========================================================
+   Non-stats collapsibles (add-form <details> on CRUD pages)
+   Keep them flat and clean too.
+   ========================================================= */
+.app-shell .add-form-summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; font-weight: 700; color: var(--ink);
+}
+.app-shell .add-form-summary::-webkit-details-marker { display: none; }
+
+/* =========================================================
+   Responsive / mobile
+   ========================================================= */
+@media (max-width: 640px) {
+  .app-shell { padding: 16px 14px 48px; }
+  .app-shell .logo-card { padding: 22px 18px; border-radius: var(--radius); }
+  .app-shell .page-card { padding: 18px 16px; border-radius: var(--radius); }
+  .app-shell .setup-card { padding: 18px 16px; }
+  .app-shell .home-nav { grid-template-columns: 1fr; gap: 12px; }
+  .app-shell .nav-button { padding: 18px; font-size: 1.05rem; }
+  .app-shell .primary-button, .app-shell .secondary-button, .app-shell .danger-button,
+  .app-shell .save-button, .app-shell .import-button, .app-shell .back-button { min-height: 44px; }
+  .app-shell .form-grid { grid-template-columns: 1fr; }
+  .app-shell .setup-button-row { flex-direction: column; }
+  .app-shell .setup-button-row > * { width: 100%; }
+  .app-shell input, .app-shell select, .app-shell textarea { font-size: 16px; }
+  .app-shell .stats-section-summary { padding: 16px 2px; }
+  .app-shell .stats-table th, .app-shell .stats-table td { padding: 8px 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *, .app-shell *::before, .app-shell *::after {
+    transition-duration: .001ms !important; animation-duration: .001ms !important;
+  }
+}
+
+/* =========================================================
+   FLATTEN THE CRUD TABS  ★
+   Bowlers / Centers / Patterns / Events / "Add new" forms use
+   their own collapsible families (.X-card / .X-summary /
+   .X-details-content) that mirror the Stats pattern: a 2px black
+   box when open, a hard divider under a blue title, a boxed +/-.
+   Flatten them all the same way.
+   ========================================================= */
+
+/* Cards: no box (open or closed) — just a hairline separator + flow */
+.app-shell .bowler-card, .app-shell .center-card, .app-shell .pattern-card,
+.app-shell .event-card, .app-shell .add-form-card,
+.app-shell .bowler-card[open], .app-shell .center-card[open], .app-shell .pattern-card[open],
+.app-shell .event-card[open], .app-shell .add-form-card[open] {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  border-radius: 0 !important; padding: 4px 0 !important; margin: 0 !important;
+  border-top: 1px solid var(--line) !important;
+}
+.app-shell .add-form-card { border-top: 0 !important; margin-bottom: 4px !important; }
+
+/* Summaries → clean clickable header rows */
+.app-shell .bowler-summary, .app-shell .center-summary, .app-shell .pattern-summary,
+.app-shell .event-summary, .app-shell .add-form-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer;
+  padding: 18px 4px !important; margin: 0 !important;
+  background: transparent !important; border: 0 !important; transition: color .2s var(--spring);
+}
+.app-shell .bowler-summary:hover, .app-shell .center-summary:hover, .app-shell .pattern-summary:hover,
+.app-shell .event-summary:hover, .app-shell .add-form-summary:hover {
+  background: transparent !important; padding-left: 4px !important; padding-right: 4px !important;
+}
+.app-shell .bowler-card[open] > .bowler-summary, .app-shell .center-card[open] > .center-summary,
+.app-shell .pattern-card[open] > .pattern-summary, .app-shell .event-card[open] > .event-summary,
+.app-shell .add-form-card[open] > .add-form-summary {
+  border-bottom: 0 !important; margin-bottom: 6px !important; padding-bottom: 10px !important;
+}
+/* Titles: ink, not the old blue; sub-text muted */
+.app-shell .bowler-summary strong, .app-shell .center-summary strong, .app-shell .pattern-summary strong,
+.app-shell .event-summary strong, .app-shell .add-form-summary strong, .app-shell .saved-set-summary strong {
+  color: var(--ink) !important; font: 800 1.15rem/1.2 'Inter' !important; transition: color .2s var(--spring);
+}
+.app-shell .bowler-summary:hover strong, .app-shell .center-summary:hover strong,
+.app-shell .pattern-summary:hover strong, .app-shell .event-summary:hover strong,
+.app-shell .add-form-summary:hover strong { color: var(--accent-ink) !important; }
+.app-shell .bowler-summary p, .app-shell .center-summary p, .app-shell .pattern-summary p,
+.app-shell .event-summary p, .app-shell .add-form-summary p {
+  color: var(--ink-faint) !important; font-weight: 500 !important; margin: 3px 0 0 !important;
+}
+
+/* Hide the redundant "Open / Close …" label inside any collapsible summary */
+.app-shell summary .summary-hint { display: none !important; }
+
+/* Boxed +/- → single rotating chevron (all families) */
+.app-shell .bowler-summary::after, .app-shell .center-summary::after, .app-shell .pattern-summary::after,
+.app-shell .event-summary::after, .app-shell .add-form-summary::after {
+  content: "" !important; flex: none; width: 11px !important; height: 11px !important;
+  margin: 0 6px 0 0 !important; border: 0 !important;
+  border-right: 2.5px solid var(--ink-faint) !important; border-bottom: 2.5px solid var(--ink-faint) !important;
+  border-radius: 0 !important; transform: rotate(45deg);
+  transition: transform .28s var(--spring), border-color .2s;
+  background: none !important; box-shadow: none !important; padding: 0 !important;
+}
+.app-shell .bowler-summary:hover::after, .app-shell .center-summary:hover::after,
+.app-shell .pattern-summary:hover::after, .app-shell .event-summary:hover::after,
+.app-shell .add-form-summary:hover::after {
+  border-right-color: var(--accent) !important; border-bottom-color: var(--accent) !important;
+}
+.app-shell .bowler-card[open] > .bowler-summary::after, .app-shell .center-card[open] > .center-summary::after,
+.app-shell .pattern-card[open] > .pattern-summary::after, .app-shell .event-card[open] > .event-summary::after,
+.app-shell .add-form-card[open] > .add-form-summary::after {
+  content: "" !important; transform: rotate(-135deg);
+}
+
+/* Content: drop the hard top divider, flow directly under the header */
+.app-shell .bowler-details-content, .app-shell .center-details-content,
+.app-shell .pattern-details-content, .app-shell .event-details-content, .app-shell .add-form-content {
+  border-top: 0 !important; margin-top: 0 !important; padding-top: 0 !important;
+}
+/* Action rows (Save / Delete) — spacing, no hard rules */
+.app-shell .event-actions-row, .app-shell .saved-game-actions-row, .app-shell .pattern-actions-row {
+  border: 0 !important; padding: 0 !important; margin: 0 0 6px !important;
+}
+
+/* Data / metadata surfaces → soft single-level cards */
+.app-shell .data-card, .app-shell .set-metadata-card, .app-shell .event-preview-card,
+.app-shell .pattern-preview-card, .app-shell .duel-pattern-preview {
+  border: 1px solid var(--line) !important; background: var(--bg-tint) !important;
+  border-radius: var(--radius) !important; box-shadow: none !important;
+}
+
+/* Slightly tighter rhythm to cut the airy feel */
+.app-shell .stats-collapsible-content { padding-bottom: 20px !important; }
+.app-shell .form-grid { gap: 14px; margin-top: 16px; }
+.app-shell .logo-card { margin-bottom: 22px; }

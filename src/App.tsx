@@ -11,6 +11,7 @@ import {
   type SetStateAction,
 } from "react";
 import "./App.css";
+import "./theme.css";
 
 // Types
 // ==================
