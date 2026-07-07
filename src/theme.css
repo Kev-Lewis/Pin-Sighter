@@ -867,3 +867,7 @@ body:has(.ps-modal) { overflow: hidden; }
   display: flex !important; grid-template-columns: none !important; margin: 16px 0 10px !important;
 }
 .app-shell .center-actions-row.single > button { width: auto !important; }
+
+/* Event summary card: muted values, bold labels (match Centers) */
+.app-shell .event-preview-card p { color: var(--ink-soft) !important; font-weight: 400; }
+.app-shell .event-preview-card p strong { color: var(--ink) !important; font-weight: 700; }

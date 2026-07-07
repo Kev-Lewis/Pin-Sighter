@@ -3794,6 +3794,35 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
   const [newCenterLaneCount, setNewCenterLaneCount] = useState("8");
   const [newCenterNotes, setNewCenterNotes] = useState("");
   const [centerDrafts, setCenterDrafts] = useState<Record<number, Center>>({});
+  const [addingCenter, setAddingCenter] = useState(false);
+  const [editingCenterId, setEditingCenterId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!addingCenter && editingCenterId === null) {
+      return;
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAddingCenter(false);
+        setEditingCenterId(null);
+      }
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [addingCenter, editingCenterId]);
+
+  function discardCenterDraft(centerId: number) {
+    setCenterDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[centerId];
+      return updatedDrafts;
+    });
+  }
+
+  function closeCenterEditor(centerId: number) {
+    discardCenterDraft(centerId);
+    setEditingCenterId(null);
+  }
 
   function getCenterDraft(center: Center) {
     return centerDrafts[center.id] ?? center;
@@ -3948,16 +3977,38 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
 
   return (
     <>
-      <h2>Bowling Centers</h2>
-      <p>Add bowling centers and assign lane counts.</p>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h2>Bowling Centers</h2>
+          <p>Add bowling centers and assign lane counts.</p>
+        </div>
+        <button
+          type="button"
+          className="secondary-button add-entity-trigger"
+          onClick={() => setAddingCenter(true)}
+        >
+          + Add Bowling Center
+        </button>
+      </div>
 
-      <details className="center-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add Bowling Center</strong>
-          <span className="summary-hint">Open / Close Form</span>
-        </summary>
+      {addingCenter && (
+        <div className="ps-modal" role="dialog" aria-modal="true">
+          <div
+            className="ps-modal-backdrop"
+            onClick={() => setAddingCenter(false)}
+          />
+          <div className="ps-modal-panel">
+            <button
+              type="button"
+              className="ps-modal-close"
+              onClick={() => setAddingCenter(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 className="ps-modal-title">Add Bowling Center</h3>
 
-        <div className="add-form-content">
+            <div className="add-form-content">
           <div className="form-grid">
           <label>
             Name <span className="required">*</span>
@@ -4019,20 +4070,25 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
           )}
 
           <button
-            className="primary-button"
+            className="save-button"
             disabled={!canAddCenter}
-            onClick={addCenter}
+            onClick={() => {
+              addCenter();
+              setAddingCenter(false);
+            }}
           >
             Add Center
           </button>
+            </div>
+          </div>
         </div>
-      </details>
+      )}
 
       <section className="center-list">
         {centers.length === 0 && (
           <EmptyStateCard
-            title="No Bowling Centers Yet"
-            description="Add a center and lane count so sets can be saved with lane information."
+            title="No Bowling Centers Added Yet"
+            description="You haven't added any bowling centers. Use + Add Bowling Center above to create one so sets can be saved with lane information."
           />
         )}
 
@@ -4048,87 +4104,144 @@ function CentersPage({ centers, setCenters }: CentersPageProps) {
                   <p>
                     {center.laneCount} lane{center.laneCount === 1 ? "" : "s"}
                   </p>
-                  {isDirty && <p className="unsaved-text">Unsaved changes</p>}
                 </div>
 
                 <span className="summary-hint">Open / Close Details</span>
               </summary>
 
               <div className="center-details-content">
-                <div className="center-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={!isDirty}
-                    onClick={() => saveCenter(center.id)}
-                  >
-                    Save Center
-                  </button>
-
-                  <button
-                    className="danger-button"
-                    onClick={() => deleteCenter(center.id)}
-                  >
-                    Delete Center
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input
-                      value={draftCenter.name}
-                      onChange={(event) =>
-                        updateCenterDraft(center, { name: event.target.value })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Number of Lanes
-                    <input
-                      type="number"
-                      min="1"
-                      value={draftCenter.laneCount}
-                      onChange={(event) =>
-                        updateCenterDraft(center, {
-                          laneCount: Math.max(
-                            1,
-                            Math.floor(Number(event.target.value))
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Notes
-                    <textarea
-                      value={draftCenter.notes}
-                      onChange={(event) =>
-                        updateCenterDraft(center, { notes: event.target.value })
-                      }
-                      rows={3}
-                      placeholder="Optional notes"
-                    />
-                  </label>
-                </div>
+                {center.notes && <p className="center-notes">{center.notes}</p>}
 
                 <section className="lane-preview-card">
                   <h4>Generated Lane Options</h4>
                   <p>
                     <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
-                    {draftCenter.laneCount}
+                    {center.laneCount}
                   </p>
                   <p>
                     <strong>Pair Mode:</strong>{" "}
-                    {Math.floor(draftCenter.laneCount / 2) > 0
+                    {Math.floor(center.laneCount / 2) > 0
                       ? `Pairs 1/2 through ${
-                          Math.floor(draftCenter.laneCount / 2) * 2 - 1
-                        }/${Math.floor(draftCenter.laneCount / 2) * 2}`
+                          Math.floor(center.laneCount / 2) * 2 - 1
+                        }/${Math.floor(center.laneCount / 2) * 2}`
                       : "No pairs available"}
                   </p>
                 </section>
+
+                <div className="center-actions-row single">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setEditingCenterId(center.id)}
+                  >
+                    Edit Center
+                  </button>
+                </div>
               </div>
+
+              {editingCenterId === center.id && (
+                <div className="ps-modal" role="dialog" aria-modal="true">
+                  <div
+                    className="ps-modal-backdrop"
+                    onClick={() => closeCenterEditor(center.id)}
+                  />
+                  <div className="ps-modal-panel">
+                    <button
+                      type="button"
+                      className="ps-modal-close"
+                      onClick={() => closeCenterEditor(center.id)}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                    <h3 className="ps-modal-title">Edit Bowling Center</h3>
+
+                    <div className="form-grid">
+                      <label>
+                        Name
+                        <input
+                          value={draftCenter.name}
+                          onChange={(event) =>
+                            updateCenterDraft(center, {
+                              name: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Number of Lanes
+                        <input
+                          type="number"
+                          min="1"
+                          value={draftCenter.laneCount}
+                          onChange={(event) =>
+                            updateCenterDraft(center, {
+                              laneCount: Math.max(
+                                1,
+                                Math.floor(Number(event.target.value))
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Notes
+                        <textarea
+                          value={draftCenter.notes}
+                          onChange={(event) =>
+                            updateCenterDraft(center, {
+                              notes: event.target.value,
+                            })
+                          }
+                          rows={3}
+                          placeholder="Optional notes"
+                        />
+                      </label>
+                    </div>
+
+                    <section className="lane-preview-card">
+                      <h4>Generated Lane Options</h4>
+                      <p>
+                        <strong>Single Lane Mode:</strong> Lanes 1 through{" "}
+                        {draftCenter.laneCount}
+                      </p>
+                      <p>
+                        <strong>Pair Mode:</strong>{" "}
+                        {Math.floor(draftCenter.laneCount / 2) > 0
+                          ? `Pairs 1/2 through ${
+                              Math.floor(draftCenter.laneCount / 2) * 2 - 1
+                            }/${Math.floor(draftCenter.laneCount / 2) * 2}`
+                          : "No pairs available"}
+                      </p>
+                    </section>
+
+                    <div className="center-actions-row">
+                      <button
+                        className="save-button"
+                        disabled={!isDirty}
+                        onClick={() => {
+                          saveCenter(center.id);
+                          setEditingCenterId(null);
+                        }}
+                      >
+                        Save Center
+                      </button>
+
+                      <button
+                        className="danger-button"
+                        onClick={() => {
+                          deleteCenter(center.id);
+                          setEditingCenterId(null);
+                        }}
+                      >
+                        Delete Center
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </details>
           );
         })}
@@ -4164,6 +4277,35 @@ function EventsPage({
   const [eventDrafts, setEventDrafts] = useState<Record<number, EventSetup>>(
     {}
   );
+  const [addingEvent, setAddingEvent] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!addingEvent && editingEventId === null) {
+      return;
+    }
+    function handleEscape(keyEvent: KeyboardEvent) {
+      if (keyEvent.key === "Escape") {
+        setAddingEvent(false);
+        setEditingEventId(null);
+      }
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [addingEvent, editingEventId]);
+
+  function discardEventDraft(eventId: number) {
+    setEventDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[eventId];
+      return updatedDrafts;
+    });
+  }
+
+  function closeEventEditor(eventId: number) {
+    discardEventDraft(eventId);
+    setEditingEventId(null);
+  }
 
   function getEventDraft(event: EventSetup) {
     return eventDrafts[event.id] ?? event;
@@ -4464,16 +4606,38 @@ function EventsPage({
 
   return (
     <>
-      <h2>Tournaments / Leagues</h2>
-      <p>Create leagues and tournaments.</p>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h2>Tournaments / Leagues</h2>
+          <p>Create leagues and tournaments.</p>
+        </div>
+        <button
+          type="button"
+          className="secondary-button add-entity-trigger"
+          onClick={() => setAddingEvent(true)}
+        >
+          + Add League / Tournament
+        </button>
+      </div>
 
-      <details className="event-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add League / Tournament</strong>
-          <span className="summary-hint">Open / Close Form</span>
-        </summary>
+      {addingEvent && (
+        <div className="ps-modal" role="dialog" aria-modal="true">
+          <div
+            className="ps-modal-backdrop"
+            onClick={() => setAddingEvent(false)}
+          />
+          <div className="ps-modal-panel">
+            <button
+              type="button"
+              className="ps-modal-close"
+              onClick={() => setAddingEvent(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 className="ps-modal-title">Add League / Tournament</h3>
 
-        <div className="add-form-content">
+            <div className="add-form-content">
           <div className="form-grid">
           <label>
             Name <span className="required">*</span>
@@ -4696,20 +4860,25 @@ function EventsPage({
           )}
 
           <button
-            className="primary-button"
+            className="save-button"
             disabled={!canAddEvent}
-            onClick={addEvent}
+            onClick={() => {
+              addEvent();
+              setAddingEvent(false);
+            }}
           >
             Add Event
           </button>
+            </div>
+          </div>
         </div>
-      </details>
+      )}
 
       <section className="event-list">
         {events.length === 0 && (
           <EmptyStateCard
-            title="No Leagues or Tournaments Yet"
-            description="Create a league or tournament when you want to track week/day-based sets."
+            title="No Leagues or Tournaments Added Yet"
+            description="You haven't added any leagues or tournaments. Use + Add League / Tournament above to create one for tracking week/day-based sets."
           />
         )}
 
@@ -4733,26 +4902,89 @@ function EventsPage({
               </summary>
 
               <div className="event-details-content">
-                <div className="event-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={
-                      !isDirty ||
-                      !isValidExternalUrl(draftEvent.dashboardUrl) ||
-                      !isValidExternalUrl(draftEvent.standingsUrl)
-                    }
-                    onClick={() => saveEvent(event.id)}
-                  >
-                    Save Event
-                  </button>
+                <section className="event-preview-card">
+                  <h4>Event Summary</h4>
+                  <p>
+                    <strong>Type:</strong> {event.eventType}
+                  </p>
+                  <p>
+                    <strong>Format:</strong> {event.format}
+                  </p>
+                  <p>
+                    <strong>Games in Series/Block:</strong>{" "}
+                    {event.seriesGameCount}
+                  </p>
+                  <p>
+                    <strong>Bowlers Per Pair:</strong> {event.bowlersPerPair}
+                  </p>
+                  <p>
+                    <strong>Schedule:</strong> {getScheduleLabel(event)}
+                  </p>
+                  <p>
+                    <strong>Dates:</strong>{" "}
+                    {event.startDate || "No start date"} →{" "}
+                    {event.endDate || "No end date"}
+                  </p>
+                  <p>
+                    <strong>Bowling Center:</strong>{" "}
+                    {getCenterName(event.centerId)}
+                  </p>
+                  <p>
+                    <strong>Pattern:</strong> selected when logging each week/day
+                  </p>
 
+                  {(event.dashboardUrl || event.standingsUrl) && (
+                    <div className="event-resource-links">
+                      {event.dashboardUrl && (
+                        <a
+                          href={normalizeExternalUrl(event.dashboardUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open Scores / Dashboard
+                        </a>
+                      )}
+
+                      {event.standingsUrl && (
+                        <a
+                          href={normalizeExternalUrl(event.standingsUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open Standings
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                <div className="event-actions-row single">
                   <button
-                    className="danger-button"
-                    onClick={() => deleteEvent(event.id)}
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setEditingEventId(event.id)}
                   >
-                    Delete Event
+                    Edit Event
                   </button>
                 </div>
+              </div>
+
+              {editingEventId === event.id && (
+                <div className="ps-modal" role="dialog" aria-modal="true">
+                  <div
+                    className="ps-modal-backdrop"
+                    onClick={() => closeEventEditor(event.id)}
+                  />
+                  <div className="ps-modal-panel">
+                    <button
+                      type="button"
+                      className="ps-modal-close"
+                      onClick={() => closeEventEditor(event.id)}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                    <h3 className="ps-modal-title">Edit League / Tournament</h3>
 
                 <div className="form-grid">
                   <label>
@@ -5044,7 +5276,36 @@ function EventsPage({
                     </div>
                   )}
                 </section>
-              </div>
+
+                    <div className="event-actions-row">
+                      <button
+                        className="save-button"
+                        disabled={
+                          !isDirty ||
+                          !isValidExternalUrl(draftEvent.dashboardUrl) ||
+                          !isValidExternalUrl(draftEvent.standingsUrl)
+                        }
+                        onClick={() => {
+                          saveEvent(event.id);
+                          setEditingEventId(null);
+                        }}
+                      >
+                        Save Event
+                      </button>
+
+                      <button
+                        className="danger-button"
+                        onClick={() => {
+                          deleteEvent(event.id);
+                          setEditingEventId(null);
+                        }}
+                      >
+                        Delete Event
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </details>
           );
         })}
