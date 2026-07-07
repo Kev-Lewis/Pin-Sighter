@@ -811,7 +811,12 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .ps-modal-panel {
   position: relative; z-index: 1; width: 100%; max-width: 660px; max-height: 88vh; overflow: auto;
   background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-3); padding: 28px 28px 26px;
+  box-shadow: var(--shadow-3); padding: 28px 28px 30px;
+}
+/* Give the action buttons room inside modals (don't crowd the panel edge) */
+.app-shell .ps-modal-panel .center-actions-row,
+.app-shell .ps-modal-panel .ball-edit-actions-row {
+  margin: 22px 0 2px !important; gap: 14px !important;
 }
 .app-shell .ps-modal-title { font-size: 1.4rem; margin: 0 0 18px; padding-right: 40px; }
 .app-shell .ps-modal-close {
@@ -855,3 +860,10 @@ body:has(.ps-modal) { overflow: hidden; }
   border: 1px solid var(--line-strong) !important;
   box-shadow: 0 2px 5px rgba(16,25,45,.05), 0 10px 22px -12px rgba(16,25,45,.17) !important;
 }
+
+/* Centers — read-only notes + single Edit action (card), 2-col in modal */
+.app-shell .center-notes { margin: 0 0 12px !important; color: var(--ink-soft); }
+.app-shell .center-actions-row.single {
+  display: flex !important; grid-template-columns: none !important; margin: 16px 0 10px !important;
+}
+.app-shell .center-actions-row.single > button { width: auto !important; }
