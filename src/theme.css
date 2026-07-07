@@ -464,3 +464,246 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .stats-collapsible-content { padding-bottom: 20px !important; }
 .app-shell .form-grid { gap: 14px; margin-top: 16px; }
 .app-shell .logo-card { margin-bottom: 22px; }
+
+/* =========================================================
+   FLATTEN — remaining expandable families
+   (ball arsenal add/edit, saved games, saved sets, notes)
+   Same treatment as the other collapsibles.
+   ========================================================= */
+.app-shell .add-ball-card, .app-shell .ball-edit-card,
+.app-shell .saved-game-card, .app-shell .saved-set-card, .app-shell .saved-set-details,
+.app-shell .add-ball-card[open], .app-shell .ball-edit-card[open],
+.app-shell .saved-game-card[open], .app-shell .saved-set-card[open], .app-shell .saved-set-details[open] {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  border-radius: 0 !important; padding: 4px 0 !important; margin: 0 !important;
+  border-top: 1px solid var(--line) !important;
+}
+.app-shell .add-ball-summary, .app-shell .ball-edit-summary,
+.app-shell .saved-game-summary, .app-shell .saved-set-summary, .app-shell .saved-notes-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer;
+  padding: 16px 4px !important; margin: 0 !important;
+  background: transparent !important; border: 0 !important;
+}
+.app-shell .add-ball-summary strong, .app-shell .ball-edit-summary strong,
+.app-shell .saved-game-summary strong, .app-shell .saved-notes-summary strong {
+  color: var(--ink) !important; font-weight: 800 !important;
+}
+.app-shell .add-ball-summary::after, .app-shell .ball-edit-summary::after,
+.app-shell .saved-game-summary::after, .app-shell .saved-set-summary::after, .app-shell .saved-notes-summary::after {
+  content: "" !important; flex: none; width: 11px !important; height: 11px !important;
+  margin: 0 6px 0 0 !important; border: 0 !important;
+  border-right: 2.5px solid var(--ink-faint) !important; border-bottom: 2.5px solid var(--ink-faint) !important;
+  border-radius: 0 !important; transform: rotate(45deg);
+  transition: transform .28s var(--spring), border-color .2s;
+  background: none !important; box-shadow: none !important; padding: 0 !important;
+}
+.app-shell .add-ball-card[open] > .add-ball-summary::after, .app-shell .ball-edit-card[open] > .ball-edit-summary::after,
+.app-shell .saved-game-card[open] > .saved-game-summary::after, .app-shell .saved-set-card[open] > .saved-set-summary::after,
+.app-shell .saved-set-details[open] > .saved-notes-summary::after {
+  content: "" !important; transform: rotate(-135deg);
+}
+.app-shell .add-ball-content, .app-shell .ball-edit-content, .app-shell .saved-game-detail-content {
+  border-top: 0 !important; margin-top: 0 !important; padding-top: 0 !important;
+}
+.app-shell .saved-set-content-divider { border: 0 !important; border-top: 1px solid var(--line) !important; }
+
+/* =========================================================
+   DE-BLOCK SWEEP — remaining container cards → hairline + round
+   (Game Entry chrome, ball/stat cards, modals, previews, panels)
+   ========================================================= */
+.app-shell .about-card, .app-shell .add-ball-card-inner, .app-shell .average-game-card,
+.app-shell .baker-frame-card, .app-shell .baker-rotation-card, .app-shell .baker-stats-card,
+.app-shell .ball-card, .app-shell .ball-stats-card, .app-shell .board-analysis-card,
+.app-shell .completed-games-card, .app-shell .deep-stats-card, .app-shell .duel-pattern-toggle-card,
+.app-shell .frame-card, .app-shell .current-frame-card, .app-shell .frame-score-card,
+.app-shell .game-notes-card, .app-shell .lane-preview-card, .app-shell .locked-pattern-info,
+.app-shell .metadata-game-lane-card, .app-shell .next-game-card, .app-shell .score-distribution-card,
+.app-shell .score-grid-card, .app-shell .session-summary, .app-shell .set-specific-stats-card,
+.app-shell .shot-summary, .app-shell .second-shot-card, .app-shell .spare-leave-card,
+.app-shell .stat-detail-formula, .app-shell .stat-detail-value, .app-shell .event-summary-card,
+.app-shell .duel-pattern-fields, .app-shell .export-scope-card, .app-shell .export-file-preview,
+.app-shell .export-section-option, .app-shell .bowler-order-card {
+  border: 1px solid var(--line) !important; background: var(--paper) !important;
+  border-radius: var(--radius) !important; box-shadow: none !important;
+}
+
+/* Modals → soft floating panels */
+.app-shell .frame-editor-modal, .app-shell .stat-detail-modal, .app-shell .export-modal-card {
+  border: 1px solid var(--line) !important; background: var(--paper) !important;
+  border-radius: var(--radius-lg) !important; box-shadow: var(--shadow-3) !important;
+}
+.app-shell .frame-editor-header, .app-shell .stat-detail-header, .app-shell .export-modal-header,
+.app-shell .frame-header, .app-shell .card-header, .app-shell .frame-editor-sticky-bar {
+  border-color: var(--line) !important;
+}
+.app-shell .frame-editor-sticky-bar { background: var(--paper) !important; }
+
+/* Action rows / dividers → no hard rules */
+.app-shell .bowler-actions-row, .app-shell .center-actions-row, .app-shell .post-game-actions,
+.app-shell .progress-row, .app-shell .completed-game-row {
+  border-color: var(--line) !important;
+}
+
+/* =========================================================
+   SCORECARD — modernize the grid + pins (keep them readable)
+   Swap harsh black rules for a soft grid line; round the deck.
+   ========================================================= */
+.app-shell {
+  --grid-line: #d3d8e4;   /* soft scorecard grid line */
+  --pin-line: #c4cad8;
+}
+.app-shell .score-grid-card { padding: 12px !important; }
+.app-shell .score-grid {
+  border-top: 1px solid var(--grid-line) !important;
+  border-left: 1px solid var(--grid-line) !important;
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+.app-shell .score-frame {
+  border-right: 1px solid var(--grid-line) !important;
+  border-bottom: 1px solid var(--grid-line) !important;
+  background: #f8fbff !important;
+}
+.app-shell .score-total { border-top: 1px solid var(--grid-line) !important; background: #f2f7ff !important; }
+.app-shell .score-frame-header, .app-shell .frame-score-track, .app-shell .frame-score-bar {
+  border-color: var(--grid-line) !important;
+}
+
+/* Pins → keep round, lighten the heavy black ring */
+.app-shell .pin-deck {
+  border: 1px solid var(--pin-line) !important; background: var(--bg-tint) !important;
+  border-radius: var(--radius-lg) !important;
+}
+.app-shell .pin-button {
+  border: 2px solid var(--pin-line) !important; color: var(--ink) !important;
+  transition: border-color .15s var(--spring), background .15s var(--spring), color .15s;
+}
+.app-shell .pin-button:hover { border-color: var(--accent) !important; }
+.app-shell .mini-pin-deck { border: 1px solid var(--pin-line) !important; border-radius: var(--radius-sm) !important; }
+.app-shell .mini-pin { border: 1.5px solid var(--pin-line) !important; }
+.app-shell .leave-pin { border-color: var(--pin-line) !important; }
+
+/* Game Entry — status badge chips → clean neutral pills */
+.app-shell .progress-row { color: var(--ink-soft) !important; gap: 8px !important; }
+.app-shell .progress-row span {
+  border: 1px solid var(--line) !important; background: var(--bg-tint) !important;
+  color: var(--ink-soft) !important; border-radius: var(--pill) !important;
+  padding: 6px 12px !important; font: 600 .8rem/1 'Inter' !important;
+}
+/* Frame-edit warning → soft amber note, not a black box */
+.app-shell .frame-edit-warning-text {
+  border: 1px solid #f4d6a6 !important; background: #fff8ef !important; color: #8a5a12 !important;
+  border-radius: var(--radius-sm) !important; padding: 12px 14px !important;
+}
+/* Second-shot pin deck card + shot decks layout — no hard box */
+.app-shell .second-shot-card { border: 1px solid var(--line) !important; background: var(--paper) !important;
+  border-radius: var(--radius) !important; box-shadow: none !important; }
+
+/* =========================================================
+   Game Entry — condense to reduce scrolling (CSS-only)
+   Turn the tall stacked summaries into compact multi-column
+   blocks; keep all the same info.
+   ========================================================= */
+.app-shell .session-summary {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px 24px !important; padding: 16px 18px !important;
+}
+.app-shell .session-summary p { margin: 0 !important; font-size: .92rem; }
+.app-shell .shot-summary {
+  display: grid !important; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 4px 20px !important;
+}
+.app-shell .shot-summary p { margin: 0 !important; }
+.app-shell .frame-navigation { display: flex !important; flex-wrap: wrap; gap: 12px; align-items: center; }
+.app-shell .frame-navigation .primary-button { margin-left: auto; }
+
+/* =========================================================
+   Game Entry — single deck ball switcher + right-column layout
+   ========================================================= */
+.app-shell .shot-switcher {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px;
+}
+.app-shell .shot-tab {
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink-soft);
+  border-radius: var(--pill); padding: 8px 16px; font-weight: 600; font-size: .9rem;
+  cursor: pointer; transition: background .2s var(--spring), color .2s, border-color .2s, transform .2s var(--spring);
+}
+.app-shell .shot-tab:hover { border-color: var(--accent); color: var(--accent-ink); }
+.app-shell .shot-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.app-shell .shot-switch-hint {
+  font: 600 .72rem/1 'Space Mono', monospace; color: var(--ink-faint); margin-left: 4px;
+}
+.app-shell .pin-entry-side { display: flex; flex-direction: column; gap: 20px; }
+/* summary reads as a light panel in its new home */
+.app-shell .pin-entry-side .shot-summary {
+  border: 1px solid var(--line); background: var(--bg-tint); border-radius: var(--radius);
+  padding: 14px 16px; box-shadow: none;
+}
+
+/* =========================================================
+   Scorecard — restore contrast between marks row and total
+   ========================================================= */
+.app-shell { --grid-line: #cdd3e0; --grid-line-strong: #aab2c4; }
+.app-shell .score-frame-number {
+  border-bottom: 1px solid var(--grid-line) !important;
+  background: #e7f1fb !important; color: var(--ink) !important;
+}
+.app-shell .score-rolls span {
+  border-left: 1px solid var(--grid-line) !important;
+  color: var(--ink) !important; font-weight: 800;
+}
+.app-shell .score-total {
+  border-top: 1.5px solid var(--grid-line-strong) !important;
+  background: #eef4fc !important; color: var(--ink) !important;
+}
+
+/* Frame nav → compact row (was full-width stacked buttons) */
+.app-shell .frame-navigation { grid-template-columns: none !important; }
+.app-shell .frame-navigation > button { width: auto !important; min-height: 44px; flex: 0 1 auto; }
+
+/* =========================================================
+   Game Entry — on-deck ball arrows + moved Complete button
+   (switching happens in-place; no page movement)
+   ========================================================= */
+.app-shell .shot-deck-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.app-shell .pin-deck { position: relative; }
+.app-shell .pin-deck-nav {
+  position: absolute; bottom: 10px; z-index: 3; width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+  font-size: 24px; line-height: 1; font-weight: 700; cursor: pointer; display: grid; place-items: center;
+  box-shadow: var(--shadow-1); transition: background .2s var(--spring), color .2s, border-color .2s, transform .2s var(--spring);
+}
+.app-shell .pin-deck-nav.is-prev { left: 10px; }
+.app-shell .pin-deck-nav.is-next { right: 10px; }
+.app-shell .pin-deck-nav:hover:not(:disabled) {
+  background: var(--ink); color: #fff; border-color: var(--ink); transform: scale(1.06);
+}
+.app-shell .pin-deck-nav:disabled { opacity: .28; cursor: not-allowed; }
+.app-shell .complete-frame-button { width: 100%; margin-top: 16px; }
+
+/* Right-column deck actions (Select All / Clear / Complete Frame) */
+.app-shell .pin-entry-side .deck-actions {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px;
+}
+.app-shell .pin-entry-side .deck-actions .secondary-button { margin-top: 0; }
+.app-shell .pin-entry-side .deck-actions .complete-frame-button {
+  flex: 1 1 auto; width: auto; margin-top: 0;
+}
+
+/* =========================================================
+   De-blend grouping cards — tint section panels so they
+   separate from the white page instead of all reading white.
+   ========================================================= */
+.app-shell .field-validation-card,
+.app-shell .compact-validation-card,
+.app-shell .bowler-order-card,
+.app-shell .event-summary-card,
+.app-shell .baker-rotation-card,
+.app-shell .next-game-card,
+.app-shell .locked-pattern-info,
+.app-shell .session-summary {
+  background: var(--bg-tint) !important;
+  border-color: var(--line-strong) !important;
+}

@@ -200,6 +200,7 @@ type LogGamesPageProps = {
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
   continueSavedSetRequest: ContinueSavedSetRequest | null;
   onConsumeContinueSavedSetRequest: () => void;
+  leaveGuardRef: { current: (() => boolean) | null };
 };
 
 type BowlersPageProps = {
@@ -351,12 +352,18 @@ type GameEntryPageProps = {
   onSavedEventLog: (savedLog: SavedEventLog) => void;
   onSaveCompletedGames: (savedGames: SavedGameRecord[]) => void;
   onBack: () => void;
+  leaveGuardRef: { current: (() => boolean) | null };
 };
 
 type PinDeckProps = {
   knockedPins: number[];
   onChange: (knockedPins: number[]) => void;
   availablePins?: number[];
+  onPrevShot?: () => void;
+  onNextShot?: () => void;
+  hasPrevShot?: boolean;
+  hasNextShot?: boolean;
+  hideActions?: boolean;
 };
 
 type BoardSelectProps = {
@@ -1655,11 +1662,22 @@ function App() {
     };
   }, [hasCompletedSetup, hasCheckedAppDataFile, backupData]);
 
+  // A page (e.g. Game Entry) can register a guard that runs before navigating
+  // home, so in-progress work isn't discarded without a confirmation.
+  const leaveGuardRef = useRef<(() => boolean) | null>(null);
+
+  function requestGoHome() {
+    if (leaveGuardRef.current && !leaveGuardRef.current()) {
+      return;
+    }
+    setActiveTab("home");
+  }
+
   return (
     <main className="app-shell">
       <section
         className="logo-card"
-        onClick={() => setActiveTab("home")}
+        onClick={requestGoHome}
         aria-label="Go to Pin-Sighter home"
       >
         <div className="logo-title-row">
@@ -1724,7 +1742,7 @@ function App() {
         </nav>
       ) : (
         <section className="page-card">
-          <button className="back-button" onClick={() => setActiveTab("home")}>
+          <button className="back-button" onClick={requestGoHome}>
             ← Back
           </button>
 
@@ -1741,6 +1759,7 @@ function App() {
               onConsumeContinueSavedSetRequest={() =>
                 setContinueSavedSetRequest(null)
               }
+              leaveGuardRef={leaveGuardRef}
             />
           )}
           {activeTab === "stats" && (
@@ -2117,6 +2136,7 @@ function LogGamesPage({
   setSavedGames,
   continueSavedSetRequest,
   onConsumeContinueSavedSetRequest,
+  leaveGuardRef,
 }: LogGamesPageProps) {
   const [showGameEntry, setShowGameEntry] = useState(false);
   const [resumeSavedSetRequest, setResumeSavedSetRequest] =
@@ -2469,6 +2489,7 @@ function LogGamesPage({
           setShowGameEntry(false);
           setResumeSavedSetRequest(null);
         }}
+        leaveGuardRef={leaveGuardRef}
       />
     );
   }
@@ -2479,6 +2500,25 @@ function LogGamesPage({
       <p>
         Set up an open, league, or tournament session before entering shot data.
       </p>
+
+      {!canStartGame && setupValidationMessages.length > 0 && (
+        <section
+          className={
+            alreadyLoggedEventStage
+              ? "field-validation-card error-validation-card"
+              : "field-validation-card"
+          }
+          id="log-setup-validation"
+          aria-live="polite"
+        >
+          <h3>Before Starting</h3>
+          <ul>
+            {setupValidationMessages.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="form-grid">
         <label>
@@ -2797,25 +2837,6 @@ function LogGamesPage({
       >
         Start Game
       </button>
-
-      {!canStartGame && setupValidationMessages.length > 0 && (
-        <section
-          className={
-            alreadyLoggedEventStage
-              ? "field-validation-card error-validation-card"
-              : "field-validation-card"
-          }
-          id="log-setup-validation"
-          aria-live="polite"
-        >
-          <h3>Before Starting</h3>
-          <ul>
-            {setupValidationMessages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        </section>
-      )}
     </>
   );
 }
@@ -5805,6 +5826,7 @@ function GameEntryPage({
   onSavedEventLog,
   onSaveCompletedGames,
   onBack,
+  leaveGuardRef,
 }: GameEntryPageProps) {
   const frameOrder = useMemo(() => {
     const orderedEntries: { frameNumber: number; bowlerName: string }[] = [];
@@ -5856,6 +5878,7 @@ function GameEntryPage({
     )
   );
   const [showNextGameSetup, setShowNextGameSetup] = useState(false);
+  const [activeShot, setActiveShot] = useState(1);
 
   const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>(
     () =>
@@ -5978,6 +6001,109 @@ function GameEntryPage({
     (shouldShowThirdShot ? thirdShotPinCount : 0);
 
   const frameResult = getFrameResult(isStrike, pinsStandingAfterFrame, isSpare);
+
+  // Which balls are relevant for this frame, and the config for the one
+  // currently shown in the single (switchable) pin deck.
+  const availableShots = [1];
+  if (shouldShowSecondShot) availableShots.push(2);
+  if (shouldShowThirdShot) availableShots.push(3);
+
+  const activeShotConfig =
+    activeShot === 3
+      ? {
+          title: "Third Ball Pin Deck",
+          help: "Tenth-frame fill shot. Default is strike or spare conversion; deselect pins left standing.",
+          knockedPins: currentEntry.thirdShotKnockedPins,
+          availablePins: thirdShotAvailablePins as number[] | undefined,
+          onChange: (knockedPins: number[]) =>
+            updateCurrentEntry({ thirdShotKnockedPins: knockedPins }),
+        }
+      : activeShot === 2
+      ? {
+          title: "Second Ball Pin Deck",
+          help:
+            isTenthFrame && isStrike
+              ? "Tenth-frame bonus shot. Default is strike; deselect pins left standing."
+              : "Default is spare conversion; deselect pins left standing after the spare attempt.",
+          knockedPins: currentEntry.secondShotKnockedPins,
+          availablePins: secondShotAvailablePins as number[] | undefined,
+          onChange: updateSecondShotPins,
+        }
+      : {
+          title: "First Ball Pin Deck",
+          help: "Click the pins that were knocked down. Pins not selected are treated as standing.",
+          knockedPins: currentEntry.firstShotKnockedPins,
+          availablePins: undefined as number[] | undefined,
+          onChange: updateFirstShotPins,
+        };
+
+  // Deck arrows step through every ball of the game in order: within a frame
+  // they move between balls, and at the ends they roll into the adjacent frame.
+  const activeShotIndex = availableShots.indexOf(activeShot);
+  const hasPrevShot = activeShotIndex > 0 || currentEntryIndex > 0;
+  const hasNextShot =
+    activeShotIndex < availableShots.length - 1 ||
+    currentEntryIndex < maxUnlockedIndex;
+
+  function goToPreviousShot() {
+    if (activeShotIndex > 0) {
+      setActiveShot(availableShots[activeShotIndex - 1]);
+    } else if (currentEntryIndex > 0) {
+      goToPreviousEntry();
+    }
+  }
+
+  function goToNextShot() {
+    if (activeShotIndex < availableShots.length - 1) {
+      setActiveShot(availableShots[activeShotIndex + 1]);
+    } else if (currentEntryIndex < maxUnlockedIndex) {
+      goToNextEntry();
+    }
+  }
+
+  // Reset to the first ball whenever we move to a different frame.
+  useEffect(() => {
+    setActiveShot(1);
+  }, [currentEntryIndex]);
+
+  // Keep the active ball valid if it becomes unavailable (e.g. a strike).
+  useEffect(() => {
+    if (!availableShots.includes(activeShot)) {
+      setActiveShot(availableShots[availableShots.length - 1]);
+    }
+  }, [activeShot, shouldShowSecondShot, shouldShowThirdShot]);
+
+  // Latest handlers for the keyboard listener (avoids stale closures).
+  const shotNavRef = useRef({ goToPreviousShot, goToNextShot });
+  shotNavRef.current = { goToPreviousShot, goToNextShot };
+
+  // Left / right arrow keys step balls (rolling into frames), unless typing.
+  useEffect(() => {
+    function handleShotKey(event: KeyboardEvent) {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      event.preventDefault();
+      if (event.key === "ArrowRight") shotNavRef.current.goToNextShot();
+      else shotNavRef.current.goToPreviousShot();
+    }
+    window.addEventListener("keydown", handleShotKey);
+    return () => window.removeEventListener("keydown", handleShotKey);
+  }, []);
+
+  // While Game Entry is mounted, guard navigation home (logo / Back) so
+  // in-progress shots aren't discarded without confirming.
+  useEffect(() => {
+    leaveGuardRef.current = () => {
+      if (!hasUnsavedProgress()) return true;
+      return window.confirm(
+        "Leave the current game? Unsaved shot data for this game will be lost."
+      );
+    };
+    return () => {
+      leaveGuardRef.current = null;
+    };
+  });
 
   function hasUnsavedProgress() {
     return (
@@ -6391,83 +6517,23 @@ function GameEntryPage({
         <div className="pin-entry-layout">
           <div className="shot-decks">
             <div>
-              <h3>First Ball Pin Deck</h3>
-              <p className="helper-text">
-                Click the pins that were knocked down. Pins not selected are
-                treated as standing.
-              </p>
+              <h3>{activeShotConfig.title}</h3>
+              <p className="helper-text">{activeShotConfig.help}</p>
 
               <PinDeck
-                knockedPins={currentEntry.firstShotKnockedPins}
-                onChange={updateFirstShotPins}
+                knockedPins={activeShotConfig.knockedPins}
+                availablePins={activeShotConfig.availablePins}
+                onChange={activeShotConfig.onChange}
+                onPrevShot={goToPreviousShot}
+                onNextShot={goToNextShot}
+                hasPrevShot={hasPrevShot}
+                hasNextShot={hasNextShot}
+                hideActions
               />
-            </div>
-
-            {shouldShowSecondShot && (
-              <div className="second-shot-card">
-                <h3>Second Ball Pin Deck</h3>
-                <p className="helper-text">
-                  {isTenthFrame && isStrike
-                    ? "Tenth-frame bonus shot. Default is strike; deselect pins left standing."
-                    : "Default is spare conversion; deselect pins left standing after the spare attempt."}
-                </p>
-
-                <PinDeck
-                  knockedPins={currentEntry.secondShotKnockedPins}
-                  availablePins={secondShotAvailablePins}
-                  onChange={updateSecondShotPins}
-                />
-              </div>
-            )}
-
-            {shouldShowThirdShot && (
-              <div className="second-shot-card">
-                <h3>Third Ball Pin Deck</h3>
-                <p className="helper-text">
-                  Tenth-frame fill shot. Default is strike or spare conversion;
-                  deselect pins left standing.
-                </p>
-
-                <PinDeck
-                  knockedPins={currentEntry.thirdShotKnockedPins}
-                  availablePins={thirdShotAvailablePins}
-                  onChange={(knockedPins) =>
-                    updateCurrentEntry({ thirdShotKnockedPins: knockedPins })
-                  }
-                />
-              </div>
-            )}
-
-            <div className="shot-summary">
-              <p>
-                <strong>First Shot Count:</strong> {firstShotPinCount}
-              </p>
-              {shouldShowSecondShot && (
-                <p>
-                  <strong>Second Shot Count:</strong> {secondShotPinCount}
-                </p>
-              )}
-              {shouldShowThirdShot && (
-                <p>
-                  <strong>Third Shot Count:</strong> {thirdShotPinCount}
-                </p>
-              )}
-              <p>
-                <strong>Frame Pin Count:</strong> {totalFramePinCount}
-              </p>
-              <p>
-                <strong>Pins Standing After Frame:</strong>{" "}
-                {pinsStandingAfterFrame.length === 0
-                  ? "None"
-                  : pinsStandingAfterFrame.join("-")}
-              </p>
-              <p>
-                <strong>Result:</strong> {frameResult}
-              </p>
             </div>
           </div>
 
-          <div>
+          <div className="pin-entry-side">
             <div className="form-grid compact-grid">
               <label>
                 Ball Used
@@ -6533,39 +6599,65 @@ function GameEntryPage({
                 }
               />
             </div>
+
+            <div className="shot-summary">
+              <p>
+                <strong>First Shot Count:</strong> {firstShotPinCount}
+              </p>
+              {shouldShowSecondShot && (
+                <p>
+                  <strong>Second Shot Count:</strong> {secondShotPinCount}
+                </p>
+              )}
+              {shouldShowThirdShot && (
+                <p>
+                  <strong>Third Shot Count:</strong> {thirdShotPinCount}
+                </p>
+              )}
+              <p>
+                <strong>Frame Pin Count:</strong> {totalFramePinCount}
+              </p>
+              <p>
+                <strong>Pins Standing After Frame:</strong>{" "}
+                {pinsStandingAfterFrame.length === 0
+                  ? "None"
+                  : pinsStandingAfterFrame.join("-")}
+              </p>
+              <p>
+                <strong>Result:</strong> {frameResult}
+              </p>
+            </div>
+
+            <div className="deck-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() =>
+                  activeShotConfig.onChange(
+                    [...(activeShotConfig.availablePins ?? ALL_PINS)].sort(
+                      (a, b) => a - b
+                    )
+                  )
+                }
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => activeShotConfig.onChange([])}
+              >
+                Clear
+              </button>
+              <button
+                className="primary-button complete-frame-button"
+                disabled={isGameComplete}
+                onClick={completeCurrentEntry}
+              >
+                {isLastEntry ? "Complete Game" : "Complete Frame"}
+              </button>
+            </div>
           </div>
-        </div>
-
-        <p className="helper-text frame-edit-warning-text">
-          Saving frame edits recalculates this game's saved score and updates
-          the stats that use this game. Closing with unsaved changes will ask
-          before discarding and reverting the edits.
-        </p>
-
-        <div className="frame-navigation">
-          <button
-            className="secondary-button"
-            disabled={currentEntryIndex === 0}
-            onClick={goToPreviousEntry}
-          >
-            ← Previous
-          </button>
-
-          <button
-            className="secondary-button"
-            disabled={currentEntryIndex >= maxUnlockedIndex}
-            onClick={goToNextEntry}
-          >
-            Next →
-          </button>
-
-          <button
-            className="primary-button"
-            disabled={isGameComplete}
-            onClick={completeCurrentEntry}
-          >
-            {isLastEntry ? "Complete Game" : "Complete Frame"}
-          </button>
         </div>
 
         {isGameComplete && (
@@ -7278,7 +7370,16 @@ function ScoreGrid({
 // Pin Deck
 // ==================
 
-function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
+function PinDeck({
+  knockedPins,
+  onChange,
+  availablePins,
+  onPrevShot,
+  onNextShot,
+  hasPrevShot,
+  hasNextShot,
+  hideActions,
+}: PinDeckProps) {
   const pins = [
     { number: 7, left: 15, top: 15 },
     { number: 8, left: 38, top: 15 },
@@ -7321,6 +7422,30 @@ function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
   return (
     <div>
       <div className="pin-deck">
+        {onPrevShot && (
+          <button
+            type="button"
+            className="pin-deck-nav is-prev"
+            onClick={onPrevShot}
+            disabled={!hasPrevShot}
+            aria-label="Previous ball"
+            title="Previous ball"
+          >
+            ‹
+          </button>
+        )}
+        {onNextShot && (
+          <button
+            type="button"
+            className="pin-deck-nav is-next"
+            onClick={onNextShot}
+            disabled={!hasNextShot}
+            aria-label="Next ball"
+            title="Next ball"
+          >
+            ›
+          </button>
+        )}
         {pins.map((pin) => {
           const isAvailable = availablePinNumbers.includes(pin.number);
           const isKnocked = knockedPins.includes(pin.number);
@@ -7350,19 +7475,25 @@ function PinDeck({ knockedPins, onChange, availablePins }: PinDeckProps) {
         })}
       </div>
 
-      <div className="pin-actions">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={selectAllPins}
-        >
-          Select All
-        </button>
+      {!hideActions && (
+        <div className="pin-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={selectAllPins}
+          >
+            Select All
+          </button>
 
-        <button type="button" className="secondary-button" onClick={clearPins}>
-          Clear
-        </button>
-      </div>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={clearPins}
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -9812,7 +9943,7 @@ function StatsPage({
         </section>
       ) : (
         <>
-          <details className="stats-filter-card stats-collapsible-card">
+          <details open className="stats-filter-card stats-collapsible-card">
             <summary className="stats-section-summary">
               <div>
                 <strong>Filters</strong>
