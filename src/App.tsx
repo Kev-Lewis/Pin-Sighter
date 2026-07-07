@@ -395,7 +395,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.0.5";
+const appVersion = "1.1.0";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -5672,6 +5672,19 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
             for left-lane/right-lane play on a pair.
           </p>
         </div>
+      </div>
+
+      <div className="patterns-toolbar">
+        <a
+          className="resource-link-pill"
+          href="https://patternlibrary.kegel.net/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="resource-link-label">Kegel Pattern Library</span>
+          <span className="resource-link-arrow" aria-hidden="true">↗</span>
+        </a>
+
         <button
           type="button"
           className="secondary-button add-entity-trigger"
@@ -5680,16 +5693,6 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
           + Add Pattern
         </button>
       </div>
-
-      <a
-        className="resource-link-pill"
-        href="https://patternlibrary.kegel.net/"
-        target="_blank"
-        rel="noreferrer"
-      >
-        <span className="resource-link-label">Kegel Pattern Library</span>
-        <span className="resource-link-arrow" aria-hidden="true">↗</span>
-      </a>
 
       {addingPattern && (
         <div className="ps-modal" role="dialog" aria-modal="true">
@@ -5815,7 +5818,10 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
               <div className="duel-pattern-fields">
                 <div className="form-grid">
                   <label>
-                    First Pattern — Left Lane <span className="required">*</span>
+                    <span className="field-caption">
+                      First Pattern — Left Lane{" "}
+                      <span className="required">*</span>
+                    </span>
                     <select
                       value={newDuelFirstPatternId}
                       aria-invalid={newDuelFirstPatternId === ""}
@@ -5836,8 +5842,10 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
                   </label>
 
                   <label>
-                    Second Pattern — Right Lane{" "}
-                    <span className="required">*</span>
+                    <span className="field-caption">
+                      Second Pattern — Right Lane{" "}
+                      <span className="required">*</span>
+                    </span>
                     <select
                       value={newDuelSecondPatternId}
                       aria-invalid={newDuelSecondPatternId === ""}

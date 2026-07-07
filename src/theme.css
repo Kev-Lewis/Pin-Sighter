@@ -883,6 +883,76 @@ body:has(.ps-modal) { overflow: hidden; }
 .app-shell .pattern-preview-card p.helper-text,
 .app-shell .pattern-preview-card p.helper-text strong { color: var(--ink-faint) !important; }
 
+/* Patterns toolbar: Kegel link + Add Pattern button on one row */
+.app-shell .patterns-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 18px;
+}
+.app-shell .patterns-toolbar .resource-link-pill { margin: 0; }
+.app-shell .patterns-toolbar .add-entity-trigger { margin: 0 !important; }
+
+/* Duel Pattern toggle — inline checkbox + label (undo global input/label rules) */
+.app-shell .duel-pattern-toggle-card {
+  padding: 18px 20px !important; margin-top: 6px !important;
+  border: 1px solid var(--line-strong) !important;
+}
+.app-shell .duel-pattern-toggle-card.active {
+  border-color: var(--accent-soft-bd) !important; background: var(--accent-soft) !important;
+}
+.app-shell .duel-toggle-row {
+  display: flex !important; align-items: flex-start; gap: 12px; font-weight: 700;
+}
+.app-shell .duel-toggle-row input[type="checkbox"] {
+  width: 18px !important; height: 18px; min-width: 18px; flex: none;
+  margin: 2px 0 0 !important; padding: 0 !important; accent-color: var(--accent);
+  border-radius: 4px; box-shadow: none !important;
+}
+.app-shell .duel-toggle-row span { display: grid; gap: 3px; }
+.app-shell .duel-toggle-row small {
+  font-weight: 500; color: var(--ink-faint); line-height: 1.45;
+}
+/* Flatten the fields into a plain divided section (no white card-in-card) so
+   the selects inherit the pink toggle card's horizontal padding at the edges */
+.app-shell .duel-pattern-fields {
+  border: 0 !important; border-top: 1px solid var(--accent-soft-bd) !important;
+  background: transparent !important; border-radius: 0 !important;
+  margin-top: 16px !important; padding: 18px 0 0 !important;
+}
+/* Lane selects: caption+asterisk on one line, dropdowns bottom-aligned */
+.app-shell .duel-pattern-fields .form-grid {
+  margin-top: 0; align-items: end; row-gap: 8px; column-gap: 28px;
+}
+.app-shell .duel-pattern-fields .form-grid > label {
+  display: flex; flex-direction: column; gap: 8px; height: 100%;
+}
+.app-shell .duel-pattern-fields .form-grid > label .field-caption {
+  display: block; font-weight: 600;
+}
+.app-shell .duel-pattern-fields .form-grid > label select { margin-top: auto; }
+/* Breathing room before the summary card */
+.app-shell .duel-pattern-fields .pattern-preview-card { margin-top: 20px !important; }
+
+/* Even vertical rhythm between the modal form sections (grid / toggle / validation / button) */
+.app-shell .ps-modal-panel .add-form-content > * + * { margin-top: 18px !important; }
+/* The toggle card is already tall + padded — pull the validation card up close
+   and keep its own top padding tight so the heading isn't floating */
+.app-shell .ps-modal-panel .add-form-content .compact-validation-card {
+  margin-top: 6px !important; padding: 12px 16px !important;
+}
+/* The global h3 rule adds a 22px top margin — kill it inside the validation card */
+.app-shell .ps-modal-panel .add-form-content .compact-validation-card h3 {
+  margin: 0 0 8px !important;
+}
+.app-shell .ps-modal-panel .add-form-content .primary-button { margin-top: 20px !important; }
+/* Trim the toggle card's bottom padding so it doesn't read as dead space */
+.app-shell .duel-pattern-toggle-card { padding-bottom: 14px !important; }
+
+/* Preview / summary cards — looser lines so values don't stack tightly */
+.app-shell .pattern-preview-card { padding: 18px 20px !important; }
+.app-shell .pattern-preview-card h4 { margin: 0 0 12px !important; }
+.app-shell .pattern-preview-card p { margin: 0 0 9px !important; line-height: 1.5; }
+.app-shell .pattern-preview-card p:last-child { margin-bottom: 0 !important; }
+.app-shell .pattern-preview-card p.helper-text { margin-top: 12px !important; }
+
 /* Kegel Pattern Library — clean inline pill link (replaces boxed resource-link) */
 .app-shell .resource-link-pill {
   display: inline-flex; align-items: center; gap: 8px;
@@ -903,3 +973,39 @@ body:has(.ps-modal) { overflow: hidden; }
   font-size: .95rem; color: var(--accent); line-height: 1;
 }
 .app-shell .resource-link-pill:hover .resource-link-arrow { color: var(--accent-ink); }
+
+/* =========================================================
+   Data & About pages — align stat numbers, tidy card headings
+   ========================================================= */
+
+/* Data summary tiles: reserve room for a 2-line label so every count
+   sits on the same baseline instead of jumping up/down per card. */
+.app-shell .data-summary-grid .stat-card {
+  gap: 6px; justify-content: flex-start;
+}
+.app-shell .data-summary-grid .stat-card span {
+  display: block; line-height: 1.3; min-height: 2.6em;
+}
+.app-shell .data-summary-grid .stat-card strong {
+  margin-top: auto; line-height: 1;
+}
+
+/* The global h3 rule adds a 22px top margin — remove it where an h3 is the
+   first line of a card so headings don't float down from the top edge. */
+.app-shell .about-card h3,
+.app-shell .data-card h3 { margin-top: 0 !important; }
+
+/* About cards: consistent internal rhythm, value spacing */
+.app-shell .simple-about-grid { gap: 16px; }
+.app-shell .simple-about-grid .about-card {
+  padding: 18px 20px !important; min-height: 0 !important;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.app-shell .simple-about-grid .about-card h3 { margin: 0 !important; }
+.app-shell .simple-about-grid .about-card p { margin: 0 !important; color: var(--ink-soft); }
+.app-shell .simple-about-grid .about-card a {
+  color: var(--accent-ink); font-weight: 700; text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft-bd); padding-bottom: 1px;
+  transition: border-color .2s var(--spring);
+}
+.app-shell .simple-about-grid .about-card a:hover { border-color: var(--accent); }
