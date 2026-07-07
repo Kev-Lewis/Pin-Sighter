@@ -2934,6 +2934,30 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     Record<number, NewBallFormState>
   >({});
   const [bowlerDrafts, setBowlerDrafts] = useState<Record<number, Bowler>>({});
+  const [editingBall, setEditingBall] = useState<{
+    bowlerId: number;
+    ballId: number;
+  } | null>(null);
+  const [addingBallBowlerId, setAddingBallBowlerId] = useState<number | null>(
+    null
+  );
+  const [addingBowler, setAddingBowler] = useState(false);
+
+  // Close any open popout on Escape.
+  useEffect(() => {
+    if (!editingBall && addingBallBowlerId === null && !addingBowler) {
+      return;
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setEditingBall(null);
+        setAddingBallBowlerId(null);
+        setAddingBowler(false);
+      }
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [editingBall, addingBallBowlerId, addingBowler]);
 
   function getBowlerDraft(bowler: Bowler) {
     return bowlerDrafts[bowler.id] ?? bowler;
@@ -3199,19 +3223,41 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
 
   return (
     <>
-      <h2>Bowlers</h2>
-      <p>
-        Add bowlers, set handedness, manage notes, and build each bowler’s
-        arsenal for shot logging.
-      </p>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h2>Bowlers</h2>
+          <p>
+            Add bowlers, set handedness, manage notes, and build each
+            bowler’s arsenal for shot logging.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="secondary-button add-entity-trigger"
+          onClick={() => setAddingBowler(true)}
+        >
+          + Add Bowler
+        </button>
+      </div>
 
-      <details className="bowler-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add Bowler</strong>
-          <span className="summary-hint">Open / Close Form</span>
-        </summary>
+      {addingBowler && (
+        <div className="ps-modal" role="dialog" aria-modal="true">
+          <div
+            className="ps-modal-backdrop"
+            onClick={() => setAddingBowler(false)}
+          />
+          <div className="ps-modal-panel">
+            <button
+              type="button"
+              className="ps-modal-close"
+              onClick={() => setAddingBowler(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 className="ps-modal-title">Add Bowler</h3>
 
-        <div className="add-form-content">
+            <div className="add-form-content">
           <div className="form-grid">
           <label>
             Name <span className="required">*</span>
@@ -3267,20 +3313,25 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
           )}
 
           <button
-            className="primary-button"
+            className="save-button"
             disabled={!canAddBowler}
-            onClick={addBowler}
+            onClick={() => {
+              addBowler();
+              setAddingBowler(false);
+            }}
           >
             Add Bowler
           </button>
+            </div>
+          </div>
         </div>
-      </details>
+      )}
 
       <section className="bowler-list">
         {bowlers.length === 0 && (
           <EmptyStateCard
-            title="No Bowlers Yet"
-            description="Add a bowler before logging games or building stats."
+            title="No Bowlers Added Yet"
+            description="You haven't added any bowlers. Use + Add Bowler above to create one before logging games or building stats."
           />
         )}
 
@@ -3383,7 +3434,16 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                 </div>
 
                 <section className="arsenal-section">
-                  <h4>Arsenal</h4>
+                  <div className="arsenal-head">
+                    <h4>Arsenal</h4>
+                    <button
+                      type="button"
+                      className="secondary-button add-ball-trigger"
+                      onClick={() => setAddingBallBowlerId(bowler.id)}
+                    >
+                      + Add Ball
+                    </button>
+                  </div>
 
                   {draftBowler.arsenal.length === 0 ? (
                     <p className="helper-text">No balls added yet.</p>
@@ -3433,18 +3493,43 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                                 {ball.notes && <p>{ball.notes}</p>}
                               </div>
 
-
+                              <button
+                                type="button"
+                                className="ball-edit-trigger"
+                                onClick={() =>
+                                  setEditingBall({
+                                    bowlerId: bowler.id,
+                                    ballId: ball.id,
+                                  })
+                                }
+                              >
+                                Edit
+                              </button>
                             </div>
 
-                            <details className="ball-edit-card">
-                              <summary className="ball-edit-summary">
-                                <strong>Edit Ball Details</strong>
-                                <span className="summary-hint">
-                                  Open / Close Details
-                                </span>
-                              </summary>
+                            {editingBall?.bowlerId === bowler.id &&
+                              editingBall.ballId === ball.id && (
+                                <div
+                                  className="ps-modal"
+                                  role="dialog"
+                                  aria-modal="true"
+                                >
+                                  <div
+                                    className="ps-modal-backdrop"
+                                    onClick={() => setEditingBall(null)}
+                                  />
+                                  <div className="ps-modal-panel">
+                                    <button
+                                      type="button"
+                                      className="ps-modal-close"
+                                      onClick={() => setEditingBall(null)}
+                                      aria-label="Close"
+                                    >
+                                      ×
+                                    </button>
+                                    <h3 className="ps-modal-title">Edit Ball</h3>
 
-                              <div className="ball-edit-content">
+                                    <div className="ball-edit-content">
                                 <div className="form-grid">
                                   <label>
                                     Ball Name <span className="required">*</span>
@@ -3542,33 +3627,52 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                                     disabled={
                                       !canSaveBallEdit || !hasBallEditChanges
                                     }
-                                    onClick={() => saveBowler(bowler.id)}
+                                    onClick={() => {
+                                      saveBowler(bowler.id);
+                                      setEditingBall(null);
+                                    }}
                                   >
                                     Save Ball Details
                                   </button>
 
                                   <button
                                     className="danger-button"
-                                    onClick={() => deleteBall(bowler, ball.id)}
+                                    onClick={() => {
+                                      deleteBall(bowler, ball.id);
+                                      setEditingBall(null);
+                                    }}
                                   >
                                     Remove Ball
                                   </button>
                                 </div>
                               </div>
-                            </details>
+                                  </div>
+                                </div>
+                              )}
                           </div>
                         );
                       })}
                     </div>
                   )}
 
-                  <details className="add-ball-card">
-                    <summary className="add-ball-summary">
-                      <strong>Add Ball</strong>
-                      <span className="summary-hint">Open / Close Form</span>
-                    </summary>
+                  {addingBallBowlerId === bowler.id && (
+                    <div className="ps-modal" role="dialog" aria-modal="true">
+                      <div
+                        className="ps-modal-backdrop"
+                        onClick={() => setAddingBallBowlerId(null)}
+                      />
+                      <div className="ps-modal-panel">
+                        <button
+                          type="button"
+                          className="ps-modal-close"
+                          onClick={() => setAddingBallBowlerId(null)}
+                          aria-label="Close"
+                        >
+                          ×
+                        </button>
+                        <h3 className="ps-modal-title">Add Ball</h3>
 
-                    <div className="add-ball-content">
+                        <div className="add-ball-content">
                       <div className="form-grid">
                         <label>
                           Ball Name <span className="required">*</span>
@@ -3659,14 +3763,19 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
                       )}
 
                       <button
-                        className="secondary-button"
+                        className="save-button"
                         disabled={!canAddBall}
-                        onClick={() => addBallToBowler(bowler)}
+                        onClick={() => {
+                          addBallToBowler(bowler);
+                          setAddingBallBowlerId(null);
+                        }}
                       >
                         Add Ball
                       </button>
+                        </div>
+                      </div>
                     </div>
-                  </details>
+                  )}
                 </section>
               </div>
             </details>
