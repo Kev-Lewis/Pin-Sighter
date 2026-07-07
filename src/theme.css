@@ -816,7 +816,8 @@ body:has(.app-shell) { background: var(--bg); }
 /* Give the action buttons room inside modals (don't crowd the panel edge) */
 .app-shell .ps-modal-panel .center-actions-row,
 .app-shell .ps-modal-panel .ball-edit-actions-row,
-.app-shell .ps-modal-panel .event-actions-row {
+.app-shell .ps-modal-panel .event-actions-row,
+.app-shell .ps-modal-panel .pattern-actions-row {
   margin: 22px 0 2px !important; gap: 14px !important;
 }
 .app-shell .ps-modal-title { font-size: 1.4rem; margin: 0 0 18px; padding-right: 40px; }
@@ -865,13 +866,40 @@ body:has(.ps-modal) { overflow: hidden; }
 /* Centers — read-only notes + single Edit action (card), 2-col in modal */
 .app-shell .center-notes { margin: 0 0 12px !important; color: var(--ink-soft); }
 .app-shell .center-actions-row.single,
-.app-shell .event-actions-row.single {
+.app-shell .event-actions-row.single,
+.app-shell .pattern-actions-row.single {
   display: flex !important; grid-template-columns: none !important;
   justify-content: center; margin: 16px 0 10px !important;
 }
 .app-shell .center-actions-row.single > button,
-.app-shell .event-actions-row.single > button { width: auto !important; }
+.app-shell .event-actions-row.single > button,
+.app-shell .pattern-actions-row.single > button { width: auto !important; }
 
-/* Event summary card: muted values, bold labels (match Centers) */
-.app-shell .event-preview-card p { color: var(--ink-soft) !important; font-weight: 400; }
-.app-shell .event-preview-card p strong { color: var(--ink) !important; font-weight: 700; }
+/* Event & pattern summary cards: muted values, bold labels (match Centers) */
+.app-shell .event-preview-card p,
+.app-shell .pattern-preview-card p { color: var(--ink-soft) !important; font-weight: 400; }
+.app-shell .event-preview-card p strong,
+.app-shell .pattern-preview-card p strong { color: var(--ink) !important; font-weight: 700; }
+.app-shell .pattern-preview-card p.helper-text,
+.app-shell .pattern-preview-card p.helper-text strong { color: var(--ink-faint) !important; }
+
+/* Kegel Pattern Library — clean inline pill link (replaces boxed resource-link) */
+.app-shell .resource-link-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 0 0 18px; padding: 9px 16px;
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--paper); color: var(--ink);
+  font-size: .9rem; font-weight: 600; text-decoration: none;
+  box-shadow: 0 1px 2px rgba(16,25,45,.05);
+  transition: border-color .2s var(--spring), background .2s var(--spring),
+    color .2s var(--spring), box-shadow .2s var(--spring), transform .2s var(--spring);
+}
+.app-shell .resource-link-pill:hover {
+  border-color: var(--accent-soft-bd); background: var(--accent-soft);
+  color: var(--accent-ink); box-shadow: 0 3px 8px -3px rgba(16,25,45,.18);
+  transform: translateY(-1px);
+}
+.app-shell .resource-link-pill .resource-link-arrow {
+  font-size: .95rem; color: var(--accent); line-height: 1;
+}
+.app-shell .resource-link-pill:hover .resource-link-arrow { color: var(--accent-ink); }

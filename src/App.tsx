@@ -5330,6 +5330,35 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
   const [patternDrafts, setPatternDrafts] = useState<Record<number, Pattern>>(
     {}
   );
+  const [addingPattern, setAddingPattern] = useState(false);
+  const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!addingPattern && editingPatternId === null) {
+      return;
+    }
+    function handleEscape(keyEvent: KeyboardEvent) {
+      if (keyEvent.key === "Escape") {
+        setAddingPattern(false);
+        setEditingPatternId(null);
+      }
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [addingPattern, editingPatternId]);
+
+  function discardPatternDraft(patternId: number) {
+    setPatternDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[patternId];
+      return updatedDrafts;
+    });
+  }
+
+  function closePatternEditor(patternId: number) {
+    discardPatternDraft(patternId);
+    setEditingPatternId(null);
+  }
 
   function getPatternDraft(pattern: Pattern) {
     return patternDrafts[pattern.id] ?? pattern;
@@ -5477,6 +5506,8 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
       setPatterns((currentPatterns) => [...currentPatterns, duelPatternToSave]);
       setNewDuelFirstPatternId("");
       setNewDuelSecondPatternId("");
+      setIsNewDuelPattern(false);
+      setAddingPattern(false);
       return;
     }
 
@@ -5517,6 +5548,7 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
     setNewPatternDropBrush("");
     setNewPatternSource("");
     setNewPatternNotes("");
+    setAddingPattern(false);
   }
 
   function deletePattern(patternId: number) {
@@ -5630,32 +5662,55 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
 
   return (
     <>
-      <h2>Patterns</h2>
-      <p>
-        Add oil patterns with length, volume, ratio, drop brush, source, and
-        additional notes. Pin-Sighter always includes a locked Unknown pattern
-        for games where the condition is not known. Duel patterns combine two
-        saved patterns for left-lane/right-lane play on a pair.
-      </p>
-
-      <p className="resource-link">
-        Resource:{" "}
-        <a
-          href="https://patternlibrary.kegel.net/"
-          target="_blank"
-          rel="noreferrer"
+      <div className="page-head">
+        <div className="page-head-text">
+          <h2>Patterns</h2>
+          <p>
+            Add oil patterns with length, volume, ratio, drop brush, source, and
+            notes. A locked Unknown pattern is always available for games where
+            the condition is not known. Duel patterns combine two saved patterns
+            for left-lane/right-lane play on a pair.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="secondary-button add-entity-trigger"
+          onClick={() => setAddingPattern(true)}
         >
-          Kegel Pattern Library
-        </a>
-      </p>
+          + Add Pattern
+        </button>
+      </div>
 
-      <details className="pattern-form-card add-form-card">
-        <summary className="add-form-summary">
-          <strong>Add Pattern</strong>
-          <span className="summary-hint">Open / Close Form</span>
-        </summary>
+      <a
+        className="resource-link-pill"
+        href="https://patternlibrary.kegel.net/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span className="resource-link-label">Kegel Pattern Library</span>
+        <span className="resource-link-arrow" aria-hidden="true">↗</span>
+      </a>
 
-        <div className="add-form-content">
+      {addingPattern && (
+        <div className="ps-modal" role="dialog" aria-modal="true">
+          <div
+            className="ps-modal-backdrop"
+            onClick={() => setAddingPattern(false)}
+          />
+          <div className="ps-modal-panel">
+            <button
+              type="button"
+              className="ps-modal-close"
+              onClick={() => setAddingPattern(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 className="ps-modal-title">
+              {isNewDuelPattern ? "Add Duel Pattern" : "Add Pattern"}
+            </h3>
+
+            <div className="add-form-content">
           {!isNewDuelPattern && (
             <div className="form-grid">
               <label>
@@ -5847,14 +5902,16 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
           >
             {isNewDuelPattern ? "Add Duel Pattern" : "Add Pattern"}
           </button>
+            </div>
+          </div>
         </div>
-      </details>
+      )}
 
       <section className="pattern-list">
         {patterns.length === 0 && (
           <EmptyStateCard
-            title="No Patterns Yet"
-            description="Add a pattern or keep one fallback house shot pattern for general logging."
+            title="No Patterns Added Yet"
+            description="You haven't added any patterns. Use + Add Pattern above to create one, or keep a fallback house shot pattern for general logging."
           />
         )}
 
@@ -5924,70 +5981,10 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
                 </summary>
 
                 <div className="pattern-details-content">
-                  <div className="pattern-actions-row">
-                    <button
-                      className="save-button"
-                      disabled={!isDirty}
-                      onClick={() => savePattern(pattern.id)}
-                    >
-                      Save Duel Pattern
-                    </button>
-
-                    <button
-                      className="danger-button"
-                      onClick={() => deletePattern(pattern.id)}
-                    >
-                      Delete Pattern
-                    </button>
-                  </div>
-
-                  <div className="form-grid">
-                    <label>
-                      First Pattern — Left Lane
-                      <select
-                        value={draftPattern.firstPatternId ?? ""}
-                        onChange={(event) =>
-                          updatePatternDraft(pattern, {
-                            firstPatternId: Number(event.target.value),
-                          })
-                        }
-                      >
-                        <option value="">Select left lane pattern</option>
-                        {duelPatternOptions.map((optionPattern) => (
-                          <option key={optionPattern.id} value={optionPattern.id}>
-                            {formatPatternDropdownLabel(optionPattern)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      Second Pattern — Right Lane
-                      <select
-                        value={draftPattern.secondPatternId ?? ""}
-                        onChange={(event) =>
-                          updatePatternDraft(pattern, {
-                            secondPatternId: Number(event.target.value),
-                          })
-                        }
-                      >
-                        <option value="">Select right lane pattern</option>
-                        {duelPatternOptions.map((optionPattern) => (
-                          <option key={optionPattern.id} value={optionPattern.id}>
-                            {formatPatternDropdownLabel(optionPattern)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
                   <section className="pattern-preview-card duel-pattern-preview">
                     <h4>Duel Pattern Summary</h4>
                     <p>
-                      <strong>Saved Name:</strong>{" "}
-                      {draftPattern.firstPatternId && draftPattern.secondPatternId
-                        ? buildDuelPatternName(firstPatternName, secondPatternName)
-                        : pattern.name}
+                      <strong>Saved Name:</strong> {pattern.name}
                     </p>
                     <p>
                       <strong>Left Lane:</strong> {firstPatternName}
@@ -5999,7 +5996,130 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
                       Duel patterns can only be selected when logging on a pair.
                     </p>
                   </section>
+
+                  <div className="pattern-actions-row single">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setEditingPatternId(pattern.id)}
+                    >
+                      Edit Duel Pattern
+                    </button>
+                  </div>
                 </div>
+
+                {editingPatternId === pattern.id && (
+                  <div className="ps-modal" role="dialog" aria-modal="true">
+                    <div
+                      className="ps-modal-backdrop"
+                      onClick={() => closePatternEditor(pattern.id)}
+                    />
+                    <div className="ps-modal-panel">
+                      <button
+                        type="button"
+                        className="ps-modal-close"
+                        onClick={() => closePatternEditor(pattern.id)}
+                        aria-label="Close"
+                      >
+                        ×
+                      </button>
+                      <h3 className="ps-modal-title">Edit Duel Pattern</h3>
+
+                      <div className="form-grid">
+                        <label>
+                          First Pattern — Left Lane
+                          <select
+                            value={draftPattern.firstPatternId ?? ""}
+                            onChange={(event) =>
+                              updatePatternDraft(pattern, {
+                                firstPatternId: Number(event.target.value),
+                              })
+                            }
+                          >
+                            <option value="">Select left lane pattern</option>
+                            {duelPatternOptions.map((optionPattern) => (
+                              <option
+                                key={optionPattern.id}
+                                value={optionPattern.id}
+                              >
+                                {formatPatternDropdownLabel(optionPattern)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          Second Pattern — Right Lane
+                          <select
+                            value={draftPattern.secondPatternId ?? ""}
+                            onChange={(event) =>
+                              updatePatternDraft(pattern, {
+                                secondPatternId: Number(event.target.value),
+                              })
+                            }
+                          >
+                            <option value="">Select right lane pattern</option>
+                            {duelPatternOptions.map((optionPattern) => (
+                              <option
+                                key={optionPattern.id}
+                                value={optionPattern.id}
+                              >
+                                {formatPatternDropdownLabel(optionPattern)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <section className="pattern-preview-card duel-pattern-preview">
+                        <h4>Duel Pattern Summary</h4>
+                        <p>
+                          <strong>Saved Name:</strong>{" "}
+                          {draftPattern.firstPatternId &&
+                          draftPattern.secondPatternId
+                            ? buildDuelPatternName(
+                                firstPatternName,
+                                secondPatternName
+                              )
+                            : pattern.name}
+                        </p>
+                        <p>
+                          <strong>Left Lane:</strong> {firstPatternName}
+                        </p>
+                        <p>
+                          <strong>Right Lane:</strong> {secondPatternName}
+                        </p>
+                        <p className="helper-text">
+                          Duel patterns can only be selected when logging on a
+                          pair.
+                        </p>
+                      </section>
+
+                      <div className="pattern-actions-row">
+                        <button
+                          className="save-button"
+                          disabled={!isDirty}
+                          onClick={() => {
+                            savePattern(pattern.id);
+                            setEditingPatternId(null);
+                          }}
+                        >
+                          Save Duel Pattern
+                        </button>
+
+                        <button
+                          className="danger-button"
+                          onClick={() => {
+                            deletePattern(pattern.id);
+                            setEditingPatternId(null);
+                          }}
+                        >
+                          Delete Pattern
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </details>
             );
           }
@@ -6019,146 +6139,210 @@ function PatternsPage({ patterns, setPatterns }: PatternsPageProps) {
               </summary>
 
               <div className="pattern-details-content">
-                <div className="pattern-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={!isDirty}
-                    onClick={() => savePattern(pattern.id)}
-                  >
-                    Save Pattern
-                  </button>
-
-                  <button
-                    className="danger-button"
-                    onClick={() => deletePattern(pattern.id)}
-                  >
-                    Delete Pattern
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input
-                      value={draftPattern.name}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          name: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Length
-                    <input
-                      value={draftPattern.length}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          length: event.target.value,
-                        })
-                      }
-                      placeholder="Example: 32"
-                    />
-                  </label>
-
-                  <label>
-                    Volume
-                    <input
-                      value={draftPattern.volume}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          volume: event.target.value,
-                        })
-                      }
-                      placeholder="Example: 28.5"
-                    />
-                  </label>
-
-                  <label>
-                    Ratio
-                    <input
-                      value={draftPattern.ratio}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          ratio: event.target.value,
-                        })
-                      }
-                      placeholder="Example: 2.0"
-                    />
-                  </label>
-
-                  <label>
-                    Drop Brush
-                    <input
-                      value={draftPattern.dropBrush}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          dropBrush: event.target.value,
-                        })
-                      }
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label>
-                    Source
-                    <input
-                      value={draftPattern.source}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          source: event.target.value,
-                        })
-                      }
-                      placeholder="Example: Kegel, PBA, custom"
-                    />
-                  </label>
-
-                  <label>
-                    Notes
-                    <textarea
-                      value={draftPattern.notes}
-                      onChange={(event) =>
-                        updatePatternDraft(pattern, {
-                          notes: event.target.value,
-                        })
-                      }
-                      rows={3}
-                      placeholder="Optional notes"
-                    />
-                  </label>
-                </div>
-
                 <section className="pattern-preview-card">
                   <h4>Pattern Summary</h4>
                   <p>
                     <strong>Length:</strong>{" "}
-                    {draftPattern.length
-                      ? `${draftPattern.length} ft`
-                      : "Not entered"}
+                    {pattern.length ? `${pattern.length} ft` : "Not entered"}
                   </p>
                   <p>
                     <strong>Volume:</strong>{" "}
-                    {draftPattern.volume
-                      ? `${draftPattern.volume} mL`
-                      : "Not entered"}
+                    {pattern.volume ? `${pattern.volume} mL` : "Not entered"}
                   </p>
                   <p>
                     <strong>Ratio:</strong>{" "}
-                    {draftPattern.ratio
-                      ? `${draftPattern.ratio}:1`
-                      : "Not entered"}
+                    {pattern.ratio ? `${pattern.ratio}:1` : "Not entered"}
                   </p>
                   <p>
                     <strong>Drop Brush:</strong>{" "}
-                    {draftPattern.dropBrush || "Not entered"}
+                    {pattern.dropBrush || "Not entered"}
                   </p>
                   <p>
-                    <strong>Source:</strong>{" "}
-                    {draftPattern.source || "Not entered"}
+                    <strong>Source:</strong> {pattern.source || "Not entered"}
                   </p>
+                  {pattern.notes && (
+                    <p>
+                      <strong>Notes:</strong> {pattern.notes}
+                    </p>
+                  )}
                 </section>
+
+                <div className="pattern-actions-row single">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setEditingPatternId(pattern.id)}
+                  >
+                    Edit Pattern
+                  </button>
+                </div>
               </div>
+
+              {editingPatternId === pattern.id && (
+                <div className="ps-modal" role="dialog" aria-modal="true">
+                  <div
+                    className="ps-modal-backdrop"
+                    onClick={() => closePatternEditor(pattern.id)}
+                  />
+                  <div className="ps-modal-panel">
+                    <button
+                      type="button"
+                      className="ps-modal-close"
+                      onClick={() => closePatternEditor(pattern.id)}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                    <h3 className="ps-modal-title">Edit Pattern</h3>
+
+                    <div className="form-grid">
+                      <label>
+                        Name
+                        <input
+                          value={draftPattern.name}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              name: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Length
+                        <input
+                          value={draftPattern.length}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              length: event.target.value,
+                            })
+                          }
+                          placeholder="Example: 32"
+                        />
+                      </label>
+
+                      <label>
+                        Volume
+                        <input
+                          value={draftPattern.volume}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              volume: event.target.value,
+                            })
+                          }
+                          placeholder="Example: 28.5"
+                        />
+                      </label>
+
+                      <label>
+                        Ratio
+                        <input
+                          value={draftPattern.ratio}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              ratio: event.target.value,
+                            })
+                          }
+                          placeholder="Example: 2.0"
+                        />
+                      </label>
+
+                      <label>
+                        Drop Brush
+                        <input
+                          value={draftPattern.dropBrush}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              dropBrush: event.target.value,
+                            })
+                          }
+                          placeholder="Optional"
+                        />
+                      </label>
+
+                      <label>
+                        Source
+                        <input
+                          value={draftPattern.source}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              source: event.target.value,
+                            })
+                          }
+                          placeholder="Example: Kegel, PBA, custom"
+                        />
+                      </label>
+
+                      <label>
+                        Notes
+                        <textarea
+                          value={draftPattern.notes}
+                          onChange={(event) =>
+                            updatePatternDraft(pattern, {
+                              notes: event.target.value,
+                            })
+                          }
+                          rows={3}
+                          placeholder="Optional notes"
+                        />
+                      </label>
+                    </div>
+
+                    <section className="pattern-preview-card">
+                      <h4>Pattern Summary</h4>
+                      <p>
+                        <strong>Length:</strong>{" "}
+                        {draftPattern.length
+                          ? `${draftPattern.length} ft`
+                          : "Not entered"}
+                      </p>
+                      <p>
+                        <strong>Volume:</strong>{" "}
+                        {draftPattern.volume
+                          ? `${draftPattern.volume} mL`
+                          : "Not entered"}
+                      </p>
+                      <p>
+                        <strong>Ratio:</strong>{" "}
+                        {draftPattern.ratio
+                          ? `${draftPattern.ratio}:1`
+                          : "Not entered"}
+                      </p>
+                      <p>
+                        <strong>Drop Brush:</strong>{" "}
+                        {draftPattern.dropBrush || "Not entered"}
+                      </p>
+                      <p>
+                        <strong>Source:</strong>{" "}
+                        {draftPattern.source || "Not entered"}
+                      </p>
+                    </section>
+
+                    <div className="pattern-actions-row">
+                      <button
+                        className="save-button"
+                        disabled={!isDirty}
+                        onClick={() => {
+                          savePattern(pattern.id);
+                          setEditingPatternId(null);
+                        }}
+                      >
+                        Save Pattern
+                      </button>
+
+                      <button
+                        className="danger-button"
+                        onClick={() => {
+                          deletePattern(pattern.id);
+                          setEditingPatternId(null);
+                        }}
+                      >
+                        Delete Pattern
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </details>
           );
         })}
