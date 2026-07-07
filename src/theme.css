@@ -815,7 +815,8 @@ body:has(.app-shell) { background: var(--bg); }
 }
 /* Give the action buttons room inside modals (don't crowd the panel edge) */
 .app-shell .ps-modal-panel .center-actions-row,
-.app-shell .ps-modal-panel .ball-edit-actions-row {
+.app-shell .ps-modal-panel .ball-edit-actions-row,
+.app-shell .ps-modal-panel .event-actions-row {
   margin: 22px 0 2px !important; gap: 14px !important;
 }
 .app-shell .ps-modal-title { font-size: 1.4rem; margin: 0 0 18px; padding-right: 40px; }
@@ -863,10 +864,13 @@ body:has(.ps-modal) { overflow: hidden; }
 
 /* Centers — read-only notes + single Edit action (card), 2-col in modal */
 .app-shell .center-notes { margin: 0 0 12px !important; color: var(--ink-soft); }
-.app-shell .center-actions-row.single {
-  display: flex !important; grid-template-columns: none !important; margin: 16px 0 10px !important;
+.app-shell .center-actions-row.single,
+.app-shell .event-actions-row.single {
+  display: flex !important; grid-template-columns: none !important;
+  justify-content: center; margin: 16px 0 10px !important;
 }
-.app-shell .center-actions-row.single > button { width: auto !important; }
+.app-shell .center-actions-row.single > button,
+.app-shell .event-actions-row.single > button { width: auto !important; }
 
 /* Event summary card: muted values, bold labels (match Centers) */
 .app-shell .event-preview-card p { color: var(--ink-soft) !important; font-weight: 400; }
