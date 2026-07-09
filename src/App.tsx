@@ -24,6 +24,9 @@ type Tab =
   | "centers"
   | "events"
   | "patterns"
+  | "ball-seeker"
+  | "layout-visualizer"
+  | "speed-rev"
   | "data"
   | "about";
 
@@ -384,13 +387,16 @@ type NewBallFormState = {
 // Default Data
 // ==================
 
-const tabs: { id: Tab; label: string }[] = [
+const tabs: { id: Tab; label: string; wip?: boolean }[] = [
   { id: "log-games", label: "Log Games" },
   { id: "stats", label: "Stats" },
   { id: "bowlers", label: "Bowlers" },
   { id: "centers", label: "Bowling Centers" },
   { id: "events", label: "Tournaments / Leagues" },
   { id: "patterns", label: "Patterns" },
+  { id: "ball-seeker", label: "Bowling Ball Seeker", wip: true },
+  { id: "layout-visualizer", label: "Bowling Ball Layout Visualizer", wip: true },
+  { id: "speed-rev", label: "Speed Rev Checker", wip: true },
   { id: "data", label: "Data" },
   { id: "about", label: "About" },
 ];
@@ -1731,10 +1737,11 @@ function App() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              className="nav-button"
+              className={`nav-button ${tab.wip ? "nav-button-wip" : ""}`}
               onClick={() => setActiveTab(tab.id)}
             >
               {tab.label}
+              {tab.wip && <span className="nav-wip-badge">In Progress</span>}
             </button>
           ))}
 
@@ -1794,6 +1801,42 @@ function App() {
           {activeTab === "patterns" && (
             <PatternsPage patterns={patterns} setPatterns={setPatterns} />
           )}
+          {activeTab === "ball-seeker" && (
+            <ComingSoonPage
+              title="Bowling Ball Seeker"
+              tagline="A searchable ball catalog with price tracking."
+              description="An AWS-backed bowling ball catalog and price-tracking system — search balls, pull retailer and manufacturer data, keep a watchlist, and get alerts when prices move."
+              features={[
+                "Searchable ball database with manufacturer and retailer data",
+                "Price watchlists with drop alerts (Discord bot / commands)",
+                "REST-style API with admin controls and Postman-tested endpoints",
+              ]}
+            />
+          )}
+          {activeTab === "layout-visualizer" && (
+            <ComingSoonPage
+              title="Bowling Ball Layout Visualizer"
+              tagline="See a drilling layout before you drill it."
+              description="A tool for plotting and previewing ball drilling layouts — pin, PSA/mass-bias, and PAP positions — so a layout can be visualized and compared before it's drilled."
+              features={[
+                "Enter pin-to-PAP and PSA-to-PAP distances",
+                "Visualize the layout on a ball diagram",
+                "Save and compare layouts across your arsenal",
+              ]}
+            />
+          )}
+          {activeTab === "speed-rev" && (
+            <ComingSoonPage
+              title="Speed Rev Checker"
+              tagline="Estimate ball speed and rev rate from video."
+              description="A video-based sports-tech prototype that estimates ball speed, rev rate, and a confidence score — and first checks whether a clip is even valid enough to analyze."
+              features={[
+                "Manual and semi-automated frame inputs to start",
+                "Speed, rev-rate, and confidence estimates per shot",
+                "Future computer vision with rotation tracking trained on sample video",
+              ]}
+            />
+          )}
           {activeTab === "data" && (
             <DataManagementPage
               bowlers={bowlers}
@@ -1821,6 +1864,41 @@ function App() {
 
 // About
 // ==================
+
+function ComingSoonPage({
+  title,
+  tagline,
+  description,
+  features,
+}: {
+  title: string;
+  tagline: string;
+  description: string;
+  features: string[];
+}) {
+  return (
+    <div className="coming-soon-page">
+      <span className="coming-soon-badge">In Development</span>
+      <h2>{title}</h2>
+      <p className="coming-soon-tagline">{tagline}</p>
+      <p className="coming-soon-description">{description}</p>
+
+      <div className="coming-soon-card">
+        <h3>What it will do</h3>
+        <ul className="coming-soon-list">
+          {features.map((feature) => (
+            <li key={feature}>{feature}</li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="coming-soon-note">
+        This project is a work in progress and isn't available yet — it's here
+        as a placeholder while it's being built. Check back in a future update.
+      </p>
+    </div>
+  );
+}
 
 function AboutPage() {
   return (
@@ -2942,10 +3020,16 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
     null
   );
   const [addingBowler, setAddingBowler] = useState(false);
+  const [editingBowlerId, setEditingBowlerId] = useState<number | null>(null);
 
   // Close any open popout on Escape.
   useEffect(() => {
-    if (!editingBall && addingBallBowlerId === null && !addingBowler) {
+    if (
+      !editingBall &&
+      addingBallBowlerId === null &&
+      !addingBowler &&
+      editingBowlerId === null
+    ) {
       return;
     }
     function handleEscape(event: KeyboardEvent) {
@@ -2953,11 +3037,21 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
         setEditingBall(null);
         setAddingBallBowlerId(null);
         setAddingBowler(false);
+        setEditingBowlerId(null);
       }
     }
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [editingBall, addingBallBowlerId, addingBowler]);
+  }, [editingBall, addingBallBowlerId, addingBowler, editingBowlerId]);
+
+  function closeBowlerEditor(bowlerId: number) {
+    setBowlerDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[bowlerId];
+      return updatedDrafts;
+    });
+    setEditingBowlerId(null);
+  }
 
   function getBowlerDraft(bowler: Bowler) {
     return bowlerDrafts[bowler.id] ?? bowler;
@@ -3149,18 +3243,30 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
       return;
     }
 
-    updateBowlerDraft(bowler, {
-      arsenal: [
-        ...draftBowler.arsenal,
-        {
-          id: Date.now(),
-          name: trimmedName,
-          brand: form.brand.trim(),
-          surface: form.surface.trim(),
-          layout: form.layout.trim(),
-          notes: form.notes.trim(),
-        },
-      ],
+    const updatedArsenal = [
+      ...draftBowler.arsenal,
+      {
+        id: Date.now(),
+        name: trimmedName,
+        brand: form.brand.trim(),
+        surface: form.surface.trim(),
+        layout: form.layout.trim(),
+        notes: form.notes.trim(),
+      },
+    ];
+
+    // Persist immediately so a newly added ball isn't stranded in an unsaved draft.
+    setBowlers((currentBowlers) =>
+      currentBowlers.map((currentBowler) =>
+        currentBowler.id === bowler.id
+          ? { ...currentBowler, arsenal: updatedArsenal }
+          : currentBowler
+      )
+    );
+    setBowlerDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[bowler.id];
+      return updatedDrafts;
     });
 
     setNewBallForms((currentForms) => ({
@@ -3201,10 +3307,22 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
       return;
     }
 
-    updateBowlerDraft(bowler, {
-      arsenal: draftBowler.arsenal.filter(
-        (currentBall) => currentBall.id !== ballId
-      ),
+    const updatedArsenal = draftBowler.arsenal.filter(
+      (currentBall) => currentBall.id !== ballId
+    );
+
+    // Persist immediately so the removal doesn't sit in an unsaved draft.
+    setBowlers((currentBowlers) =>
+      currentBowlers.map((currentBowler) =>
+        currentBowler.id === bowler.id
+          ? { ...currentBowler, arsenal: updatedArsenal }
+          : currentBowler
+      )
+    );
+    setBowlerDrafts((currentDrafts) => {
+      const updatedDrafts = { ...currentDrafts };
+      delete updatedDrafts[bowler.id];
+      return updatedDrafts;
     });
   }
 
@@ -3370,68 +3488,115 @@ function BowlersPage({ bowlers, setBowlers }: BowlersPageProps) {
               </summary>
 
               <div className="bowler-details-content">
-                <div className="bowler-actions-row">
-                  <button
-                    className="save-button"
-                    disabled={!isDirty}
-                    onClick={() => saveBowler(bowler.id)}
-                  >
-                    Save Bowler
-                  </button>
+                <section className="bowler-preview-card">
+                  <h4>Bowler Info</h4>
+                  <p>
+                    <strong>Handedness:</strong> {bowler.handedness}
+                  </p>
+                  <p>
+                    <strong>Notes:</strong>{" "}
+                    {bowler.notes ? bowler.notes : "None"}
+                  </p>
+                </section>
 
+                <div className="bowler-actions-row single">
                   <button
-                    className="danger-button"
-                    onClick={() => deleteBowler(bowler.id)}
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setEditingBowlerId(bowler.id)}
                   >
-                    Delete Bowler
+                    Edit Bowler
                   </button>
                 </div>
 
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input
-                      value={draftBowler.name}
-                      onChange={(event) =>
-                        updateBowlerDraft(bowler, {
-                          name: event.target.value,
-                        })
-                      }
+                {editingBowlerId === bowler.id && (
+                  <div className="ps-modal" role="dialog" aria-modal="true">
+                    <div
+                      className="ps-modal-backdrop"
+                      onClick={() => closeBowlerEditor(bowler.id)}
                     />
-                  </label>
+                    <div className="ps-modal-panel">
+                      <button
+                        type="button"
+                        className="ps-modal-close"
+                        onClick={() => closeBowlerEditor(bowler.id)}
+                        aria-label="Close"
+                      >
+                        ×
+                      </button>
+                      <h3 className="ps-modal-title">Edit Bowler</h3>
 
-                  <label>
-                    Handedness
-                    <select
-                      value={draftBowler.handedness}
-                      onChange={(event) =>
-                        updateBowlerDraft(bowler, {
-                          handedness: event.target.value as Handedness,
-                        })
-                      }
-                    >
-                      {handednessOptions.map((handedness) => (
-                        <option key={handedness} value={handedness}>
-                          {handedness}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      <div className="form-grid">
+                        <label>
+                          Name
+                          <input
+                            value={draftBowler.name}
+                            onChange={(event) =>
+                              updateBowlerDraft(bowler, {
+                                name: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
 
-                  <label>
-                    Notes
-                    <textarea
-                      value={draftBowler.notes}
-                      onChange={(event) =>
-                        updateBowlerDraft(bowler, {
-                          notes: event.target.value,
-                        })
-                      }
-                      rows={3}
-                      placeholder="Optional notes"
-                    />
-                  </label>
-                </div>
+                        <label>
+                          Handedness
+                          <select
+                            value={draftBowler.handedness}
+                            onChange={(event) =>
+                              updateBowlerDraft(bowler, {
+                                handedness: event.target.value as Handedness,
+                              })
+                            }
+                          >
+                            {handednessOptions.map((handedness) => (
+                              <option key={handedness} value={handedness}>
+                                {handedness}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          Notes
+                          <textarea
+                            value={draftBowler.notes}
+                            onChange={(event) =>
+                              updateBowlerDraft(bowler, {
+                                notes: event.target.value,
+                              })
+                            }
+                            rows={3}
+                            placeholder="Optional notes"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="bowler-actions-row">
+                        <button
+                          className="save-button"
+                          disabled={!isDirty}
+                          onClick={() => {
+                            saveBowler(bowler.id);
+                            setEditingBowlerId(null);
+                          }}
+                        >
+                          Save Bowler
+                        </button>
+
+                        <button
+                          className="danger-button"
+                          onClick={() => {
+                            deleteBowler(bowler.id);
+                            setEditingBowlerId(null);
+                          }}
+                        >
+                          Delete Bowler
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <section className="arsenal-section">
                   <div className="arsenal-head">
@@ -10505,20 +10670,16 @@ function StatsPage({
         </section>
       ) : (
         <>
-          <details open className="stats-filter-card stats-collapsible-card">
-            <summary className="stats-section-summary">
-              <div>
-                <strong>Filters</strong>
-                <p>
-                  Narrow the data by bowler, competition, set, game, center,
-                  lane, pattern, ball, and saved log details.
-                </p>
+          <section className="stats-filter-panel">
+            <div className="stats-filter-head">
+              <span className="stats-filter-eyebrow">Filters</span>
+              <p>
+                Narrow the data by bowler, competition, set, game, center,
+                lane, pattern, ball, and saved log details.
+              </p>
+            </div>
 
-              </div>
-              <span className="summary-hint">Open / Close Section</span>
-            </summary>
-
-            <div className="stats-collapsible-content">
+            <div className="stats-filter-body">
               <div className="form-grid">
               <label>
                 Bowler / Baker Team
@@ -10718,7 +10879,7 @@ function StatsPage({
                 </button>
               </div>
             </div>
-          </details>
+          </section>
 
           {isExportPanelOpen && (
             <div className="export-modal-overlay">
@@ -12646,15 +12807,37 @@ function SavedGameNotesEditor({
   onReset: () => void;
   onClose: () => void;
 }) {
-  return (
-    <section className="game-notes-card">
-      <h4>{hasExistingNotes ? "Edit Game Notes" : "Add Game Notes"}</h4>
-      <p>
-        Add notes for this specific game. Use Edit Frames for score, pinfall,
-        ball, and board corrections.
-      </p>
+  useEffect(() => {
+    function handleEscape(keyEvent: KeyboardEvent) {
+      if (keyEvent.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
 
-      <div className="structured-notes-grid">
+  return (
+    <div className="ps-modal" role="dialog" aria-modal="true">
+      <div className="ps-modal-backdrop" onClick={onClose} />
+      <div className="ps-modal-panel">
+        <button
+          type="button"
+          className="ps-modal-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <h3 className="ps-modal-title">
+          {hasExistingNotes ? "Edit Game Notes" : "Add Game Notes"}
+        </h3>
+        <p>
+          Add notes for this specific game. Use Edit Frames for score, pinfall,
+          ball, and board corrections.
+        </p>
+
+        <div className="structured-notes-grid">
         <label>
           Game Notes
           <textarea
@@ -12704,22 +12887,23 @@ function SavedGameNotesEditor({
         </label>
       </div>
 
-      <div className="saved-game-actions-row">
-        <button className="primary-button" onClick={onSave}>
-          Save Notes
-        </button>
-        <button
-          className="secondary-button"
-          disabled={!hasChanges}
-          onClick={onReset}
-        >
-          Reset Changes
-        </button>
-        <button className="secondary-button" onClick={onClose}>
-          Cancel
-        </button>
+        <div className="saved-game-actions-row">
+          <button className="primary-button" onClick={onSave}>
+            Save Notes
+          </button>
+          <button
+            className="secondary-button"
+            disabled={!hasChanges}
+            onClick={onReset}
+          >
+            Reset Changes
+          </button>
+          <button className="secondary-button" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -12942,6 +13126,77 @@ function SavedFrameEditModal({
     });
   }
 
+  // Single switchable pin deck (matches Game Entry): one deck at a time with
+  // arrows stepping through each ball, rolling into adjacent frames at the ends.
+  const [activeShot, setActiveShot] = useState(1);
+
+  const availableShots = [1];
+  if (shouldShowSecondShot) availableShots.push(2);
+  if (shouldShowThirdShot) availableShots.push(3);
+
+  const activeShotConfig =
+    activeShot === 3
+      ? {
+          title: "Third Ball Pin Deck",
+          help: "Tenth-frame fill shot. Select pins knocked down.",
+          knockedPins: currentEntry.thirdShotKnockedPins,
+          availablePins: thirdShotAvailablePins as number[] | undefined,
+          onChange: (knockedPins: number[]) =>
+            updateCurrentEntry({ thirdShotKnockedPins: knockedPins }),
+        }
+      : activeShot === 2
+      ? {
+          title: "Second Ball Pin Deck",
+          help:
+            isTenthFrame && isStrike
+              ? "Tenth-frame bonus shot. Select pins knocked down."
+              : "Select pins knocked down on the spare attempt.",
+          knockedPins: currentEntry.secondShotKnockedPins,
+          availablePins: secondShotAvailablePins as number[] | undefined,
+          onChange: updateSecondShotPins,
+        }
+      : {
+          title: "First Ball Pin Deck",
+          help: "Select pins knocked down on the first ball.",
+          knockedPins: currentEntry.firstShotKnockedPins,
+          availablePins: undefined as number[] | undefined,
+          onChange: updateFirstShotPins,
+        };
+
+  const activeShotIndex = availableShots.indexOf(activeShot);
+  const hasPrevShot = activeShotIndex > 0 || currentIndex > 0;
+  const hasNextShot =
+    activeShotIndex < availableShots.length - 1 ||
+    currentIndex < entries.length - 1;
+
+  function goToPreviousShot() {
+    if (activeShotIndex > 0) {
+      setActiveShot(availableShots[activeShotIndex - 1]);
+    } else if (currentIndex > 0) {
+      onIndexChange(currentIndex - 1);
+    }
+  }
+
+  function goToNextShot() {
+    if (activeShotIndex < availableShots.length - 1) {
+      setActiveShot(availableShots[activeShotIndex + 1]);
+    } else if (currentIndex < entries.length - 1) {
+      onIndexChange(currentIndex + 1);
+    }
+  }
+
+  // Reset to the first ball whenever a different frame is shown.
+  useEffect(() => {
+    setActiveShot(1);
+  }, [currentIndex]);
+
+  // Keep the active ball valid if it becomes unavailable (e.g. a strike).
+  useEffect(() => {
+    if (!availableShots.includes(activeShot)) {
+      setActiveShot(availableShots[availableShots.length - 1]);
+    }
+  }, [activeShot, shouldShowSecondShot, shouldShowThirdShot]);
+
   return (
     <div className="frame-editor-overlay">
       <section
@@ -13079,47 +13334,18 @@ function SavedFrameEditModal({
         <div className="pin-entry-layout frame-editor-pin-layout">
           <div className="shot-decks">
             <div>
-              <h3>First Ball Pin Deck</h3>
-              <p className="helper-text">
-                Select pins knocked down on the first ball.
-              </p>
+              <h3>{activeShotConfig.title}</h3>
+              <p className="helper-text">{activeShotConfig.help}</p>
               <PinDeck
-                knockedPins={currentEntry.firstShotKnockedPins}
-                onChange={updateFirstShotPins}
+                knockedPins={activeShotConfig.knockedPins}
+                availablePins={activeShotConfig.availablePins}
+                onChange={activeShotConfig.onChange}
+                onPrevShot={goToPreviousShot}
+                onNextShot={goToNextShot}
+                hasPrevShot={hasPrevShot}
+                hasNextShot={hasNextShot}
               />
             </div>
-
-            {shouldShowSecondShot && (
-              <div className="second-shot-card">
-                <h3>Second Ball Pin Deck</h3>
-                <p className="helper-text">
-                  {isTenthFrame && isStrike
-                    ? "Tenth-frame bonus shot. Select pins knocked down."
-                    : "Select pins knocked down on the spare attempt."}
-                </p>
-                <PinDeck
-                  knockedPins={currentEntry.secondShotKnockedPins}
-                  availablePins={secondShotAvailablePins}
-                  onChange={updateSecondShotPins}
-                />
-              </div>
-            )}
-
-            {shouldShowThirdShot && (
-              <div className="second-shot-card">
-                <h3>Third Ball Pin Deck</h3>
-                <p className="helper-text">
-                  Tenth-frame fill shot. Select pins knocked down.
-                </p>
-                <PinDeck
-                  knockedPins={currentEntry.thirdShotKnockedPins}
-                  availablePins={thirdShotAvailablePins}
-                  onChange={(knockedPins) =>
-                    updateCurrentEntry({ thirdShotKnockedPins: knockedPins })
-                  }
-                />
-              </div>
-            )}
           </div>
 
           <aside className="frame-editor-side-panel">
