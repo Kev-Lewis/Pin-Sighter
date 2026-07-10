@@ -15820,4 +15820,4 @@ function getHighTeamSeriesDetail(
   });
 
   return highSeriesDetail;
-}
+}
