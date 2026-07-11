@@ -18,7 +18,7 @@ import type {
   EventSetup,
   SavedEventLog,
   SavedGameRecord,
-} from "../App";
+} from "../types";
 
 // --- Backup shapes -----------------------------------------------------------
 export type PinSighterBackupData = {

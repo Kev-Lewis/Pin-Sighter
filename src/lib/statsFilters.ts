@@ -22,7 +22,7 @@
 // compile time, so this module has no runtime dependency on App.
 // =============================================================================
 
-import type { SavedGameRecord } from "../App";
+import type { SavedGameRecord } from "../types";
 
 // --- Filter model ------------------------------------------------------------
 

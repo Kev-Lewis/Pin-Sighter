@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { SavedGameRecord } from "../App";
+import type { SavedGameRecord } from "../types";
 import {
   defaultStatsFilters,
   filterGames,
