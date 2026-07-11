@@ -41,7 +41,6 @@ import {
   type StatsFilters,
   type TimeFramePreset,
 } from "./lib/statsFilters";
-import { utils as xlsxUtils, write as xlsxWrite } from "xlsx";
 
 // Types
 // ==================
@@ -8004,6 +8003,66 @@ const statsFilterDependents: Record<string, ResettableFilterKey[]> = {
   lane: ["set", "game"],
 };
 
+// Styling for the exported HTML / print-to-PDF Stats report — kl-ui "Scope Red"
+// theme so the report matches the app (soft surfaces, hairline borders, Space
+// Mono figures, accent-highlighted key metrics).
+const STATS_REPORT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --accent:#e5241f; --accent-ink:#c11a17; --accent-soft:#fdeceb; --accent-soft-bd:#f7cecc;
+  --ink:#0e1526; --ink-soft:#46536b; --ink-faint:#75839a;
+  --line:#ece9f2; --line-strong:#dfe1ea; --paper:#fff; --bg:#f6f7f9; --bg-tint:#f7f8fa;
+  --radius:16px; --radius-sm:12px;
+  --shadow:0 2px 4px rgba(16,25,45,.03), 0 12px 30px -12px rgba(16,25,45,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;
+  -webkit-font-smoothing:antialiased;}
+.page{max-width:1080px;margin:0 auto;padding:32px 28px 56px;}
+.tile-value,td.num,th.num{font-family:'Space Mono','SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;}
+.report-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;
+  padding-bottom:18px;border-bottom:2px solid var(--accent);margin-bottom:26px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand .mark{width:34px;height:34px;border-radius:50%;flex:0 0 auto;
+  background:radial-gradient(circle at 50% 50%, #fff 0 22%, var(--accent) 24% 44%, #fff 46% 60%, var(--accent) 62% 82%, #fff 84%);
+  box-shadow:0 0 0 2px var(--accent-soft-bd);}
+.brand h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;}
+.brand .sub{margin:2px 0 0;color:var(--accent-ink);font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;}
+.meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;color:var(--ink-faint);font-size:.82rem;text-align:right;}
+.meta strong{color:var(--ink);}
+.overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:0 0 30px;}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px 16px;
+  display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow);}
+.tile-value{font-size:1.7rem;font-weight:700;line-height:1;color:var(--ink);}
+.tile-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600;}
+.tile.hero{background:linear-gradient(180deg,#fff, var(--accent-soft));border-color:var(--accent-soft-bd);}
+.tile.hero .tile-value{color:var(--accent-ink);font-size:2rem;}
+.tile.hero .tile-label{color:var(--accent-ink);}
+.report-section{margin:0 0 26px;page-break-inside:avoid;}
+.report-section h2{font-size:1.02rem;font-weight:700;margin:0 0 10px;padding-left:11px;position:relative;letter-spacing:-.01em;}
+.report-section h2::before{content:"";position:absolute;left:0;top:.15em;bottom:.15em;width:4px;border-radius:2px;background:var(--accent);}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow);background:var(--paper);}
+table{width:100%;border-collapse:collapse;font-size:.86rem;}
+thead th{background:var(--bg-tint);color:var(--ink-soft);text-align:left;font-weight:600;font-size:.7rem;
+  text-transform:uppercase;letter-spacing:.05em;padding:10px 12px;border-bottom:1px solid var(--line-strong);white-space:nowrap;}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft);}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:nth-child(even){background:var(--bg-tint);}
+th.num,td.num{text-align:right;white-space:nowrap;}
+td.emph{color:var(--ink);font-weight:700;}
+th.emph{color:var(--accent-ink);}
+.perfect-pill{display:inline-block;background:var(--accent);color:#fff;font-weight:700;
+  padding:1px 9px;border-radius:999px;font-size:.82rem;box-shadow:0 1px 2px rgba(229,36,31,.4);}
+td.empty{text-align:center;color:var(--ink-faint);font-style:italic;padding:16px;}
+@media print{
+  body{background:#fff;} .page{padding:0;max-width:none;}
+  .tile,.table-wrap{box-shadow:none;}
+  thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  table{font-size:.72rem;} tbody td,thead th{padding:5px 7px;}
+}
+`;
+
 function StatsPage({
   bowlers,
   centers,
@@ -9270,28 +9329,101 @@ function StatsPage({
     headers: string[],
     rows: (string | number)[][]
   ) {
-    const headerHtml = headers
-      .map((header) => `<th>${escapeHtml(header)}</th>`)
+    const cellText = (value: string | number) => String(value ?? "").trim();
+    const isNumericCell = (value: string | number) => {
+      const text = cellText(value);
+      if (text === "") return false;
+      if (typeof value === "number") return true;
+      return /^-?[\d,]+(\.\d+)?%?$/.test(text);
+    };
+    const isDateHeader = (header: string) => /(\bat|date)$/i.test(header.trim());
+    const columnValues = (index: number) =>
+      rows.map((row) => cellText(row[index])).join("");
+    const emphasisHeaders = new Set([
+      "score",
+      "total",
+      "average",
+      "high game",
+      "high series",
+      "high series (3-game)",
+    ]);
+
+    // Keep columns that carry data, and merge duplicate date columns
+    // (e.g. Created At / Saved At when identical) — kept narrow to date
+    // headers so identical-looking value columns (scorecard frames) survive.
+    const keptIndexes: number[] = [];
+    headers.forEach((header, index) => {
+      const hasValue =
+        rows.length === 0 || rows.some((row) => cellText(row[index]) !== "");
+      if (!hasValue) {
+        return;
+      }
+      const duplicateDate =
+        isDateHeader(header) &&
+        rows.length > 0 &&
+        keptIndexes.some(
+          (kept) =>
+            isDateHeader(headers[kept]) &&
+            columnValues(kept) === columnValues(index)
+        );
+      if (!duplicateDate) {
+        keptIndexes.push(index);
+      }
+    });
+
+    const columnMeta = keptIndexes.map((index) => {
+      const nonEmpty = rows
+        .map((row) => row[index])
+        .filter((value) => cellText(value) !== "");
+      return {
+        index,
+        numeric: nonEmpty.length > 0 && nonEmpty.every(isNumericCell),
+        emphasis: emphasisHeaders.has(headers[index].trim().toLowerCase()),
+      };
+    });
+
+    const classFor = (meta: { numeric: boolean; emphasis: boolean }) =>
+      [meta.numeric ? "num" : "", meta.emphasis ? "emph" : ""]
+        .filter(Boolean)
+        .join(" ");
+
+    const headerHtml = columnMeta
+      .map(
+        (meta) =>
+          `<th class="${classFor(meta)}">${escapeHtml(headers[meta.index])}</th>`
+      )
       .join("");
+
     const rowHtml =
       rows.length > 0
         ? rows
             .map(
               (row) =>
-                `<tr>${row
-                  .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+                `<tr>${columnMeta
+                  .map((meta) => {
+                    const raw = row[meta.index];
+                    const value = escapeHtml(raw);
+                    const perfect = meta.emphasis && cellText(raw) === "300";
+                    return `<td class="${classFor(meta)}">${
+                      perfect
+                        ? `<span class="perfect-pill">${value}</span>`
+                        : value
+                    }</td>`;
+                  })
                   .join("")}</tr>`
             )
             .join("")
-        : `<tr><td colspan="${headers.length}">No data for this section.</td></tr>`;
+        : `<tr><td class="empty" colspan="${columnMeta.length}">No data for this section.</td></tr>`;
 
     return `
       <section class="report-section">
         <h2>${escapeHtml(title)}</h2>
-        <table>
-          <thead><tr>${headerHtml}</tr></thead>
-          <tbody>${rowHtml}</tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${headerHtml}</tr></thead>
+            <tbody>${rowHtml}</tbody>
+          </table>
+        </div>
       </section>
     `;
   }
@@ -9545,116 +9677,65 @@ function StatsPage({
       );
     }
 
+    const heroLabels = new Set([
+      "Average",
+      "High Game",
+      "High Series (3-game)",
+    ]);
+    const overviewHtml = sections.overview
+      ? `<div class="overview">${getOverviewExportRows()
+          .map(
+            ([label, value]) =>
+              `<article class="tile ${
+                heroLabels.has(String(label)) ? "hero" : ""
+              }"><span class="tile-value">${escapeHtml(
+                value
+              )}</span><span class="tile-label">${escapeHtml(
+                label
+              )}</span></article>`
+          )
+          .join("")}</div>`
+      : "";
+
+    const scopeMetaHtml =
+      filters.timeFrame.preset !== "all"
+        ? `<strong>${escapeHtml(describeScopeLabel())}</strong> · ${escapeHtml(
+            describeTimeFrameLabel()
+          )}`
+        : `<strong>${escapeHtml(describeScopeLabel())}</strong>`;
+
     return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Pin-Sighter Stats Export</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      color: #111827;
-      margin: 32px;
-      line-height: 1.45;
-    }
-
-    h1 {
-      margin-bottom: 4px;
-      color: #1e3a8a;
-    }
-
-    h2 {
-      margin-top: 28px;
-      color: #111827;
-    }
-
-    .report-meta {
-      color: #4b5563;
-      margin-top: 0;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 10px;
-      margin: 20px 0;
-    }
-
-    .summary-card {
-      border: 1px solid #111827;
-      padding: 10px;
-      background: #f9fafb;
-    }
-
-    .summary-card strong {
-      display: block;
-      font-size: 1.35rem;
-      margin-bottom: 4px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 0.92rem;
-    }
-
-    th,
-    td {
-      border: 1px solid #111827;
-      padding: 7px;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      background: #dbeafe;
-    }
-
-    .report-section {
-      margin-top: 24px;
-      page-break-inside: avoid;
-    }
-
-    @media print {
-      body {
-        margin: 18px;
-      }
-
-      .no-print {
-        display: none;
-      }
-
-      table {
-        font-size: 0.78rem;
-      }
-    }
-  </style>
+  <title>Pin-Sighter Stats Report</title>
+  <style>${STATS_REPORT_CSS}</style>
 </head>
 <body>
-  <h1>Pin-Sighter Stats Export</h1>
-  <p class="report-meta">Exported: ${escapeHtml(exportedAt)} • Games: ${
-      statsFilteredGames.length
-    } • Saved Sets: ${sessionGroups.length}</p>
+  <div class="page">
+    <header class="report-head">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <h1>Pin-Sighter</h1>
+          <p class="sub">Stats Report</p>
+        </div>
+      </div>
+      <div class="meta">
+        <span>${scopeMetaHtml}</span>
+        <span>${statsFilteredGames.length} game${
+      statsFilteredGames.length === 1 ? "" : "s"
+    } · ${sessionGroups.length} saved set${
+      sessionGroups.length === 1 ? "" : "s"
+    }</span>
+        <span>Exported ${escapeHtml(exportedAt)}</span>
+      </div>
+    </header>
 
-  ${
-    sections.overview
-      ? `<div class="summary-grid">
-          ${getOverviewExportRows()
-            .map(
-              ([label, value]) => `
-                <article class="summary-card">
-                  <strong>${escapeHtml(value)}</strong>
-                  <span>${escapeHtml(label)}</span>
-                </article>
-              `
-            )
-            .join("")}
-        </div>`
-      : ""
-  }
+    ${overviewHtml}
 
-  ${reportSections.join("")}
+    ${reportSections.join("")}
+  </div>
 
   ${
     options.autoPrint
@@ -9913,7 +9994,7 @@ function StatsPage({
       .join("\n");
   }
 
-  function runStatsExport() {
+  async function runStatsExport() {
     if (!hasSelectedExportSections()) {
       window.alert("Select at least one export section.");
       return;
@@ -9931,12 +10012,14 @@ function StatsPage({
     }
 
     if (exportFormat === "excel") {
-      const worksheet = xlsxUtils.aoa_to_sheet(
+      // Loaded on demand so SheetJS is its own chunk, out of the main bundle.
+      const xlsx = await import("xlsx");
+      const worksheet = xlsx.utils.aoa_to_sheet(
         buildStatsExportRows(exportSections)
       );
-      const workbook = xlsxUtils.book_new();
-      xlsxUtils.book_append_sheet(workbook, worksheet, "Pin-Sighter Stats");
-      const workbookData = xlsxWrite(workbook, {
+      const workbook = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(workbook, worksheet, "Pin-Sighter Stats");
+      const workbookData = xlsx.write(workbook, {
         bookType: "xlsx",
         type: "array",
       });
