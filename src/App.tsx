@@ -33,6 +33,13 @@ import {
   type PinSighterBackupData,
   type PinSighterBackup,
 } from "./lib/backup";
+import {
+  defaultStatsFilters,
+  filterGames,
+  deriveOptions,
+  resolveFilters,
+  type StatsFilters,
+} from "./lib/statsFilters";
 
 // Types
 // ==================
@@ -7980,17 +7987,9 @@ function StatsPage({
   setSavedEventLogs,
   onContinueSavedSet,
 }: StatsPageProps) {
-  const [selectedBowler, setSelectedBowler] = useState("All");
-  const [selectedBakerBowler, setSelectedBakerBowler] = useState("All");
-  const [selectedBall, setSelectedBall] = useState("All");
-  const [selectedCompetition, setSelectedCompetition] = useState("All");
-  const [selectedEventName, setSelectedEventName] = useState("All");
-  const [selectedCenter, setSelectedCenter] = useState("All");
-  const [selectedLane, setSelectedLane] = useState("All");
-  const [selectedPattern, setSelectedPattern] = useState("All");
-  const [selectedEventStage, setSelectedEventStage] = useState("All");
-  const [selectedSetKey, setSelectedSetKey] = useState("All");
-  const [selectedGameNumber, setSelectedGameNumber] = useState("All");
+  const [filters, setFilters] = useState<StatsFilters>({
+    ...defaultStatsFilters,
+  });
   const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
   const exportModalRef = useRef<HTMLElement | null>(null);
   const [selectedDetailedStat, setSelectedDetailedStat] =
@@ -8020,6 +8019,28 @@ function StatsPage({
   );
   const [frameEditorIndex, setFrameEditorIndex] = useState(0);
   const [toastMessage, setToastMessage] = useState("");
+
+  // Stable "now" for the whole render pass — injected into the time-frame math
+  // so filtering is deterministic (no Date.now() sprinkled through the module).
+  const now = useMemo(() => new Date(), []);
+
+  // --- Filter adapter -------------------------------------------------------
+  // The source of truth is `filters` (the statsFilters model). Downstream stat
+  // math + exports still read these legacy per-field names; deriving them here
+  // keeps that code untouched while the engine underneath is the tested module.
+  // In baker mode `selection` is the "Baker Team: …" label, so the existing
+  // `isBakerTeamSelection = selectedBowler.startsWith("Baker Team:")` still holds.
+  const selectedBowler = filters.mode === "all" ? "All" : filters.selection;
+  const selectedBakerBowler = filters.bakerBowler;
+  const selectedBall = filters.ball;
+  const selectedCompetition = filters.competition;
+  const selectedEventName = filters.eventName;
+  const selectedCenter = filters.center;
+  const selectedLane = filters.lane;
+  const selectedPattern = filters.pattern;
+  const selectedEventStage = filters.eventStage;
+  const selectedSetKey = filters.set;
+  const selectedGameNumber = filters.game;
 
   useEffect(() => {
     if (!toastMessage) {
@@ -8090,6 +8111,9 @@ function StatsPage({
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
   const usesEventFilter =
     selectedCompetition === "League" || selectedCompetition === "Tournament";
+  const usesSetFilter =
+    (usesEventFilter && selectedEventName !== "All") ||
+    selectedCompetition === "Open";
   const hasFocusedStatsFilter =
     selectedBowler !== "All" ||
     selectedBakerBowler !== "All" ||
@@ -8133,269 +8157,42 @@ function StatsPage({
     return getBakerTeamLabelFromNames(game.bowlerNames);
   }
 
-  function gameMatchesCurrentFilters(
-    game: SavedGameRecord,
-    ignoredFilters: string[] = []
-  ) {
-    const ignores = new Set(ignoredFilters);
-    const bakerTeamLabel = getBakerTeamLabelForGame(game);
-
-    const matchesBowler =
-      ignores.has("bowler") ||
-      selectedBowler === "All" ||
-      (isBakerTeamSelection
-        ? game.format === "Baker" && bakerTeamLabel === selectedBowler
-        : game.format !== "Baker" &&
-          game.entries.some((entry) => entry.bowlerName === selectedBowler));
-
-    const matchesBakerBowler =
-      ignores.has("bakerBowler") ||
-      selectedBakerBowler === "All" ||
-      game.format !== "Baker" ||
-      game.entries.some((entry) => entry.bowlerName === selectedBakerBowler);
-
-    const matchesBall =
-      ignores.has("ball") ||
-      selectedBall === "All" ||
-      game.entries.some(
-        (entry) =>
-          entry.ballUsed === selectedBall &&
-          (selectedBowler === "All" ||
-            isBakerTeamSelection ||
-            entry.bowlerName === selectedBowler) &&
-          (selectedBakerBowler === "All" ||
-            game.format !== "Baker" ||
-            entry.bowlerName === selectedBakerBowler)
-      );
-
-    const matchesCompetition =
-      ignores.has("competition") ||
-      selectedCompetition === "All" ||
-      game.competitionType === selectedCompetition;
-
-    const matchesEventName =
-      ignores.has("eventName") ||
-      selectedEventName === "All" ||
-      game.eventName === selectedEventName;
-
-    const matchesCenter =
-      ignores.has("center") ||
-      selectedCenter === "All" ||
-      game.centerName === selectedCenter;
-
-    const matchesLane =
-      ignores.has("lane") ||
-      selectedLane === "All" ||
-      game.laneLabel === selectedLane;
-
-    const matchesPattern =
-      ignores.has("pattern") ||
-      selectedPattern === "All" ||
-      game.patternName === selectedPattern;
-
-    const matchesEventStage =
-      ignores.has("eventStage") ||
-      selectedEventStage === "All" ||
-      game.eventStageLabel === selectedEventStage;
-
-    const matchesSet =
-      ignores.has("set") ||
-      selectedSetKey === "All" ||
-      game.sessionId === selectedSetKey;
-
-    const matchesGame =
-      ignores.has("game") ||
-      selectedGameNumber === "All" ||
-      String(game.gameNumber) === selectedGameNumber;
-
-    return (
-      matchesBowler &&
-      matchesBakerBowler &&
-      matchesBall &&
-      matchesCompetition &&
-      matchesEventName &&
-      matchesCenter &&
-      matchesLane &&
-      matchesPattern &&
-      matchesEventStage &&
-      matchesSet &&
-      matchesGame
-    );
-  }
-
-  const individualBowlerOptions = Array.from(
-    new Set(
-      savedGames
-        .filter(
-          (game) =>
-            game.format !== "Baker" &&
-            gameMatchesCurrentFilters(game, ["bowler", "ball"])
-        )
-        .flatMap((game) => game.entries.map((entry) => entry.bowlerName))
-    )
-  ).sort();
-
-  const bakerTeamOptions = Array.from(
-    new Set(
-      savedGames
-        .filter(
-          (game) =>
-            game.format === "Baker" &&
-            gameMatchesCurrentFilters(game, ["bowler", "bakerBowler", "ball"])
-        )
-        .map(getBakerTeamLabelForGame)
-        .filter(Boolean)
-    )
-  ).sort();
-
-  const selectedBakerGames = savedGames.filter(
-    (game) =>
-      game.format === "Baker" &&
-      selectedBowler !== "All" &&
-      getBakerTeamLabelForGame(game) === selectedBowler &&
-      gameMatchesCurrentFilters(game, ["bakerBowler", "ball"])
-  );
-
-  const bakerBowlerOptions = Array.from(
-    new Set(selectedBakerGames.flatMap((game) => game.bowlerNames))
-  ).sort((a, b) => a.localeCompare(b));
-
-  const ballOptions = Array.from(
-    new Set(
-      savedGames
-        .filter((game) => gameMatchesCurrentFilters(game, ["ball"]))
-        .flatMap((game) => {
-          if (isBakerTeamSelection) {
-            if (game.format !== "Baker" || getBakerTeamLabelForGame(game) !== selectedBowler) {
-              return [];
-            }
-
-            return game.entries
-              .filter(
-                (entry) =>
-                  selectedBakerBowler === "All" ||
-                  entry.bowlerName === selectedBakerBowler
-              )
-              .map((entry) => entry.ballUsed)
-              .filter(Boolean);
-          }
-
-          if (game.format === "Baker") {
-            return [];
-          }
-
-          return game.entries
-            .filter(
-              (entry) =>
-                selectedBowler === "All" || entry.bowlerName === selectedBowler
-            )
-            .map((entry) => entry.ballUsed)
-            .filter(Boolean);
-        })
-    )
-  ).sort();
-
-  const competitionOptions = Array.from(
-    new Set(
-      savedGames
-        .filter((game) => gameMatchesCurrentFilters(game, ["competition"]))
-        .map((game) => game.competitionType)
-    )
-  ).sort();
-
-  const eventOptions = usesEventFilter
-    ? Array.from(
-        new Set(
-          savedGames
-            .filter(
-              (game) =>
-                game.eventName &&
-                game.competitionType === selectedCompetition &&
-                gameMatchesCurrentFilters(game, ["eventName", "eventStage"])
-            )
-            .map((game) => game.eventName)
-        )
-      ).sort()
-    : [];
-
-  const centerOptions = Array.from(
-    new Set(
-      savedGames
-        .filter((game) => gameMatchesCurrentFilters(game, ["center", "lane"]))
-        .map((game) => game.centerName)
-    )
-  ).sort();
-
-  const laneOptions =
-    selectedCenter === "All"
+  const filterOptions = deriveOptions(savedGames, filters, now);
+  const selectionOptions = filterOptions.selection;
+  // The per-bowler breakdown table iterates every individual bowler in scope
+  // (independent of the current pick). In baker mode that table is hidden, and
+  // `selection` options are team labels, so fall back to an empty list there.
+  const individualBowlerOptions =
+    filters.mode === "baker"
       ? []
-      : Array.from(
-          new Set(
-            savedGames
-              .filter(
-                (game) =>
-                  game.centerName === selectedCenter &&
-                  gameMatchesCurrentFilters(game, ["lane"])
-              )
-              .map((game) => game.laneLabel)
-          )
-        ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-  const patternOptions = Array.from(
-    new Set(
-      savedGames
-        .filter((game) => gameMatchesCurrentFilters(game, ["pattern"]))
-        .map((game) => game.patternName)
-    )
-  ).sort();
-
-  const eventStageOptions =
-    usesEventFilter && selectedEventName !== "All"
-      ? Array.from(
-          new Set(
-            savedGames
-              .filter(
-                (game) =>
-                  game.competitionType === selectedCompetition &&
-                  game.eventName === selectedEventName &&
-                  gameMatchesCurrentFilters(game, ["eventStage"])
-              )
-              .map((game) => game.eventStageLabel)
-              .filter(Boolean)
-          )
-        ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      : [];
-
-  const usesSetFilter =
-    (usesEventFilter && selectedEventName !== "All") ||
-    selectedCompetition === "Open";
-
-  const setOptions = usesSetFilter
-    ? buildSetFilterOptions(
-        savedGames.filter((game) =>
-          gameMatchesCurrentFilters(game, ["set", "game"])
-        )
-      )
-    : [];
-
-  const gameOptions =
-    selectedSetKey !== "All"
-      ? Array.from(
-          new Set(
-            savedGames
-              .filter((game) => gameMatchesCurrentFilters(game, ["game"]))
-              .map((game) => game.gameNumber)
-          )
-        ).sort((a, b) => a - b)
-      : [];
-
-  const filteredGames = savedGames.filter((game) =>
-    gameMatchesCurrentFilters(game)
+      : deriveOptions(savedGames, { ...filters, mode: "individual" }, now)
+          .selection;
+  const bakerBowlerOptions = filterOptions.bakerBowler;
+  const ballOptions = filterOptions.ball;
+  const competitionOptions = filterOptions.competition;
+  const eventOptions = filterOptions.eventName;
+  const eventStageOptions = filterOptions.eventStage;
+  const centerOptions = filterOptions.center;
+  const laneOptions = filterOptions.lane;
+  const patternOptions = filterOptions.pattern;
+  const gameOptions = filterOptions.game;
+  const setOptions = buildSetFilterOptions(
+    filterGames(savedGames, { ...filters, set: "All", game: "All" }, now)
   );
-  const statsFilteredGames = filteredGames.filter(
-    (game) => game.format !== "Baker" || isBakerTeamSelection
-  );
-  const hiddenBakerGameCount = filteredGames.length - statsFilteredGames.length;
+
+  const filteredGames = filterGames(savedGames, filters, now);
+  // filterGames already applies the universe (Baker vs individual), so the
+  // in-scope set needs no second Baker pass. Baker games are an explicit mode
+  // now, never silently dropped — so nothing is "hidden".
+  const statsFilteredGames = filteredGames;
+  const hiddenBakerGameCount = 0;
+
+  function updateFilters(patch: Partial<StatsFilters>) {
+    const draft: StatsFilters = { ...filters, ...patch };
+    const draftOptions = deriveOptions(savedGames, draft, now);
+    const { filters: resolved } = resolveFilters(draft, draftOptions);
+    setFilters(resolved);
+  }
 
   const bakerTeamGames = filteredGames.filter(
     (game) =>
@@ -8593,17 +8390,7 @@ function StatsPage({
     .filter((row) => row.frames > 0 || row.games > 0);
 
   function clearFilters() {
-    setSelectedBowler("All");
-    setSelectedBakerBowler("All");
-    setSelectedBall("All");
-    setSelectedCompetition("All");
-    setSelectedEventName("All");
-    setSelectedCenter("All");
-    setSelectedLane("All");
-    setSelectedPattern("All");
-    setSelectedEventStage("All");
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
+    setFilters({ ...defaultStatsFilters });
   }
 
   function getSetMetadataDraft(
@@ -10165,11 +9952,11 @@ function StatsPage({
     }
 
     if (selectedGameNumber === String(gameToDelete.gameNumber)) {
-      setSelectedGameNumber("All");
+      setFilters((previous) => ({ ...previous, game: "All" }));
     }
 
     if (remainingSessionGames.length === 0) {
-      setSelectedSetKey("All");
+      setFilters((previous) => ({ ...previous, set: "All", game: "All" }));
       setEditingSetMetadataKey(null);
     }
 
@@ -10279,71 +10066,6 @@ function StatsPage({
     });
   }
 
-  function handleBowlerChange(value: string) {
-    setSelectedBowler(value);
-    setSelectedBakerBowler("All");
-    setSelectedBall("All");
-  }
-
-  function handleBakerBowlerChange(value: string) {
-    setSelectedBakerBowler(value);
-    setSelectedBall("All");
-  }
-
-  function handleBallChange(value: string) {
-    setSelectedBall(value);
-  }
-
-  function handleCompetitionChange(value: string) {
-    setSelectedCompetition(value);
-    setSelectedEventName("All");
-    setSelectedEventStage("All");
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
-    setSelectedLane("All");
-  }
-
-  function handleEventNameChange(value: string) {
-    setSelectedEventName(value);
-    setSelectedEventStage("All");
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
-  }
-
-  function handleEventStageChange(value: string) {
-    setSelectedEventStage(value);
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
-  }
-
-  function handleSetChange(value: string) {
-    setSelectedSetKey(value);
-    setSelectedGameNumber("All");
-  }
-
-  function handleCenterChange(value: string) {
-    setSelectedCenter(value);
-    setSelectedLane("All");
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
-  }
-
-  function handlePatternChange(value: string) {
-    setSelectedPattern(value);
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
-  }
-
-  function handleLaneChange(value: string) {
-    setSelectedLane(value);
-    setSelectedSetKey("All");
-    setSelectedGameNumber("All");
-  }
-
-  function handleGameChange(value: string) {
-    setSelectedGameNumber(value);
-  }
-
   return (
     <>
       <h2>Stats</h2>
@@ -10378,31 +10100,73 @@ function StatsPage({
 
             <div className="stats-filter-body">
               <div className="form-grid">
-              <label>
-                Bowler / Baker Team
-                <select
-                  value={selectedBowler}
-                  onChange={(event) => handleBowlerChange(event.target.value)}
+              <label className="stats-scope-field">
+                Scope
+                <div
+                  className="stats-scope-toggle"
+                  role="group"
+                  aria-label="Scope"
                 >
-                  <option>All</option>
-
-                  {individualBowlerOptions.length > 0 && (
-                    <optgroup label="Individual Bowlers">
-                      {individualBowlerOptions.map((bowlerName) => (
-                        <option key={bowlerName}>{bowlerName}</option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {bakerTeamOptions.length > 0 && (
-                    <optgroup label="Baker Teams">
-                      {bakerTeamOptions.map((teamName) => (
-                        <option key={teamName}>{teamName}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                  <button
+                    type="button"
+                    className={filters.mode === "all" ? "is-active" : ""}
+                    aria-pressed={filters.mode === "all"}
+                    onClick={() => updateFilters({ mode: "all" })}
+                  >
+                    All Bowlers
+                  </button>
+                  <button
+                    type="button"
+                    className={filters.mode === "individual" ? "is-active" : ""}
+                    aria-pressed={filters.mode === "individual"}
+                    onClick={() => updateFilters({ mode: "individual" })}
+                  >
+                    Individual
+                  </button>
+                  <button
+                    type="button"
+                    className={filters.mode === "baker" ? "is-active" : ""}
+                    aria-pressed={filters.mode === "baker"}
+                    onClick={() => updateFilters({ mode: "baker" })}
+                  >
+                    Baker Team
+                  </button>
+                </div>
               </label>
+
+              {filters.mode === "individual" && (
+                <label>
+                  Bowler
+                  <select
+                    value={filters.selection}
+                    onChange={(event) =>
+                      updateFilters({ selection: event.target.value })
+                    }
+                  >
+                    <option>All</option>
+                    {selectionOptions.map((bowlerName) => (
+                      <option key={bowlerName}>{bowlerName}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {filters.mode === "baker" && (
+                <label>
+                  Baker Team
+                  <select
+                    value={filters.selection}
+                    onChange={(event) =>
+                      updateFilters({ selection: event.target.value })
+                    }
+                  >
+                    <option>All</option>
+                    {selectionOptions.map((teamName) => (
+                      <option key={teamName}>{teamName}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               {isBakerTeamSelection && (
                 <label>
@@ -10410,7 +10174,7 @@ function StatsPage({
                   <select
                     value={selectedBakerBowler}
                     onChange={(event) =>
-                      handleBakerBowlerChange(event.target.value)
+                      updateFilters({ bakerBowler: event.target.value })
                     }
                   >
                     <option>All</option>
@@ -10426,7 +10190,7 @@ function StatsPage({
                   Ball
                   <select
                     value={selectedBall}
-                    onChange={(event) => handleBallChange(event.target.value)}
+                    onChange={(event) => updateFilters({ ball: event.target.value })}
                   >
                     <option>All</option>
                     {ballOptions.map((ballName) => (
@@ -10441,7 +10205,7 @@ function StatsPage({
                 <select
                   value={selectedCompetition}
                   onChange={(event) =>
-                    handleCompetitionChange(event.target.value)
+                    updateFilters({ competition: event.target.value })
                   }
                 >
                   <option>All</option>
@@ -10457,7 +10221,7 @@ function StatsPage({
                   <select
                     value={selectedEventName}
                     onChange={(event) =>
-                      handleEventNameChange(event.target.value)
+                      updateFilters({ eventName: event.target.value })
                     }
                   >
                     <option>All</option>
@@ -10474,7 +10238,7 @@ function StatsPage({
                   <select
                     value={selectedEventStage}
                     onChange={(event) =>
-                      handleEventStageChange(event.target.value)
+                      updateFilters({ eventStage: event.target.value })
                     }
                   >
                     <option>All</option>
@@ -10490,7 +10254,7 @@ function StatsPage({
                   Set
                   <select
                     value={selectedSetKey}
-                    onChange={(event) => handleSetChange(event.target.value)}
+                    onChange={(event) => updateFilters({ set: event.target.value })}
                   >
                     <option>All</option>
                     {setOptions.map((setOption) => (
@@ -10507,7 +10271,7 @@ function StatsPage({
                   Game
                   <select
                     value={selectedGameNumber}
-                    onChange={(event) => handleGameChange(event.target.value)}
+                    onChange={(event) => updateFilters({ game: event.target.value })}
                   >
                     <option>All</option>
                     {gameOptions.map((gameNumber) => (
@@ -10523,7 +10287,7 @@ function StatsPage({
                 Bowling Center
                 <select
                   value={selectedCenter}
-                  onChange={(event) => handleCenterChange(event.target.value)}
+                  onChange={(event) => updateFilters({ center: event.target.value })}
                 >
                   <option>All</option>
                   {centerOptions.map((center) => (
@@ -10537,7 +10301,7 @@ function StatsPage({
                   Lane / Pair
                   <select
                     value={selectedLane}
-                    onChange={(event) => handleLaneChange(event.target.value)}
+                    onChange={(event) => updateFilters({ lane: event.target.value })}
                   >
                     <option>All</option>
                     {laneOptions.map((lane) => (
@@ -10551,7 +10315,7 @@ function StatsPage({
                 Pattern
                 <select
                   value={selectedPattern}
-                  onChange={(event) => handlePatternChange(event.target.value)}
+                  onChange={(event) => updateFilters({ pattern: event.target.value })}
                 >
                   <option>All</option>
                   {patternOptions.map((pattern) => (

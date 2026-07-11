@@ -1256,3 +1256,42 @@ body:has(.ps-modal) { overflow: hidden; }
 .app-shell .saved-sets-list .stats-collapsible-content {
   max-height: 720px; overflow-y: auto; overscroll-behavior: contain;
 }
+
+/* Stats scope selector — explicit All / Individual / Baker segmented control */
+.app-shell .stats-scope-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tint);
+}
+.app-shell .stats-scope-toggle button {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 6px 14px;
+  border-radius: calc(var(--radius-sm) - 4px);
+  cursor: pointer;
+  transition: background 0.15s var(--spring), color 0.15s var(--spring),
+    border-color 0.15s var(--spring);
+}
+.app-shell .stats-scope-toggle button:hover {
+  color: var(--ink);
+}
+.app-shell .stats-scope-toggle button.is-active {
+  background: var(--paper);
+  border-color: var(--accent-soft-bd);
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: var(--shadow-1);
+}
+.app-shell .stats-scope-toggle button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
