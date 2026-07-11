@@ -38,6 +38,8 @@ import {
   filterGames,
   deriveOptions,
   resolveFilters,
+  bakerTeamLabelFromNames,
+  bakerTeamLabelForGame,
   type StatsFilters,
   type TimeFramePreset,
 } from "./lib/statsFilters";
@@ -409,7 +411,7 @@ const tabs: { id: Tab; label: string; wip?: boolean }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.1.0";
+const appVersion = "1.1.1";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -8222,22 +8224,6 @@ function StatsPage({
       : null;
 
 
-  function getBakerTeamLabelFromNames(names: string[]) {
-    const sortedNames = Array.from(new Set(names)).sort((a, b) =>
-      a.localeCompare(b)
-    );
-
-    return `Baker Team: ${sortedNames.join(", ")}`;
-  }
-
-  function getBakerTeamLabelForGame(game: SavedGameRecord) {
-    if (game.format !== "Baker") {
-      return "";
-    }
-
-    return getBakerTeamLabelFromNames(game.bowlerNames);
-  }
-
   const filterOptions = deriveOptions(savedGames, filters, now);
   const selectionOptions = filterOptions.selection;
   // The per-bowler breakdown table iterates every individual bowler in scope
@@ -8314,7 +8300,7 @@ function StatsPage({
     (game) =>
       game.format === "Baker" &&
       (selectedBowler === "All" ||
-        getBakerTeamLabelForGame(game) === selectedBowler)
+        bakerTeamLabelForGame(game) === selectedBowler)
   );
 
   const filteredEntries = statsFilteredGames.flatMap((game) =>
@@ -13304,9 +13290,7 @@ function calculateBakerTeamSummaryRows(games: SavedGameRecord[]) {
   const gamesByTeam = new Map<string, SavedGameRecord[]>();
 
   games.forEach((game) => {
-    const teamName = `Baker Team: ${Array.from(new Set(game.bowlerNames))
-      .sort((a, b) => a.localeCompare(b))
-      .join(", ")}`;
+    const teamName = bakerTeamLabelFromNames(game.bowlerNames);
     const currentGames = gamesByTeam.get(teamName) ?? [];
     gamesByTeam.set(teamName, [...currentGames, game]);
   });

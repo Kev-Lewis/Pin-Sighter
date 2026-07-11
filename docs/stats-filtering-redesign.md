@@ -1,10 +1,40 @@
 # Stats Filtering, Display & Export Redesign
 
-**Status:** Approved design — not yet implemented
-**Last updated:** 2026-07-09
+**Status:** ✅ Shipped (2026-07-11)
+**Last updated:** 2026-07-11
 **Owner:** Kevin Lewis
-**Related:** `StatsPage` in `src/App.tsx`; QA/test + CI initiative (see "Testing strategy" below)
+**Related:** `StatsPage` in `src/App.tsx`; pure logic in `src/lib/statsFilters.ts` (+ `statsFilters.test.ts`); QA/test + CI initiative (see "Testing strategy" below)
 **Covers:** filter model + cascade, default/scenario display, time-frame filter, and the Stats export review
+
+---
+
+## 0. Implementation summary (as shipped)
+
+Delivered in three phases plus polish:
+
+- **Pure engine** — `src/lib/statsFilters.ts` holds the whole model: `StatsFilters`
+  (explicit `mode`/`selection`/`bakerBowler`, no more `"Baker Team: …"` string hack),
+  `filterGames`, `deriveOptions` (one uniform cascade), `resolveFilters` (parent→child
+  + stale-selection reset), `filterAvailability`, `visibleSections`, the canonical
+  `bakerTeamLabelFromNames` encoder, and the time-frame math (`now` injected for
+  determinism). Covered by `statsFilters.test.ts` (Vitest, in CI).
+- **UI** — `StatsPage` drives everything through the engine via a thin adapter that
+  maps the model onto the existing per-field names, so the stat math and exports were
+  left untouched. Added the All/Individual/Baker scope control, the Time Frame control
+  (presets + custom range), the filled default view (sections present but collapsed),
+  the stale-reset toast, a parent→child reset that also collapses dependent controls,
+  and sections that re-collapse on any filter change.
+- **Baker** — Baker scope aggregates across *all* teams (Overview, spare-leave, and a
+  per-team Baker table), not just a single selected team.
+- **Exports** — real `.xlsx` (SheetJS, lazy-loaded, installed from the SheetJS CDN so
+  `npm audit` is clean), honest "Print / Save as PDF" (dropped the fake `.pdf`
+  download), Scope + Time Frame added to Active Filters and the filename, and the
+  HTML/PDF report restyled to the kl-ui "Scope Red" theme (hero stat tiles, highlighted
+  scores incl. a perfect-300 pill, decluttered tables).
+
+Deferred (not debt worth paying now): fully peeling the StatsPage→model adapter — it's a
+clean, documented bridge and rewriting the ~40 downstream sites carries regression risk
+with no user benefit.
 
 ---
 
