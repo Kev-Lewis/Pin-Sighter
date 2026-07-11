@@ -8138,6 +8138,10 @@ function StatsPage({
   }, [selectedDetailedStat]);
 
   const isBakerTeamSelection = selectedBowler.startsWith("Baker Team:");
+  // Baker universe = Baker scope, whether "All teams" or one specific team.
+  // Stats aggregate across it; `isBakerTeamSelection` stays for the one control
+  // (the Baker Bowler drill-in) that needs a specific team.
+  const isBakerUniverse = filters.mode === "baker";
   const usesEventFilter =
     selectedCompetition === "League" || selectedCompetition === "Tournament";
   const usesSetFilter =
@@ -8256,7 +8260,7 @@ function StatsPage({
   const filteredEntries = statsFilteredGames.flatMap((game) =>
     game.entries.filter((entry) => {
       if (game.format === "Baker") {
-        if (!isBakerTeamSelection) {
+        if (!isBakerUniverse) {
           return false;
         }
 
@@ -8289,7 +8293,7 @@ function StatsPage({
         .join(" • ");
 
       if (game.format === "Baker") {
-        if (!isBakerTeamSelection) {
+        if (!isBakerUniverse) {
           return [];
         }
 
@@ -8329,7 +8333,7 @@ function StatsPage({
   const splitCount = filteredEntries.filter(isSplitEntry).length;
   const cleanGameCount = countCleanGames(
     statsFilteredGames,
-    isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
+    isBakerUniverse ? selectedBakerBowler : selectedBowler,
     selectedBall
   );
 
@@ -8369,7 +8373,7 @@ function StatsPage({
   const boardStats = calculateBoardStats(filteredEntries);
   const boardProgressionRows = calculateBoardProgressionRows(
     statsFilteredGames,
-    isBakerTeamSelection ? selectedBakerBowler : selectedBowler,
+    isBakerUniverse ? selectedBakerBowler : selectedBowler,
     selectedBall
   );
 
@@ -10679,7 +10683,7 @@ function StatsPage({
 
           {(
             <>
-          {!isBakerTeamSelection && (
+          {!isBakerUniverse && (
           <details
             key={`bowler-${filterEpoch}`}
             className="stats-table-card stats-collapsible-card"
@@ -11108,7 +11112,7 @@ function StatsPage({
             </div>
           </details>
 
-          {!isBakerTeamSelection && (
+          {!isBakerUniverse && (
           <details
             key={`board-analysis-${filterEpoch}`}
             className="board-analysis-card stats-collapsible-card"
@@ -11317,7 +11321,7 @@ function StatsPage({
           </details>
           )}
 
-          {isBakerTeamSelection && bakerTeamGames.length > 0 && (
+          {isBakerUniverse && bakerTeamGames.length > 0 && (
             <BakerStatsSection
               key={`baker-stats-${filterEpoch}`}
               games={bakerTeamGames}
