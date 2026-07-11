@@ -26,7 +26,11 @@ test("time frame filters out older games", async ({ page }) => {
 
 test("individual scope unlocks Detailed Bowler Analysis", async ({ page }) => {
   await page.getByRole("button", { name: "Individual" }).click();
-  await page.getByLabel("Bowler", { exact: true }).selectOption({ label: "Kevin" });
+  // The bowler dropdown is the only <select> that carries a "Kevin" option.
+  await page
+    .locator("select")
+    .filter({ hasText: "Kevin" })
+    .selectOption({ label: "Kevin" });
 
   await expect(
     page.locator("summary", { hasText: "Bowler Breakdown" })

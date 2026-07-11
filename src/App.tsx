@@ -10309,6 +10309,7 @@ function StatsPage({
                     type="button"
                     className={filters.mode === "all" ? "is-active" : ""}
                     aria-pressed={filters.mode === "all"}
+                    aria-label="All Bowlers"
                     onClick={() => updateFilters({ mode: "all" })}
                   >
                     All Bowlers
@@ -10317,6 +10318,7 @@ function StatsPage({
                     type="button"
                     className={filters.mode === "individual" ? "is-active" : ""}
                     aria-pressed={filters.mode === "individual"}
+                    aria-label="Individual"
                     onClick={() => updateFilters({ mode: "individual" })}
                   >
                     Individual
@@ -10325,6 +10327,7 @@ function StatsPage({
                     type="button"
                     className={filters.mode === "baker" ? "is-active" : ""}
                     aria-pressed={filters.mode === "baker"}
+                    aria-label="Baker Team"
                     onClick={() => updateFilters({ mode: "baker" })}
                   >
                     Baker Team
