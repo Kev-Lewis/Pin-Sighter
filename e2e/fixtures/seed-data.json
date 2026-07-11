@@ -1,0 +1,3040 @@
+{
+  "appName": "Pin-Sighter",
+  "version": 1,
+  "exportedAt": "2026-07-11T12:00:00.000Z",
+  "data": {
+    "bowlers": [
+      {
+        "id": 1,
+        "name": "Kevin",
+        "handedness": "Right",
+        "notes": "",
+        "arsenal": [
+          {
+            "id": 101,
+            "name": "Phaze II",
+            "brand": "Storm",
+            "surface": "",
+            "layout": "",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Marcus",
+        "handedness": "Right",
+        "notes": "",
+        "arsenal": [
+          {
+            "id": 201,
+            "name": "IQ",
+            "brand": "Storm",
+            "surface": "",
+            "layout": "",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "name": "Diane",
+        "handedness": "Left",
+        "notes": "",
+        "arsenal": [
+          {
+            "id": 301,
+            "name": "Zen",
+            "brand": "900 Global",
+            "surface": "",
+            "layout": "",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "centers": [
+      {
+        "id": 1,
+        "name": "Test Lanes",
+        "laneCount": 24,
+        "notes": ""
+      }
+    ],
+    "patterns": [
+      {
+        "id": 0,
+        "name": "Unknown",
+        "length": "",
+        "volume": "",
+        "ratio": "",
+        "dropBrush": "",
+        "source": "",
+        "notes": "Default fallback pattern when the condition is unknown."
+      },
+      {
+        "id": 1,
+        "name": "House",
+        "length": "40",
+        "volume": "",
+        "ratio": "",
+        "dropBrush": "",
+        "source": "",
+        "notes": ""
+      }
+    ],
+    "events": [],
+    "savedEventLogs": [],
+    "savedGames": [
+      {
+        "id": "k-recent-1",
+        "sessionId": "s-k-recent",
+        "createdAt": "2026-07-08T20:00:00.000Z",
+        "savedAt": "2026-07-08T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 1,
+        "laneLabel": "Lane 1",
+        "bowlerNames": [
+          "Kevin"
+        ],
+        "scores": [
+          {
+            "label": "Kevin",
+            "score": 214
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "k-recent-2",
+        "sessionId": "s-k-recent",
+        "createdAt": "2026-07-08T20:00:00.000Z",
+        "savedAt": "2026-07-08T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 2,
+        "laneLabel": "Lane 2",
+        "bowlerNames": [
+          "Kevin"
+        ],
+        "scores": [
+          {
+            "label": "Kevin",
+            "score": 201
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              7
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              6,
+              10
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              10
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "k-recent-3",
+        "sessionId": "s-k-recent",
+        "createdAt": "2026-07-08T20:00:00.000Z",
+        "savedAt": "2026-07-08T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 3,
+        "laneLabel": "Lane 3",
+        "bowlerNames": [
+          "Kevin"
+        ],
+        "scores": [
+          {
+            "label": "Kevin",
+            "score": 224
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              6,
+              10
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              10
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              4
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "k-old-1",
+        "sessionId": "s-k-old",
+        "createdAt": "2025-06-01T20:00:00.000Z",
+        "savedAt": "2025-06-01T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 1,
+        "laneLabel": "Lane 1",
+        "bowlerNames": [
+          "Kevin"
+        ],
+        "scores": [
+          {
+            "label": "Kevin",
+            "score": 203
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              6,
+              10
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              7
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              3,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "k-old-2",
+        "sessionId": "s-k-old",
+        "createdAt": "2025-06-01T20:00:00.000Z",
+        "savedAt": "2025-06-01T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 2,
+        "laneLabel": "Lane 2",
+        "bowlerNames": [
+          "Kevin"
+        ],
+        "scores": [
+          {
+            "label": "Kevin",
+            "score": 222
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              6,
+              10
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "k-old-3",
+        "sessionId": "s-k-old",
+        "createdAt": "2025-06-01T20:00:00.000Z",
+        "savedAt": "2025-06-01T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 3,
+        "laneLabel": "Lane 3",
+        "bowlerNames": [
+          "Kevin"
+        ],
+        "scores": [
+          {
+            "label": "Kevin",
+            "score": 215
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              7
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              7
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "Phaze II",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "m-recent-1",
+        "sessionId": "s-m-recent",
+        "createdAt": "2026-07-08T20:00:00.000Z",
+        "savedAt": "2026-07-08T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 1,
+        "laneLabel": "Lane 1",
+        "bowlerNames": [
+          "Marcus"
+        ],
+        "scores": [
+          {
+            "label": "Marcus",
+            "score": 212
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              7
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              6
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "m-recent-2",
+        "sessionId": "s-m-recent",
+        "createdAt": "2026-07-08T20:00:00.000Z",
+        "savedAt": "2026-07-08T20:00:00.000Z",
+        "competitionType": "Open",
+        "format": "Singles",
+        "bowlersPerTeam": 1,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 2,
+        "laneLabel": "Lane 2",
+        "bowlerNames": [
+          "Marcus"
+        ],
+        "scores": [
+          {
+            "label": "Marcus",
+            "score": 183
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "IQ",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "baker-1",
+        "sessionId": "s-baker",
+        "createdAt": "2026-07-08T21:00:00.000Z",
+        "savedAt": "2026-07-08T21:00:00.000Z",
+        "competitionType": "Tournament",
+        "format": "Baker",
+        "bowlersPerTeam": 3,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 1,
+        "laneLabel": "Pair 1/2",
+        "bowlerNames": [
+          "Kevin",
+          "Marcus",
+          "Diane"
+        ],
+        "scores": [
+          {
+            "label": "Baker Team",
+            "score": 256
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Diane",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Diane",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              4
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Diane",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              3,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              2,
+              4,
+              5
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      },
+      {
+        "id": "baker-2",
+        "sessionId": "s-baker",
+        "createdAt": "2026-07-08T21:00:00.000Z",
+        "savedAt": "2026-07-08T21:00:00.000Z",
+        "competitionType": "Tournament",
+        "format": "Baker",
+        "bowlersPerTeam": 3,
+        "centerName": "Test Lanes",
+        "patternName": "House",
+        "eventLogKey": "",
+        "eventId": null,
+        "eventName": "",
+        "eventStageLabel": "",
+        "gameNumber": 2,
+        "laneLabel": "Pair 2/3",
+        "bowlerNames": [
+          "Kevin",
+          "Marcus",
+          "Diane"
+        ],
+        "scores": [
+          {
+            "label": "Baker Team",
+            "score": 184
+          }
+        ],
+        "entries": [
+          {
+            "frameNumber": 1,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              4
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 2,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 3,
+            "bowlerName": "Diane",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 4,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 5,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 6,
+            "bowlerName": "Diane",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [
+              4
+            ],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 7,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 8,
+            "bowlerName": "Marcus",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 9,
+            "bowlerName": "Diane",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "secondShotKnockedPins": [],
+            "thirdShotKnockedPins": [],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          },
+          {
+            "frameNumber": 10,
+            "bowlerName": "Kevin",
+            "firstShotKnockedPins": [
+              1,
+              2,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "secondShotKnockedPins": [
+              3,
+              10
+            ],
+            "thirdShotKnockedPins": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "isComplete": true,
+            "ballUsed": "House Ball",
+            "footBoard": "20",
+            "targetArrow": "10",
+            "targetBreakpoint": "7",
+            "actualArrow": "10",
+            "actualBreakpoint": "7"
+          }
+        ]
+      }
+    ]
+  }
+}
