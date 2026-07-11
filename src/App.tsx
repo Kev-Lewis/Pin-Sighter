@@ -39,6 +39,7 @@ import {
   deriveOptions,
   resolveFilters,
   type StatsFilters,
+  type TimeFramePreset,
 } from "./lib/statsFilters";
 
 // Types
@@ -8114,18 +8115,6 @@ function StatsPage({
   const usesSetFilter =
     (usesEventFilter && selectedEventName !== "All") ||
     selectedCompetition === "Open";
-  const hasFocusedStatsFilter =
-    selectedBowler !== "All" ||
-    selectedBakerBowler !== "All" ||
-    selectedBall !== "All" ||
-    selectedCompetition !== "All" ||
-    selectedEventName !== "All" ||
-    selectedCenter !== "All" ||
-    selectedLane !== "All" ||
-    selectedPattern !== "All" ||
-    selectedEventStage !== "All" ||
-    selectedSetKey !== "All" ||
-    selectedGameNumber !== "All";
   const isIndividualBowlerFilter =
     selectedBowler !== "All" && !isBakerTeamSelection;
   const bowlerHandednessByName = useMemo(
@@ -8190,8 +8179,29 @@ function StatsPage({
   function updateFilters(patch: Partial<StatsFilters>) {
     const draft: StatsFilters = { ...filters, ...patch };
     const draftOptions = deriveOptions(savedGames, draft, now);
-    const { filters: resolved } = resolveFilters(draft, draftOptions);
+    const { filters: resolved, cleared } = resolveFilters(draft, draftOptions);
     setFilters(resolved);
+
+    if (cleared.length > 0) {
+      const labels: Record<string, string> = {
+        selection: "Scope",
+        bakerBowler: "Baker Bowler",
+        ball: "Ball",
+        competition: "Competition",
+        eventName: "Event",
+        eventStage: "Week / Day",
+        center: "Center",
+        lane: "Lane",
+        pattern: "Pattern",
+        set: "Set",
+        game: "Game",
+      };
+      showStatsToast(
+        `Reset ${cleared
+          .map((key) => labels[key] ?? key)
+          .join(", ")} — no longer available with the current filters.`
+      );
+    }
   }
 
   const bakerTeamGames = filteredGames.filter(
@@ -10324,6 +10334,66 @@ function StatsPage({
                 </select>
               </label>
 
+              <label>
+                Time Frame
+                <select
+                  value={filters.timeFrame.preset}
+                  onChange={(event) =>
+                    updateFilters({
+                      timeFrame: {
+                        ...filters.timeFrame,
+                        preset: event.target.value as TimeFramePreset,
+                      },
+                    })
+                  }
+                >
+                  <option value="all">All time</option>
+                  <option value="thisWeek">This week</option>
+                  <option value="thisMonth">This month</option>
+                  <option value="thisYear">This year</option>
+                  <option value="last7">Last 7 days</option>
+                  <option value="last30">Last 30 days</option>
+                  <option value="last90">Last 90 days</option>
+                  <option value="custom">Custom range…</option>
+                </select>
+              </label>
+
+              {filters.timeFrame.preset === "custom" && (
+                <>
+                  <label>
+                    From
+                    <input
+                      type="date"
+                      value={filters.timeFrame.from ?? ""}
+                      onChange={(event) =>
+                        updateFilters({
+                          timeFrame: {
+                            ...filters.timeFrame,
+                            from: event.target.value || null,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    To
+                    <input
+                      type="date"
+                      value={filters.timeFrame.to ?? ""}
+                      onChange={(event) =>
+                        updateFilters({
+                          timeFrame: {
+                            ...filters.timeFrame,
+                            to: event.target.value || null,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              )}
+
             </div>
 
               <div className="stats-action-row">
@@ -10558,16 +10628,10 @@ function StatsPage({
               <small>View Details</small>
             </button>
 
-            {!hasFocusedStatsFilter && (
-              <p className="helper-text overview-default-note">
-                Select a filter to reveal the applicable breakdown sections for
-                the current view.
-              </p>
-            )}
             </div>
           </details>
 
-          {hasFocusedStatsFilter && (
+          {(
             <>
           {!isBakerTeamSelection && (
           <details className="stats-table-card stats-collapsible-card">
