@@ -99,8 +99,7 @@ including the Stats filtering & export redesign.
 
 ## License
 
-_No license yet — all rights reserved. Add a `LICENSE` file to set explicit
-terms (e.g. MIT to allow reuse)._
+_No license yet — all rights reserved.
 
 ---
 
