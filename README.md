@@ -10,9 +10,8 @@ no account, no server, no tracking.
 
 🎳 **Live app:** https://pin-sighter.kevinlewis.net · **About:** https://kevinlewis.net/pin-sighter
 
-<!-- Add a screenshot or short GIF and uncomment:
+
 ![Pin-Sighter Stats screen](docs/screenshot.png)
--->
 
 ---
 
@@ -99,8 +98,7 @@ including the Stats filtering & export redesign.
 
 ## License
 
-_No license yet — all rights reserved. Add a `LICENSE` file to set explicit
-terms (e.g. MIT to allow reuse)._
+No license yet — all rights reserved.
 
 ---
 
