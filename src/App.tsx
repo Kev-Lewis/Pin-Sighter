@@ -41,6 +41,7 @@ import {
   type StatsFilters,
   type TimeFramePreset,
 } from "./lib/statsFilters";
+import { utils as xlsxUtils, write as xlsxWrite } from "xlsx";
 
 // Types
 // ==================
@@ -8662,8 +8663,17 @@ function StatsPage({
   }
 
   function getStatsExportFilters() {
+    const timeFrame = filters.timeFrame;
+    const timeFrameToken =
+      timeFrame.preset === "all"
+        ? ""
+        : timeFrame.preset === "custom"
+        ? `${timeFrame.from || "from"}-to-${timeFrame.to || "now"}`
+        : timeFrame.preset;
+
     return {
       selectedBowler,
+      selectedBakerBowler,
       selectedBall,
       selectedCompetition,
       selectedEventName,
@@ -8673,6 +8683,7 @@ function StatsPage({
       selectedEventStage,
       selectedSetKey,
       selectedGameNumber,
+      timeFrame: timeFrameToken,
     };
   }
 
@@ -8682,7 +8693,7 @@ function StatsPage({
 
   function getExportExtension() {
     if (exportFormat === "excel") {
-      return "xls";
+      return "xlsx";
     }
 
     if (exportFormat === "pdf") {
@@ -8694,11 +8705,11 @@ function StatsPage({
 
   function getExportFormatLabel() {
     if (exportFormat === "excel") {
-      return "Excel-compatible XLS";
+      return "Excel workbook (.xlsx)";
     }
 
     if (exportFormat === "pdf") {
-      return "PDF / Print";
+      return "Print / Save as PDF";
     }
 
     return exportFormat.toUpperCase();
@@ -8839,10 +8850,49 @@ function StatsPage({
     });
   }
 
+  function describeScopeLabel() {
+    if (filters.mode === "baker") {
+      const team =
+        filters.selection === "All"
+          ? "All teams"
+          : filters.selection.replace(/^Baker Team:\s*/, "");
+      return filters.bakerBowler !== "All"
+        ? `Baker — ${team} — ${filters.bakerBowler}`
+        : `Baker — ${team}`;
+    }
+    if (filters.mode === "individual") {
+      return filters.selection === "All"
+        ? "Individual — all bowlers"
+        : `Individual — ${filters.selection}`;
+    }
+    return "All bowlers";
+  }
+
+  function describeTimeFrameLabel() {
+    const timeFrame = filters.timeFrame;
+    if (timeFrame.preset === "custom") {
+      return `${timeFrame.from || "…"} to ${timeFrame.to || "…"}`;
+    }
+    const presetLabels: Record<string, string> = {
+      all: "All time",
+      thisWeek: "This week",
+      thisMonth: "This month",
+      thisYear: "This year",
+      last7: "Last 7 days",
+      last30: "Last 30 days",
+      last90: "Last 90 days",
+    };
+    return presetLabels[timeFrame.preset] ?? "All time";
+  }
+
   function getActiveFilterRows() {
-    const filters = [
-      ["Bowler / Baker Team", selectedBowler],
-      ["Baker Bowler", selectedBakerBowler],
+    const rows: (string | number)[][] = [["Scope", describeScopeLabel()]];
+
+    if (filters.timeFrame.preset !== "all") {
+      rows.push(["Time Frame", describeTimeFrameLabel()]);
+    }
+
+    const conditionalRows = [
       ["Ball", selectedBall],
       ["Competition", selectedCompetition],
       ["League / Tournament", selectedEventName],
@@ -8852,9 +8902,9 @@ function StatsPage({
       ["Bowling Center", selectedCenter],
       ["Lane / Pair", selectedLane],
       ["Pattern", selectedPattern],
-    ];
+    ].filter(([, value]) => value !== "All");
 
-    return filters.filter(([, value]) => value !== "All");
+    return [...rows, ...conditionalRows];
   }
 
   function getOverviewExportRows() {
@@ -9632,7 +9682,9 @@ function StatsPage({
     rows.push([]);
   }
 
-  function buildSelectedCsv(sections: StatsExportSections) {
+  function buildStatsExportRows(
+    sections: StatsExportSections
+  ): (string | number)[][] {
     const rows: (string | number)[][] = [];
 
     if (sections.overview) {
@@ -9852,7 +9904,13 @@ function StatsPage({
       );
     }
 
-    return rows.map((row) => row.map((cell) => escapeCsv(cell)).join(",")).join("\n");
+    return rows;
+  }
+
+  function buildSelectedCsv(sections: StatsExportSections) {
+    return buildStatsExportRows(sections)
+      .map((row) => row.map((cell) => escapeCsv(cell)).join(","))
+      .join("\n");
   }
 
   function runStatsExport() {
@@ -9873,12 +9931,26 @@ function StatsPage({
     }
 
     if (exportFormat === "excel") {
-      downloadTextFile(
-        getStatsExportFileName("xls"),
-        `\ufeff${buildStatsReportHtml({ sections: exportSections })}`,
-        "application/vnd.ms-excel;charset=utf-8"
+      const worksheet = xlsxUtils.aoa_to_sheet(
+        buildStatsExportRows(exportSections)
       );
-      showStatsToast(`Excel export created as ${getStatsExportFileName("xls")}.`);
+      const workbook = xlsxUtils.book_new();
+      xlsxUtils.book_append_sheet(workbook, worksheet, "Pin-Sighter Stats");
+      const workbookData = xlsxWrite(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+      const fileName = getStatsExportFileName("xlsx");
+      const blob = new Blob([workbookData], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      showStatsToast(`Excel workbook exported as ${fileName}.`);
       setIsExportPanelOpen(false);
       return;
     }
@@ -9897,7 +9969,7 @@ function StatsPage({
     const printWindow = window.open("", "_blank");
 
     if (!printWindow) {
-      window.alert("Allow pop-ups to export this report as a PDF.");
+      window.alert("Allow pop-ups to open the print view for this report.");
       return;
     }
 
@@ -9906,7 +9978,7 @@ function StatsPage({
       buildStatsReportHtml({ autoPrint: true, sections: exportSections })
     );
     printWindow.document.close();
-    showStatsToast("PDF print window opened.");
+    showStatsToast('Print view opened — choose "Save as PDF" to keep a copy.');
     setIsExportPanelOpen(false);
   }
 
@@ -10498,9 +10570,9 @@ function StatsPage({
                       }
                     >
                       <option value="html">HTML Report</option>
-                      <option value="pdf">PDF / Print</option>
+                      <option value="pdf">Print / Save as PDF</option>
                       <option value="csv">CSV</option>
-                      <option value="excel">Excel-compatible XLS</option>
+                      <option value="excel">Excel Workbook (.xlsx)</option>
                     </select>
                   </label>
 
@@ -10516,9 +10588,21 @@ function StatsPage({
                 </div>
 
                 <div className="export-file-preview">
-                  <strong>File Name Preview</strong>
-                  <code>{getStatsExportFileName(getExportExtension())}</code>
-                  <p>{getExportFormatLabel()}</p>
+                  {exportFormat === "pdf" ? (
+                    <>
+                      <strong>Output</strong>
+                      <p>
+                        Opens your browser's print dialog — choose “Save as PDF”
+                        to keep a copy.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <strong>File Name Preview</strong>
+                      <code>{getStatsExportFileName(getExportExtension())}</code>
+                      <p>{getExportFormatLabel()}</p>
+                    </>
+                  )}
                 </div>
 
                 <div className="export-preset-row">
@@ -12003,6 +12087,7 @@ const statsExportSectionOptions: Array<{
 function buildStatsExportFileName(
   filters: {
     selectedBowler: string;
+    selectedBakerBowler?: string;
     selectedBall: string;
     selectedCompetition: string;
     selectedEventName: string;
@@ -12012,12 +12097,16 @@ function buildStatsExportFileName(
     selectedEventStage: string;
     selectedSetKey: string;
     selectedGameNumber: string;
+    timeFrame?: string;
   },
   extension = "csv"
 ) {
   const activeFilterParts = [
     "pin-sighter-stats",
     filters.selectedBowler !== "All" ? filters.selectedBowler : "",
+    filters.selectedBakerBowler && filters.selectedBakerBowler !== "All"
+      ? filters.selectedBakerBowler
+      : "",
     filters.selectedBall !== "All" ? filters.selectedBall : "",
     filters.selectedCompetition !== "All" ? filters.selectedCompetition : "",
     filters.selectedEventName !== "All" ? filters.selectedEventName : "",
@@ -12029,6 +12118,7 @@ function buildStatsExportFileName(
     filters.selectedGameNumber !== "All"
       ? `game-${filters.selectedGameNumber}`
       : "",
+    filters.timeFrame ? filters.timeFrame : "",
   ]
     .filter(Boolean)
     .map((part) =>
