@@ -251,3 +251,97 @@ export function calculateScoresForGame(
     };
   });
 }
+
+// =============================================================================
+// Scorecard roll marks + spare-leave parsing — presentation helpers extracted
+// from App.tsx so the score-grid / pin-deck components can share them (and so
+// they can be unit-tested). Pure; typed against the minimal ScoringFrame.
+// =============================================================================
+
+export type ScoreMark = {
+  value: string;
+  isSplit?: boolean;
+};
+
+/** Format a shot's pin count as a scorecard mark ("X" for a strike, "-" for a miss). */
+export function formatPinfallMark(
+  value: number,
+  options?: { isStrikeShot?: boolean }
+): string {
+  if (options?.isStrikeShot && value === 10) {
+    return "X";
+  }
+  if (value === 0) {
+    return "-";
+  }
+  return String(value);
+}
+
+export function createScoreMark(value: string, isSplit = false): ScoreMark {
+  return { value, isSplit };
+}
+
+/** The roll marks (X, /, -, split flags) for a single frame, 10th-frame aware. */
+export function getFrameMarks(frame: ScoringFrame): ScoreMark[] {
+  const first = frame.firstShotKnockedPins.length;
+  const second = frame.secondShotKnockedPins.length;
+  const third = frame.thirdShotKnockedPins.length;
+  const firstShotSplit = first < 10 && isSplitLeave(frame.firstShotKnockedPins);
+
+  if (frame.frameNumber === 10) {
+    const firstMark = createScoreMark(
+      first === 10 ? "X" : formatPinfallMark(first),
+      firstShotSplit
+    );
+    let secondMark = createScoreMark("");
+
+    if (first === 10) {
+      secondMark = createScoreMark(
+        second === 10 ? "X" : formatPinfallMark(second),
+        second < 10 && isSplitLeave(frame.secondShotKnockedPins)
+      );
+    } else {
+      secondMark = createScoreMark(
+        first + second === 10 ? "/" : formatPinfallMark(second)
+      );
+    }
+
+    let thirdMark = createScoreMark("");
+
+    if (first === 10 || first + second === 10) {
+      if (second === 10 || first + second === 10) {
+        thirdMark = createScoreMark(
+          third === 10 ? "X" : formatPinfallMark(third),
+          third < 10 && isSplitLeave(frame.thirdShotKnockedPins)
+        );
+      } else {
+        thirdMark = createScoreMark(
+          second + third === 10 ? "/" : formatPinfallMark(third)
+        );
+      }
+    }
+
+    return [firstMark, secondMark, thirdMark];
+  }
+
+  if (first === 10) {
+    return [createScoreMark(""), createScoreMark("X")];
+  }
+
+  return [
+    createScoreMark(formatPinfallMark(first), firstShotSplit),
+    createScoreMark(first + second === 10 ? "/" : formatPinfallMark(second)),
+  ];
+}
+
+/** Parse a spare-leave key ("None" or "3-6-10") into the standing pin numbers. */
+export function parseLeaveKeyPins(leave: string): number[] {
+  if (leave === "None") {
+    return [];
+  }
+  return leave
+    .split("-")
+    .map((pin) => Number(pin))
+    .filter((pin) => Number.isFinite(pin))
+    .sort((a, b) => a - b);
+}

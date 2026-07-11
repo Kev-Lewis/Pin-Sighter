@@ -8,6 +8,9 @@ import {
   scoreBowlingFrames,
   getCumulativeFrameScores,
   calculateScoresForGame,
+  formatPinfallMark,
+  getFrameMarks,
+  parseLeaveKeyPins,
   type ScoringFrame,
 } from "./scoring";
 
@@ -212,5 +215,63 @@ describe("calculateScoresForGame", () => {
     ];
     const result = calculateScoresForGame(eleven, ["Kevin"], "Singles");
     expect(result).toEqual([{ label: "Kevin", score: 90 }]);
+  });
+});
+
+// --- roll marks + leave parsing (extracted presentation helpers) -------------
+function markFrame(
+  frameNumber: number,
+  first: number[],
+  second: number[] = [],
+  third: number[] = []
+): ScoringFrame {
+  return {
+    frameNumber,
+    bowlerName: "x",
+    firstShotKnockedPins: first,
+    secondShotKnockedPins: second,
+    thirdShotKnockedPins: third,
+  };
+}
+const all = () => ALL_PINS.slice();
+
+describe("formatPinfallMark", () => {
+  it("renders a miss as '-', a gutter-strike option, and counts otherwise", () => {
+    expect(formatPinfallMark(0)).toBe("-");
+    expect(formatPinfallMark(7)).toBe("7");
+    expect(formatPinfallMark(10, { isStrikeShot: true })).toBe("X");
+    expect(formatPinfallMark(10)).toBe("10");
+  });
+});
+
+describe("getFrameMarks", () => {
+  it("marks a strike as ['', 'X'] for frames 1-9", () => {
+    expect(getFrameMarks(markFrame(3, all())).map((m) => m.value)).toEqual(["", "X"]);
+  });
+  it("marks a spare with '/'", () => {
+    const marks = getFrameMarks(markFrame(3, [1, 2, 3, 4, 5, 6, 7], [8, 9, 10]));
+    expect(marks.map((m) => m.value)).toEqual(["7", "/"]);
+  });
+  it("marks an open frame with both counts", () => {
+    const marks = getFrameMarks(markFrame(3, [1, 2, 3, 4, 5], [6, 7]));
+    expect(marks.map((m) => m.value)).toEqual(["5", "2"]);
+  });
+  it("flags a split leave on the first shot", () => {
+    // 7-10 split
+    const marks = getFrameMarks(markFrame(3, ALL_PINS.filter((p) => p !== 7 && p !== 10)));
+    expect(marks[0].isSplit).toBe(true);
+  });
+  it("handles a 10th-frame turkey as three X marks", () => {
+    const marks = getFrameMarks(markFrame(10, all(), all(), all()));
+    expect(marks.map((m) => m.value)).toEqual(["X", "X", "X"]);
+  });
+});
+
+describe("parseLeaveKeyPins", () => {
+  it("returns [] for 'None'", () => {
+    expect(parseLeaveKeyPins("None")).toEqual([]);
+  });
+  it("parses and sorts a dashed leave key", () => {
+    expect(parseLeaveKeyPins("10-3-6")).toEqual([3, 6, 10]);
   });
 });

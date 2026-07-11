@@ -21,6 +21,8 @@ import {
   scoreBowlingFrames,
   getCumulativeFrameScores,
   calculateScoresForGame,
+  getFrameMarks,
+  type ScoreMark,
 } from "./lib/scoring";
 import {
   unknownPatternId,
@@ -47,6 +49,8 @@ import { ToastMessage } from "./components/ToastMessage";
 import { EmptyStateCard } from "./components/EmptyStateCard";
 import { BoardSelect } from "./components/BoardSelect";
 import { PinDeck } from "./components/PinDeck";
+import { ScoreGrid } from "./components/ScoreGrid";
+import { StaticPinLeaveDeck } from "./components/StaticPinLeaveDeck";
 
 // Types
 // ==================
@@ -7537,30 +7541,6 @@ function formatFrameLaneLabel(
   )}`;
 }
 
-function formatPinfallMark(value: number, options?: { isStrikeShot?: boolean }) {
-  if (options?.isStrikeShot && value === 10) {
-    return "X";
-  }
-
-  if (value === 0) {
-    return "-";
-  }
-
-  return String(value);
-}
-
-type ScoreMark = {
-  value: string;
-  isSplit?: boolean;
-};
-
-function createScoreMark(value: string, isSplit = false): ScoreMark {
-  return {
-    value,
-    isSplit,
-  };
-}
-
 function formatScoreMarksForExport(marks: ScoreMark[]) {
   const markText = marks.map((mark) => mark.value).filter(Boolean).join("");
 
@@ -7592,193 +7572,6 @@ function getUniqueBallSummary(entries: FrameEntry[]) {
   return uniqueBalls.length > 0 ? uniqueBalls.join(", ") : "";
 }
 
-function getFrameMarks(frame: FrameEntry): ScoreMark[] {
-  const first = frame.firstShotKnockedPins.length;
-  const second = frame.secondShotKnockedPins.length;
-  const third = frame.thirdShotKnockedPins.length;
-  const firstShotSplit = first < 10 && isSplitLeave(frame.firstShotKnockedPins);
-
-  if (frame.frameNumber === 10) {
-    const firstMark = createScoreMark(
-      first === 10 ? "X" : formatPinfallMark(first),
-      firstShotSplit
-    );
-    let secondMark = createScoreMark("");
-
-    if (first === 10) {
-      secondMark = createScoreMark(
-        second === 10 ? "X" : formatPinfallMark(second),
-        second < 10 && isSplitLeave(frame.secondShotKnockedPins)
-      );
-    } else {
-      secondMark = createScoreMark(
-        first + second === 10 ? "/" : formatPinfallMark(second)
-      );
-    }
-
-    let thirdMark = createScoreMark("");
-
-    if (first === 10 || first + second === 10) {
-      if (second === 10 || first + second === 10) {
-        thirdMark = createScoreMark(
-          third === 10 ? "X" : formatPinfallMark(third),
-          third < 10 && isSplitLeave(frame.thirdShotKnockedPins)
-        );
-      } else {
-        thirdMark = createScoreMark(
-          second + third === 10 ? "/" : formatPinfallMark(third)
-        );
-      }
-    }
-
-    return [firstMark, secondMark, thirdMark];
-  }
-
-  if (first === 10) {
-    return [createScoreMark(""), createScoreMark("X")];
-  }
-
-  return [
-    createScoreMark(formatPinfallMark(first), firstShotSplit),
-    createScoreMark(first + second === 10 ? "/" : formatPinfallMark(second)),
-  ];
-}
-
-// Score Grid
-// ==================
-
-function ScoreRollMark({ mark }: { mark?: ScoreMark }) {
-  return (
-    <span className={mark?.isSplit ? "split-score-mark" : ""}>
-      {mark?.value ?? ""}
-    </span>
-  );
-}
-
-function ScoreGrid({
-  title,
-  entries,
-}: {
-  title: string;
-  entries: FrameEntry[];
-}) {
-  const framesByNumber = new Map<number, FrameEntry>();
-
-  entries.forEach((entry) => {
-    framesByNumber.set(entry.frameNumber, entry);
-  });
-
-  const orderedFrames = Array.from(framesByNumber.values()).sort(
-    (a, b) => a.frameNumber - b.frameNumber
-  );
-  const cumulativeScores = getCumulativeFrameScores(orderedFrames);
-  const scoreGridId = `score-grid-${title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")}`;
-  const scoreGridDescriptionId = `${scoreGridId}-description`;
-
-  return (
-    <section className="score-grid-card" aria-describedby={scoreGridDescriptionId}>
-      <h4 id={scoreGridId}>{title}</h4>
-      <p className="sr-only" id={scoreGridDescriptionId}>
-        Score grid for {title}. Each frame shows the frame number, roll marks,
-        and cumulative score.
-      </p>
-
-      <div className="score-grid" role="table" aria-labelledby={scoreGridId}>
-        {Array.from({ length: 10 }, (_, index) => {
-          const frameNumber = index + 1;
-          const frame = framesByNumber.get(frameNumber);
-          const marks = frame ? getFrameMarks(frame) : [];
-          const cumulativeScore = cumulativeScores[index] ?? "";
-
-          return (
-            <div
-              className="score-frame"
-              key={frameNumber}
-              role="cell"
-              aria-label={`Frame ${frameNumber}: ${
-                marks.map((mark) => mark.value).filter(Boolean).join(" ") ||
-                "no marks"
-              }, cumulative score ${cumulativeScore || "not scored"}`}
-            >
-              <div className="score-frame-number">{frameNumber}</div>
-
-              <div
-                className={
-                  frameNumber === 10
-                    ? "score-rolls tenth-frame-rolls"
-                    : "score-rolls"
-                }
-              >
-                {frameNumber === 10 ? (
-                  <>
-                    <ScoreRollMark mark={marks[0]} />
-                    <ScoreRollMark mark={marks[1]} />
-                    <ScoreRollMark mark={marks[2]} />
-                  </>
-                ) : (
-                  <>
-                    <ScoreRollMark mark={marks[0]} />
-                    <ScoreRollMark mark={marks[1]} />
-                  </>
-                )}
-              </div>
-
-              <div className="score-total">{cumulativeScore}</div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-
-// Static Pin Deck
-// ==================
-
-function StaticPinLeaveDeck({ leave }: { leave: string }) {
-  const pins = [
-    { number: 7, left: 15, top: 15 },
-    { number: 8, left: 38, top: 15 },
-    { number: 9, left: 62, top: 15 },
-    { number: 10, left: 85, top: 15 },
-    { number: 4, left: 27, top: 38 },
-    { number: 5, left: 50, top: 38 },
-    { number: 6, left: 73, top: 38 },
-    { number: 2, left: 38, top: 61 },
-    { number: 3, left: 62, top: 61 },
-    { number: 1, left: 50, top: 84 },
-  ];
-  const standingPins = parseLeaveKeyPins(leave);
-
-  return (
-    <div className="mini-pin-deck" aria-label={`Leave ${leave}`}>
-      {pins.map((pin) => {
-        const isStanding = standingPins.includes(pin.number);
-
-        return (
-          <span
-            key={pin.number}
-            className={`mini-pin ${isStanding ? "standing" : ""}`}
-            style={{
-              left: `${pin.left}%`,
-              top: `${pin.top}%`,
-            }}
-            title={
-              isStanding
-                ? `Pin ${pin.number} left`
-                : `Pin ${pin.number} cleared`
-            }
-          >
-            {pin.number}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
 
 // Stats
 // ==================
@@ -13728,18 +13521,6 @@ function getSpareLeaveKey(entry: FrameEntry) {
   const leavePins = getSpareLeavePins(entry);
 
   return leavePins.length > 0 ? leavePins.join("-") : "None";
-}
-
-function parseLeaveKeyPins(leave: string) {
-  if (leave === "None") {
-    return [];
-  }
-
-  return leave
-    .split("-")
-    .map((pin) => Number(pin))
-    .filter((pin) => Number.isFinite(pin))
-    .sort((a, b) => a - b);
 }
 
 function calculateSpareLeaveSummary(entries: FrameEntry[]) {
