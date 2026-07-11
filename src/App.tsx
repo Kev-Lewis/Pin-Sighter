@@ -22,6 +22,17 @@ import {
   getCumulativeFrameScores,
   calculateScoresForGame,
 } from "./lib/scoring";
+import {
+  unknownPatternId,
+  unknownPattern,
+  currentBackupVersion,
+  isUnknownPattern,
+  ensureUnknownPattern,
+  createPinSighterBackup,
+  getImportedBackupData,
+  type PinSighterBackupData,
+  type PinSighterBackup,
+} from "./lib/backup";
 
 // Types
 // ==================
@@ -61,7 +72,7 @@ type BowlingBall = {
   notes: string;
 };
 
-type Bowler = {
+export type Bowler = {
   id: number;
   name: string;
   handedness: Handedness;
@@ -69,14 +80,14 @@ type Bowler = {
   arsenal: BowlingBall[];
 };
 
-type Center = {
+export type Center = {
   id: number;
   name: string;
   laneCount: number;
   notes: string;
 };
 
-type Pattern = {
+export type Pattern = {
   id: number;
   name: string;
   length: string;
@@ -94,7 +105,7 @@ type Pattern = {
 
 type EventScheduleUnit = "Weeks" | "Days";
 
-type EventSetup = {
+export type EventSetup = {
   id: number;
   name: string;
   eventType: "League" | "Tournament";
@@ -146,7 +157,7 @@ type CompletedGameSummary = {
   entries: FrameEntry[];
 };
 
-type SavedEventLog = {
+export type SavedEventLog = {
   key: string;
   eventId: number;
   eventName: string;
@@ -154,7 +165,7 @@ type SavedEventLog = {
   stageLabel: string;
 };
 
-type SavedGameRecord = {
+export type SavedGameRecord = {
   id: string;
   sessionId: string;
   createdAt?: string;
@@ -262,27 +273,6 @@ type DataManagementPageProps = {
   savedGames: SavedGameRecord[];
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
   backupData: PinSighterBackupData;
-};
-
-type PinSighterBackupData = {
-  bowlers: Bowler[];
-  centers: Center[];
-  patterns: Pattern[];
-  events: EventSetup[];
-  savedEventLogs: SavedEventLog[];
-  savedGames: SavedGameRecord[];
-};
-
-type PinSighterBackup = {
-  appName: "Pin-Sighter";
-  version: number;
-  exportedAt: string;
-  data: PinSighterBackupData;
-};
-
-type PinSighterImportResult = {
-  data: PinSighterBackupData;
-  warnings: string[];
 };
 
 type SetMetadataDraft = {
@@ -419,19 +409,6 @@ const defaultCenters: Center[] = [
   { id: 3, name: "Temporary 24 Lane Center", laneCount: 24, notes: "" },
 ];
 
-const unknownPatternId = 0;
-
-const unknownPattern: Pattern = {
-  id: unknownPatternId,
-  name: "Unknown",
-  length: "",
-  volume: "",
-  ratio: "",
-  dropBrush: "",
-  source: "",
-  notes: "Default fallback pattern when the condition is unknown.",
-};
-
 const defaultPatterns: Pattern[] = [
   unknownPattern,
   {
@@ -455,24 +432,6 @@ const defaultPatterns: Pattern[] = [
     notes: "",
   },
 ];
-
-function isUnknownPattern(pattern: Pattern) {
-  return pattern.id === unknownPatternId;
-}
-
-function ensureUnknownPattern(patterns: Pattern[]) {
-  const editablePatterns = patterns.filter((pattern) => {
-    const normalizedName = pattern.name.trim().toLowerCase();
-
-    return (
-      pattern.id !== unknownPatternId &&
-      normalizedName !== "unknown" &&
-      normalizedName !== "unknown / house shot"
-    );
-  });
-
-  return [{ ...unknownPattern }, ...editablePatterns];
-}
 
 function isDuelPattern(pattern: Pattern | undefined) {
   return pattern?.isDuelPattern === true;
@@ -1035,8 +994,6 @@ const storageKeys = {
   setupComplete: "pin-sighter:setup-complete:v1",
 };
 
-const currentBackupVersion = 1;
-const minimumSupportedBackupVersion = 1;
 const dataFolderName = "data";
 const backupFolderName = "back-ups";
 const appDataFileName = "pin-sighter-data.json";
@@ -1108,18 +1065,6 @@ function clearPinSighterLocalStorage() {
       localStorage.removeItem(key);
     }
   });
-}
-
-function createPinSighterBackup(data: PinSighterBackupData): PinSighterBackup {
-  return {
-    appName: "Pin-Sighter",
-    version: currentBackupVersion,
-    exportedAt: new Date().toISOString(),
-    data: {
-      ...data,
-      patterns: ensureUnknownPattern(data.patterns),
-    },
-  };
 }
 
 async function loadTauriFileSystem() {
@@ -2129,66 +2074,6 @@ function DataManagementPage({
       </section>
     </>
   );
-}
-
-function getImportedBackupData(
-  parsedBackup: PinSighterBackup | PinSighterBackupData
-): PinSighterImportResult {
-  const warnings: string[] = [];
-  const hasBackupWrapper = "data" in parsedBackup;
-  const backupVersion = hasBackupWrapper ? parsedBackup.version ?? 0 : 0;
-  const importedData = hasBackupWrapper ? parsedBackup.data : parsedBackup;
-
-  if (!hasBackupWrapper) {
-    warnings.push("Legacy backup format detected.");
-  } else if (backupVersion < minimumSupportedBackupVersion) {
-    warnings.push(
-      `Backup version ${backupVersion} is older than the supported version.`
-    );
-  } else if (backupVersion > currentBackupVersion) {
-    warnings.push(
-      `Backup version ${backupVersion} is newer than this app version, so newer fields may be ignored.`
-    );
-  }
-
-  return {
-    data: normalizeImportedBackupData(importedData, warnings),
-    warnings,
-  };
-}
-
-function normalizeImportedBackupData(
-  importedData: Partial<PinSighterBackupData>,
-  warnings: string[]
-): PinSighterBackupData {
-  return {
-    bowlers: getImportedArray(importedData, "bowlers", warnings),
-    centers: getImportedArray(importedData, "centers", warnings),
-    patterns: ensureUnknownPattern(
-      getImportedArray(importedData, "patterns", warnings)
-    ),
-    events: getImportedArray(importedData, "events", warnings),
-    savedEventLogs: getImportedArray(
-      importedData,
-      "savedEventLogs",
-      warnings
-    ),
-    savedGames: getImportedArray(importedData, "savedGames", warnings),
-  };
-}
-
-function getImportedArray<K extends keyof PinSighterBackupData>(
-  importedData: Partial<PinSighterBackupData>,
-  key: K,
-  warnings: string[]
-): PinSighterBackupData[K] {
-  if (Array.isArray(importedData[key])) {
-    return importedData[key] as PinSighterBackupData[K];
-  }
-
-  warnings.push(`Missing or invalid ${key}; using an empty list.`);
-
-  return [] as unknown as PinSighterBackupData[K];
 }
 
 function downloadJsonBackup(fileName: string, backup: PinSighterBackup) {
