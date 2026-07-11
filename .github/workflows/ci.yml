@@ -40,8 +40,8 @@ jobs:
         run: npm run build   # tsc (strict, noEmit) && vite build
 
       # --- Growth slots (uncomment as each lands) ---
-      # - name: Lint
-      #   run: npm run lint
+      - name: Lint
+        run: npm run lint
       # - name: Unit tests
       #   run: npm run test -- --run
       # - name: End-to-end tests

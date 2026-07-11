@@ -12,6 +12,16 @@ import {
 } from "react";
 import "./App.css";
 import "./theme.css";
+import {
+  ALL_PINS,
+  getPinsStanding,
+  isSplitLeave,
+  getFrameResult,
+  getFrameRolls,
+  scoreBowlingFrames,
+  getCumulativeFrameScores,
+  calculateScoresForGame,
+} from "./lib/scoring";
 
 // Types
 // ==================
@@ -676,8 +686,6 @@ const handednessOptions: Handedness[] = ["Right", "Left"];
 
 const footBoardOptions = Array.from({ length: 81 }, (_, index) => index - 20);
 const laneBoardOptions = Array.from({ length: 39 }, (_, index) => index + 1);
-const ALL_PINS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
 const emptyBallForm: NewBallFormState = {
   name: "",
   brand: "",
@@ -7538,75 +7546,6 @@ function BoardSelect({ label, value, options, onChange }: BoardSelectProps) {
 // Scoring Helpers
 // ==================
 
-function getPinsStanding(knockedPins: number[]) {
-  return ALL_PINS.filter((pin) => !knockedPins.includes(pin));
-}
-
-function isSplitLeave(knockedPins: number[]) {
-  const standingPins = getPinsStanding(knockedPins);
-
-  if (!knockedPins.includes(1) || standingPins.length < 2) {
-    return false;
-  }
-
-  const adjacency: Record<number, number[]> = {
-    1: [2, 3],
-    2: [1, 3, 4, 5],
-    3: [1, 2, 5, 6],
-    4: [2, 5, 7, 8],
-    5: [2, 3, 4, 6, 8, 9],
-    6: [3, 5, 9, 10],
-    7: [4, 8],
-    8: [4, 5, 7, 9],
-    9: [5, 6, 8, 10],
-    10: [6, 9],
-  };
-
-  const unvisited = new Set(standingPins);
-  let groups = 0;
-
-  while (unvisited.size > 0) {
-    groups += 1;
-
-    const firstPin = Array.from(unvisited)[0];
-    const stack = [firstPin];
-    unvisited.delete(firstPin);
-
-    while (stack.length > 0) {
-      const currentPin = stack.pop();
-
-      if (currentPin === undefined) {
-        continue;
-      }
-
-      adjacency[currentPin]
-        .filter((neighbor) => unvisited.has(neighbor))
-        .forEach((neighbor) => {
-          unvisited.delete(neighbor);
-          stack.push(neighbor);
-        });
-    }
-  }
-
-  return groups > 1;
-}
-
-function getFrameResult(
-  isStrike: boolean,
-  pinsStandingAfterFrame: number[],
-  isSpare = false
-) {
-  if (isStrike) {
-    return "Strike";
-  }
-
-  if (isSpare || pinsStandingAfterFrame.length === 0) {
-    return "Spare";
-  }
-
-  return "Open";
-}
-
 
 function extractEventStageNumber(eventStageLabel: string) {
   const match = eventStageLabel.match(/\d+/);
@@ -7767,133 +7706,6 @@ function formatFrameLaneLabel(
     startingLane,
     frameNumber
   )}`;
-}
-
-function calculateScoresForGame(
-  entries: FrameEntry[],
-  bowlerNames: string[],
-  format: BowlingFormat
-): CompletedGameScore[] {
-  if (format === "Baker") {
-    return [
-      {
-        label: "Baker Team",
-        score: scoreBowlingFrames(entries),
-      },
-    ];
-  }
-
-  return bowlerNames.map((bowlerName) => {
-    const bowlerFrames = entries
-      .filter((entry) => entry.bowlerName === bowlerName)
-      .sort((a, b) => a.frameNumber - b.frameNumber)
-      .slice(0, 10);
-
-    return {
-      label: bowlerName,
-      score: scoreBowlingFrames(bowlerFrames),
-    };
-  });
-}
-
-function getFrameRolls(frame: FrameEntry) {
-  const firstShot = frame.firstShotKnockedPins.length;
-  const secondShot = frame.secondShotKnockedPins.length;
-  const thirdShot = frame.thirdShotKnockedPins.length;
-
-  if (frame.frameNumber === 10) {
-    if (firstShot === 10 || firstShot + secondShot === 10) {
-      return [firstShot, secondShot, thirdShot];
-    }
-
-    return [firstShot, secondShot];
-  }
-
-  if (firstShot === 10) {
-    return [10];
-  }
-
-  return [firstShot, secondShot];
-}
-
-function scoreBowlingFrames(frames: FrameEntry[]) {
-  const sortedFrames = [...frames].sort((a, b) => a.frameNumber - b.frameNumber);
-  const rolls = sortedFrames.flatMap(getFrameRolls);
-
-  let score = 0;
-  let rollIndex = 0;
-
-  for (let frame = 0; frame < 10; frame += 1) {
-    const firstRoll = rolls[rollIndex] ?? 0;
-    const secondRoll = rolls[rollIndex + 1] ?? 0;
-    const thirdRoll = rolls[rollIndex + 2] ?? 0;
-
-    if (firstRoll === 10) {
-      score += 10 + secondRoll + thirdRoll;
-      rollIndex += 1;
-    } else if (firstRoll + secondRoll === 10) {
-      score += 10 + thirdRoll;
-      rollIndex += 2;
-    } else {
-      score += firstRoll + secondRoll;
-      rollIndex += 2;
-    }
-  }
-
-  return score;
-}
-
-function getCumulativeFrameScores(frames: FrameEntry[]) {
-  const sortedFrames = [...frames].sort((a, b) => a.frameNumber - b.frameNumber);
-  const rolls = sortedFrames.flatMap(getFrameRolls);
-  const cumulativeScores: (number | "")[] = [];
-
-  let score = 0;
-  let rollIndex = 0;
-
-  for (let frameIndex = 0; frameIndex < sortedFrames.length; frameIndex += 1) {
-    const frame = sortedFrames[frameIndex];
-    const firstRoll = rolls[rollIndex];
-    const secondRoll = rolls[rollIndex + 1];
-    const thirdRoll = rolls[rollIndex + 2];
-
-    if (firstRoll === undefined) {
-      cumulativeScores.push("");
-      break;
-    }
-
-    if (frame.frameNumber === 10) {
-      score += getFrameRolls(frame).reduce((sum, roll) => sum + roll, 0);
-      cumulativeScores.push(score);
-      break;
-    }
-
-    if (firstRoll === 10) {
-      if (secondRoll === undefined || thirdRoll === undefined) {
-        cumulativeScores.push("");
-      } else {
-        score += 10 + secondRoll + thirdRoll;
-        cumulativeScores.push(score);
-      }
-
-      rollIndex += 1;
-    } else if (secondRoll !== undefined && firstRoll + secondRoll === 10) {
-      if (thirdRoll === undefined) {
-        cumulativeScores.push("");
-      } else {
-        score += 10 + thirdRoll;
-        cumulativeScores.push(score);
-      }
-
-      rollIndex += 2;
-    } else {
-      score += firstRoll + (secondRoll ?? 0);
-      cumulativeScores.push(score);
-      rollIndex += 2;
-    }
-  }
-
-  return cumulativeScores;
 }
 
 function formatPinfallMark(value: number, options?: { isStrikeShot?: boolean }) {
