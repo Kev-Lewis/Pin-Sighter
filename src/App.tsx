@@ -7978,6 +7978,31 @@ function StaticPinLeaveDeck({ leave }: { leave: string }) {
 // Stats
 // ==================
 
+// When a Stats filter changes, these dependent filters are reset to "All" so
+// their controls collapse and can't hold a selection that no longer fits.
+type ResettableFilterKey =
+  | "selection"
+  | "bakerBowler"
+  | "ball"
+  | "eventName"
+  | "eventStage"
+  | "set"
+  | "game"
+  | "lane";
+
+const statsFilterDependents: Record<string, ResettableFilterKey[]> = {
+  mode: ["selection", "bakerBowler", "ball"],
+  selection: ["bakerBowler", "ball"],
+  bakerBowler: ["ball"],
+  competition: ["eventName", "eventStage", "set", "game", "lane"],
+  eventName: ["eventStage", "set", "game"],
+  eventStage: ["set", "game"],
+  set: ["game"],
+  center: ["lane", "set", "game"],
+  pattern: ["set", "game"],
+  lane: ["set", "game"],
+};
+
 function StatsPage({
   bowlers,
   centers,
@@ -7991,6 +8016,9 @@ function StatsPage({
   const [filters, setFilters] = useState<StatsFilters>({
     ...defaultStatsFilters,
   });
+  // Bumped whenever the filters change, so the collapsible sections below
+  // remount and collapse back to their default (closed) state on any change.
+  const [filterEpoch, setFilterEpoch] = useState(0);
   const [isExportPanelOpen, setIsExportPanelOpen] = useState(false);
   const exportModalRef = useRef<HTMLElement | null>(null);
   const [selectedDetailedStat, setSelectedDetailedStat] =
@@ -8178,11 +8206,27 @@ function StatsPage({
 
   function updateFilters(patch: Partial<StatsFilters>) {
     const draft: StatsFilters = { ...filters, ...patch };
+
+    // When a field changes, proactively reset the filters that depend on it so
+    // the dependent controls below collapse instead of holding a now-moot pick.
+    // Mirrors the classic cascade (competition → event/week/set/game/lane, etc.).
+    const forced: string[] = [];
+    for (const changedKey of Object.keys(patch)) {
+      for (const child of statsFilterDependents[changedKey] ?? []) {
+        if (draft[child] !== "All") {
+          draft[child] = "All";
+          forced.push(child);
+        }
+      }
+    }
+
     const draftOptions = deriveOptions(savedGames, draft, now);
     const { filters: resolved, cleared } = resolveFilters(draft, draftOptions);
     setFilters(resolved);
+    setFilterEpoch((epoch) => epoch + 1);
 
-    if (cleared.length > 0) {
+    const resetKeys = Array.from(new Set([...forced, ...cleared]));
+    if (resetKeys.length > 0) {
       const labels: Record<string, string> = {
         selection: "Scope",
         bakerBowler: "Baker Bowler",
@@ -8197,9 +8241,7 @@ function StatsPage({
         game: "Game",
       };
       showStatsToast(
-        `Reset ${cleared
-          .map((key) => labels[key] ?? key)
-          .join(", ")} — no longer available with the current filters.`
+        `Reset ${resetKeys.map((key) => labels[key] ?? key).join(", ")}.`
       );
     }
   }
@@ -8401,6 +8443,7 @@ function StatsPage({
 
   function clearFilters() {
     setFilters({ ...defaultStatsFilters });
+    setFilterEpoch((epoch) => epoch + 1);
   }
 
   function getSetMetadataDraft(
@@ -10545,7 +10588,10 @@ function StatsPage({
             </div>
           )}
 
-          <details className="stats-collapsible-card">
+          <details
+            key={`overview-${filterEpoch}`}
+            className="stats-collapsible-card"
+          >
             <summary className="stats-section-summary">
               <div>
                 <strong>Overview</strong>
@@ -10634,7 +10680,10 @@ function StatsPage({
           {(
             <>
           {!isBakerTeamSelection && (
-          <details className="stats-table-card stats-collapsible-card">
+          <details
+            key={`bowler-${filterEpoch}`}
+            className="stats-table-card stats-collapsible-card"
+          >
             <summary className="stats-section-summary">
               <div>
                 <strong>Bowler Breakdown</strong>
@@ -10896,7 +10945,10 @@ function StatsPage({
             teamSetRows.length > 0 &&
             (selectedBowler === "All" ||
               (isBakerTeamSelection && selectedBakerBowler === "All")) && (
-            <details className="team-set-card stats-collapsible-card">
+            <details
+              key={`team-set-${filterEpoch}`}
+              className="team-set-card stats-collapsible-card"
+            >
               <summary className="stats-section-summary">
                 <div>
                   <strong>Team / Set Breakdown</strong>
@@ -10955,7 +11007,10 @@ function StatsPage({
             </details>
           )}
 
-          <details className="spare-leave-card stats-collapsible-card">
+          <details
+            key={`spare-leave-${filterEpoch}`}
+            className="spare-leave-card stats-collapsible-card"
+          >
             <summary className="stats-section-summary">
               <div>
                 <strong>Spare Leave Breakdown</strong>
@@ -11054,7 +11109,10 @@ function StatsPage({
           </details>
 
           {!isBakerTeamSelection && (
-          <details className="board-analysis-card stats-collapsible-card">
+          <details
+            key={`board-analysis-${filterEpoch}`}
+            className="board-analysis-card stats-collapsible-card"
+          >
             <summary className="stats-section-summary">
               <div>
                 <strong>Targeting Analysis</strong>
@@ -11261,6 +11319,7 @@ function StatsPage({
 
           {isBakerTeamSelection && bakerTeamGames.length > 0 && (
             <BakerStatsSection
+              key={`baker-stats-${filterEpoch}`}
               games={bakerTeamGames}
               selectedBakerBowler={selectedBakerBowler}
               selectedBall={selectedBall}
@@ -11270,7 +11329,10 @@ function StatsPage({
             </>
           )}
 
-          <details className="saved-sets-list stats-collapsible-card">
+          <details
+            key={`saved-sets-${filterEpoch}`}
+            className="saved-sets-list stats-collapsible-card"
+          >
             <summary className="stats-section-summary">
               <div>
                 <strong>Saved Sets</strong>
