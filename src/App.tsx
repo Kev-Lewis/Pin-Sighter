@@ -43,6 +43,7 @@ import {
   type StatsFilters,
   type TimeFramePreset,
 } from "./lib/statsFilters";
+import { ToastMessage } from "./components/ToastMessage";
 
 // Types
 // ==================
@@ -1291,27 +1292,6 @@ function EmptyStateCard({
       <h3>{title}</h3>
       <p>{description}</p>
     </section>
-  );
-}
-
-function ToastMessage({
-  message,
-  onDismiss,
-}: {
-  message: string;
-  onDismiss: () => void;
-}) {
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <div className="toast-message" role="status" aria-live="polite">
-      <span>{message}</span>
-      <button type="button" onClick={onDismiss} aria-label="Dismiss message">
-        ×
-      </button>
-    </div>
   );
 }
 
