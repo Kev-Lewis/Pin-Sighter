@@ -173,6 +173,9 @@ type StatsPageProps = {
   setSavedGames: Dispatch<SetStateAction<SavedGameRecord[]>>;
   savedEventLogs: SavedEventLog[];
   setSavedEventLogs: Dispatch<SetStateAction<SavedEventLog[]>>;
+  /** The app's main bowler (name), used to seed the default Individual scope.
+   *  "" = no main bowler → default all-bowlers scope. */
+  mainBowler: string;
   onContinueSavedSet: (request: ContinueSavedSetRequest) => void;
 };
 
@@ -876,6 +879,7 @@ const storageKeys = {
   appDataFileFallback: "pin-sighter:app-data-file-json:v1",
   temporaryBackup: "pin-sighter:temporary-backup-json:v1",
   setupComplete: "pin-sighter:setup-complete:v1",
+  mainBowler: "pin-sighter:main-bowler:v1",
 };
 
 const dataFolderName = "data";
@@ -903,7 +907,8 @@ function hasExistingPinSighterData() {
     if (
       storageName === "temporaryBackup" ||
       storageName === "setupComplete" ||
-      storageName === "appDataFileFallback"
+      storageName === "appDataFileFallback" ||
+      storageName === "mainBowler"
     ) {
       return false;
     }
@@ -1241,6 +1246,11 @@ function lockDocumentScroll() {
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // The chosen "main bowler" (a bowler name), or "" for the all-bowlers
+  // composite. A device preference — persisted separately from backup data.
+  const [mainBowler, setMainBowler] = useState<string>(() =>
+    loadFromLocalStorage(storageKeys.mainBowler, ""),
+  );
   const [hasCheckedAppDataFile, setHasCheckedAppDataFile] = useState(false);
   const [setupMessage, setSetupMessage] = useState("");
   const [hasCompletedSetup, setHasCompletedSetup] = useState(() =>
@@ -1425,6 +1435,12 @@ function App() {
     saveToLocalStorage(storageKeys.savedGames, savedGames);
   }, [hasCompletedSetup, hasCheckedAppDataFile, savedGames]);
 
+  // Persist the main-bowler preference (independent of the setup gate — it's a
+  // device setting, not part of the backup data).
+  useEffect(() => {
+    saveToLocalStorage(storageKeys.mainBowler, mainBowler);
+  }, [mainBowler]);
+
   useEffect(() => {
     const handleBrowserUnload = () => {
       const backup = createPinSighterBackup(backupData);
@@ -1518,6 +1534,12 @@ function App() {
       ? "Home"
       : tabs.find((tab) => tab.id === activeTab)?.label ?? "Pin-Sighter";
   const showAppChrome = hasCheckedAppDataFile && hasCompletedSetup;
+  // The main bowler only counts if it still matches a current bowler; otherwise
+  // fall back to the all-bowlers composite.
+  const effectiveMainBowler =
+    mainBowler && bowlers.some((bowler) => bowler.name === mainBowler)
+      ? mainBowler
+      : "";
 
   return (
     <main className="app-shell">
@@ -1664,6 +1686,9 @@ function App() {
               {activeTab === "home" ? (
                 <HomePage
                   savedGames={savedGames}
+                  bowlers={bowlers}
+                  mainBowler={mainBowler}
+                  onChangeMainBowler={setMainBowler}
                   onLogGame={() => requestNavigate("log-games")}
                   onOpenStats={() => requestNavigate("stats")}
                   onNewEvent={() => requestNavigate("events")}
@@ -1697,6 +1722,7 @@ function App() {
               setSavedGames={setSavedGames}
               savedEventLogs={savedEventLogs}
               setSavedEventLogs={setSavedEventLogs}
+              mainBowler={effectiveMainBowler}
               onContinueSavedSet={(request) => {
                 setContinueSavedSetRequest(request);
                 setActiveTab("log-games");
@@ -7647,11 +7673,16 @@ function StatsPage({
   savedGames,
   setSavedGames,
   setSavedEventLogs,
+  mainBowler,
   onContinueSavedSet,
 }: StatsPageProps) {
-  const [filters, setFilters] = useState<StatsFilters>({
-    ...defaultStatsFilters,
-  });
+  // Seed the scope from the app's main bowler: if one is set, open pre-scoped
+  // to that bowler (Individual). Still fully changeable afterwards.
+  const [filters, setFilters] = useState<StatsFilters>(() =>
+    mainBowler
+      ? { ...defaultStatsFilters, mode: "individual", selection: mainBowler }
+      : { ...defaultStatsFilters },
+  );
   // Bumped whenever the filters change, so the collapsible sections below
   // remount and collapse back to their default (closed) state on any change.
   const [filterEpoch, setFilterEpoch] = useState(0);
