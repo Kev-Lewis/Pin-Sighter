@@ -51,6 +51,7 @@ import { BoardSelect } from "./components/BoardSelect";
 import { PinDeck } from "./components/PinDeck";
 import { ScoreGrid } from "./components/ScoreGrid";
 import { StaticPinLeaveDeck } from "./components/StaticPinLeaveDeck";
+import { AboutPage } from "./pages/AboutPage";
 import type {
   CompetitionType,
   BowlingFormat,
@@ -289,7 +290,6 @@ const tabs: { id: Tab; label: string; wip?: boolean }[] = [
   { id: "about", label: "About" },
 ];
 
-const appVersion = "1.1.1";
 
 const defaultCenters: Center[] = [
   { id: 1, name: "Titan Bowl", laneCount: 8, notes: "School bowling center" },
@@ -1705,33 +1705,6 @@ function ComingSoonPage({
   );
 }
 
-function AboutPage() {
-  return (
-    <>
-      <h2>About Pin-Sighter</h2>
-
-      <section className="about-grid simple-about-grid">
-        <article className="about-card">
-          <h3>Version</h3>
-          <p>{appVersion}</p>
-        </article>
-
-        <article className="about-card">
-          <h3>Created By</h3>
-          <p>
-            <a
-              href="https://kevinlewis.net/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Kevin Lewis
-            </a>
-          </p>
-        </article>
-      </section>
-    </>
-  );
-}
 
 
 // Data Management
