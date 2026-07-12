@@ -1,8 +1,8 @@
 // The About page — version + author. First page lifted out of App.tsx into
-// src/pages/. The app version string lives here since this is the only place
-// it's shown; bump it when releasing.
+// src/pages/. The version string comes from the shared src/version.ts module
+// (also used by the sidebar footer) so there's one place to bump on release.
 
-const appVersion = "1.1.1";
+import { APP_VERSION } from "../version";
 
 export function AboutPage() {
   return (
@@ -12,7 +12,7 @@ export function AboutPage() {
       <section className="about-grid simple-about-grid">
         <article className="about-card">
           <h3>Version</h3>
-          <p>{appVersion}</p>
+          <p>{APP_VERSION}</p>
         </article>
 
         <article className="about-card">

@@ -52,6 +52,7 @@ import { PinDeck } from "./components/PinDeck";
 import { ScoreGrid } from "./components/ScoreGrid";
 import { StaticPinLeaveDeck } from "./components/StaticPinLeaveDeck";
 import { AboutPage } from "./pages/AboutPage";
+import { APP_VERSION } from "./version";
 import type {
   CompetitionType,
   BowlingFormat,
@@ -1244,6 +1245,7 @@ function lockDocumentScroll() {
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hasCheckedAppDataFile, setHasCheckedAppDataFile] = useState(false);
   const [setupMessage, setSetupMessage] = useState("");
   const [hasCompletedSetup, setHasCompletedSetup] = useState(() =>
@@ -1484,79 +1486,175 @@ function App() {
     setActiveTab("home");
   }
 
+  // Sidebar navigation: run the leave-guard (so in-progress scoring isn't
+  // discarded) before switching tabs, then close the mobile drawer.
+  function requestNavigate(tab: Tab) {
+    if (leaveGuardRef.current && !leaveGuardRef.current()) {
+      return;
+    }
+    setActiveTab(tab);
+    setSidebarOpen(false);
+  }
+
+  // Sidebar nav grouping (labels pulled from `tabs` so they stay in sync).
+  const navGroups: { heading?: string; ids: Tab[] }[] = [
+    { ids: ["log-games", "stats"] },
+    { heading: "Manage", ids: ["bowlers", "centers", "events", "patterns"] },
+    { heading: "Tools", ids: ["ball-seeker", "layout-visualizer", "speed-rev"] },
+    { heading: "System", ids: ["data", "about"] },
+  ];
+  const currentPageLabel =
+    activeTab === "home"
+      ? "Home"
+      : tabs.find((tab) => tab.id === activeTab)?.label ?? "Pin-Sighter";
+  const showAppChrome = hasCheckedAppDataFile && hasCompletedSetup;
+
   return (
     <main className="app-shell">
-      <section
-        className="logo-card"
-        onClick={requestGoHome}
-        aria-label="Go to Pin-Sighter home"
-      >
-        <div className="logo-title-row">
-          <img
-            src={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png`}
-            srcSet={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png 1x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-176x256.png 2x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-353x512.png 3x`}
-            alt=""
-            className="app-logo-mark"
+      {!showAppChrome ? (
+        <div className="app-onboarding">
+          <section
+            className="logo-card"
+            onClick={requestGoHome}
+            aria-label="Go to Pin-Sighter home"
+          >
+            <div className="logo-title-row">
+              <img
+                src={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png`}
+                srcSet={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png 1x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-176x256.png 2x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-353x512.png 3x`}
+                alt=""
+                className="app-logo-mark"
+                aria-hidden="true"
+              />
+              <h1>Pin-Sighter</h1>
+            </div>
+            <p>Bowling scorekeeping, set tracking, and performance reports</p>
+          </section>
+
+          {!hasCheckedAppDataFile ? (
+            <section className="setup-card">
+              <h2>Loading Pin-Sighter</h2>
+              <p>Checking for a saved app data file. This should only take a moment.</p>
+            </section>
+          ) : (
+            <section className="setup-card">
+              <h2>Set Up Pin-Sighter</h2>
+              <p>
+                If you have existing Pin-Sighter data, import your backup to restore
+                your bowlers, centers, patterns, and saved sets. Otherwise, you can
+                start empty and build your own data from scratch.
+              </p>
+
+              <ToastMessage
+                message={setupMessage}
+                onDismiss={() => setSetupMessage("")}
+              />
+
+              <div className="setup-button-row">
+                <label className="import-button setup-import-button">
+                  Import Data
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={handleSetupImportData}
+                  />
+                </label>
+                <button className="secondary-button" onClick={handleStartEmpty}>
+                  Start Empty
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      ) : (
+        <div className="shell-layout">
+          <aside className={`app-sidebar ${sidebarOpen ? "is-open" : ""}`}>
+            <button
+              type="button"
+              className="sidebar-brand"
+              onClick={() => requestNavigate("home")}
+              aria-label="Pin-Sighter home"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png`}
+                srcSet={`${import.meta.env.BASE_URL}pin-sighter-logo-mark-110x160.png 1x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-176x256.png 2x, ${import.meta.env.BASE_URL}pin-sighter-logo-mark-353x512.png 3x`}
+                alt=""
+                className="app-logo-mark"
+                aria-hidden="true"
+              />
+              <span className="sidebar-brand-name">Pin-Sighter</span>
+            </button>
+
+            <nav className="sidebar-nav" aria-label="Primary">
+              <button
+                type="button"
+                className={`sidebar-link ${activeTab === "home" ? "is-active" : ""}`}
+                onClick={() => requestNavigate("home")}
+                aria-current={activeTab === "home" ? "page" : undefined}
+              >
+                <span className="sidebar-link-label">Home</span>
+              </button>
+              {navGroups.map((group, groupIndex) => (
+                <div
+                  className="sidebar-group"
+                  key={group.heading ?? `group-${groupIndex}`}
+                >
+                  {group.heading && (
+                    <p className="sidebar-group-heading">{group.heading}</p>
+                  )}
+                  {group.ids.map((id) => {
+                    const tab = tabs.find((item) => item.id === id);
+                    if (!tab) return null;
+                    return (
+                      <button
+                        type="button"
+                        key={tab.id}
+                        className={`sidebar-link ${activeTab === tab.id ? "is-active" : ""} ${tab.wip ? "sidebar-link-wip" : ""}`}
+                        onClick={() => requestNavigate(tab.id)}
+                        aria-current={activeTab === tab.id ? "page" : undefined}
+                      >
+                        <span className="sidebar-link-label">{tab.label}</span>
+                        {tab.wip && <span className="nav-wip-badge">WIP</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+
+            <div className="sidebar-foot">v{APP_VERSION} · local-first</div>
+          </aside>
+
+          <div
+            className="sidebar-scrim"
+            onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <h1>Pin-Sighter</h1>
-        </div>
-        <p>Bowling scorekeeping, set tracking, and performance reports</p>
-      </section>
 
-      {!hasCheckedAppDataFile ? (
-        <section className="setup-card">
-          <h2>Loading Pin-Sighter</h2>
-          <p>Checking for a saved app data file. This should only take a moment.</p>
-        </section>
-      ) : !hasCompletedSetup ? (
-        <section className="setup-card">
-          <h2>Set Up Pin-Sighter</h2>
-          <p>
-            If you have existing Pin-Sighter data, import your backup to restore
-            your bowlers, centers, patterns, and saved sets. Otherwise, you can
-            start empty and build your own data from scratch.
-          </p>
+          <div className="app-main">
+            <header className="app-topbar">
+              <button
+                type="button"
+                className="sidebar-toggle"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open navigation menu"
+              >
+                ☰
+              </button>
+              <h1 className="app-topbar-title">{currentPageLabel}</h1>
+            </header>
 
-          <ToastMessage
-            message={setupMessage}
-            onDismiss={() => setSetupMessage("")}
-          />
-
-          <div className="setup-button-row">
-            <label className="import-button setup-import-button">
-              Import Data
-              <input
-                type="file"
-                accept="application/json,.json"
-                onChange={handleSetupImportData}
-              />
-            </label>
-            <button className="secondary-button" onClick={handleStartEmpty}>
-              Start Empty
-            </button>
-          </div>
-        </section>
-      ) : activeTab === "home" ? (
-        <nav className="home-nav">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`nav-button ${tab.wip ? "nav-button-wip" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-              {tab.wip && <span className="nav-wip-badge">In Progress</span>}
-            </button>
-          ))}
-
-
-        </nav>
-      ) : (
-        <section className="page-card">
-          <button className="back-button" onClick={requestGoHome}>
-            ← Back
-          </button>
+            <div className="app-content">
+              {activeTab === "home" ? (
+                <div className="home-welcome">
+                  <h2>Welcome back</h2>
+                  <p>
+                    Use the menu to log games, review your stats, and manage your
+                    bowlers, centers, events, and patterns.
+                  </p>
+                </div>
+              ) : (
+                <section className="page-card">
 
           {activeTab === "log-games" && (
             <LogGamesPage
@@ -1659,7 +1757,11 @@ function App() {
             />
           )}
           {activeTab === "about" && <AboutPage />}
-        </section>
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

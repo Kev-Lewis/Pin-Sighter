@@ -56,11 +56,147 @@
   color: var(--ink);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  /* Full-bleed root: the app-shell layout (sidebar + main) owns its own
+     spacing; the onboarding view re-centers itself below. */
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+body:has(.app-shell) { background: var(--bg); }
+
+/* Onboarding (loading / first-run setup) keeps the original centered column. */
+.app-shell .app-onboarding {
   width: min(1040px, 100%);
   margin: 0 auto;
   padding: 28px 20px 64px;
 }
-body:has(.app-shell) { background: var(--bg); }
+
+/* =========================================================
+   App shell — persistent sidebar + main content area
+   ========================================================= */
+.app-shell .shell-layout {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.app-shell .app-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: 244px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 14px;
+  background: #fbfbfc;
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+}
+
+.app-shell .sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 8px 10px 16px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.app-shell .sidebar-brand .app-logo-mark { height: 30px; width: auto; }
+.app-shell .sidebar-brand-name {
+  font: 800 1.12rem/1 'Open Sans'; letter-spacing: -.02em; color: var(--ink);
+}
+
+.app-shell .sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.app-shell .sidebar-group { display: flex; flex-direction: column; gap: 2px; }
+.app-shell .sidebar-group-heading {
+  margin: 12px 0 4px; padding: 0 12px;
+  font: 700 .62rem/1 'JetBrains Mono'; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+
+.app-shell .sidebar-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 9px 12px; border: 0; border-radius: 10px;
+  background: none; cursor: pointer; text-align: left;
+  font: 600 .92rem/1.25 'Open Sans'; color: var(--ink-soft);
+  transition: background .16s var(--spring), color .16s var(--spring);
+}
+.app-shell .sidebar-link:hover { background: #eef0f3; color: var(--ink); }
+.app-shell .sidebar-link.is-active { background: var(--accent-soft); color: var(--accent-ink); }
+.app-shell .sidebar-link-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.app-shell .sidebar-link-wip { color: var(--ink-faint); }
+.app-shell .sidebar-link .nav-wip-badge {
+  flex: none; font: 700 .58rem/1 'JetBrains Mono'; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-faint);
+  background: var(--bg-tint); border: 1px solid var(--line);
+  padding: 3px 6px; border-radius: var(--pill);
+}
+
+.app-shell .sidebar-foot {
+  margin-top: auto; padding: 14px 12px 6px;
+  font: 400 .68rem/1.4 'JetBrains Mono'; letter-spacing: .04em; color: var(--ink-faint);
+  border-top: 1px solid var(--line);
+}
+
+.app-shell .app-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  background: var(--paper);
+}
+
+.app-shell .app-topbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  height: 60px; padding: 0 clamp(16px, 3vw, 32px);
+  background: rgba(255,255,255,.88); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.app-shell .app-topbar-title { margin: 0; font: 800 1.22rem/1 'Open Sans'; letter-spacing: -.02em; color: var(--ink); }
+.app-shell .sidebar-toggle {
+  display: none; align-items: center; justify-content: center;
+  width: 38px; height: 38px; flex: none;
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  background: var(--paper); color: var(--ink); font-size: 1.15rem; cursor: pointer;
+}
+
+.app-shell .app-content {
+  width: 100%; max-width: 1200px; margin: 0 auto;
+  padding: 28px clamp(16px, 3vw, 32px) 72px;
+}
+
+/* Pages no longer sit in a nested white card — flatten the page-card box so
+   content flows directly on the main surface (the box-in-box is gone). */
+.app-shell .app-content .page-card {
+  border: 0; background: transparent; box-shadow: none;
+  padding: 0; margin: 0; max-width: none; border-radius: 0;
+}
+
+.app-shell .home-welcome { padding: 8px 0; }
+.app-shell .home-welcome p { max-width: 60ch; }
+
+.app-shell .sidebar-scrim { display: none; }
+
+/* --- Mobile: sidebar collapses to a tap-to-open drawer --- */
+@media (max-width: 860px) {
+  .app-shell .app-sidebar {
+    position: fixed; top: 0; left: 0; z-index: 40;
+    height: 100vh; width: min(80%, 300px);
+    transform: translateX(-100%);
+    transition: transform .24s var(--spring);
+    box-shadow: var(--shadow-3);
+  }
+  .app-shell .app-sidebar.is-open { transform: none; }
+  .app-shell .app-sidebar.is-open ~ .sidebar-scrim {
+    display: block; position: fixed; inset: 0; z-index: 30;
+    background: rgba(14,21,38,.44);
+  }
+  .app-shell .sidebar-toggle { display: inline-flex; }
+}
 
 .app-shell *, .app-shell *::before, .app-shell *::after { box-sizing: border-box; }
 
