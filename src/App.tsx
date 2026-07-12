@@ -52,6 +52,7 @@ import { PinDeck } from "./components/PinDeck";
 import { ScoreGrid } from "./components/ScoreGrid";
 import { StaticPinLeaveDeck } from "./components/StaticPinLeaveDeck";
 import { AboutPage } from "./pages/AboutPage";
+import { HomePage } from "./pages/HomePage";
 import { APP_VERSION } from "./version";
 import type {
   CompetitionType,
@@ -1667,13 +1668,12 @@ function App() {
 
             <div className="app-content">
               {activeTab === "home" ? (
-                <div className="home-welcome">
-                  <h2>Welcome back</h2>
-                  <p>
-                    Use the menu to log games, review your stats, and manage your
-                    bowlers, centers, events, and patterns.
-                  </p>
-                </div>
+                <HomePage
+                  savedGames={savedGames}
+                  onLogGame={() => requestNavigate("log-games")}
+                  onOpenStats={() => requestNavigate("stats")}
+                  onNewEvent={() => requestNavigate("events")}
+                />
               ) : (
                 <section className="page-card">
 
