@@ -121,15 +121,19 @@ body:has(.app-shell) { background: var(--bg); }
 }
 
 .app-shell .sidebar-link {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; gap: 10px;
   width: 100%; padding: 9px 12px; border: 0; border-radius: 10px;
   background: none; cursor: pointer; text-align: left;
-  font: 600 .92rem/1.25 'Open Sans'; color: var(--ink-soft);
+  font: 600 .92rem/1.3 'Open Sans'; color: var(--ink-soft);
   transition: background .16s var(--spring), color .16s var(--spring);
 }
 .app-shell .sidebar-link:hover { background: #eef0f3; color: var(--ink); }
 .app-shell .sidebar-link.is-active { background: var(--accent-soft); color: var(--accent-ink); }
-.app-shell .sidebar-link-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.app-shell .sidebar-link-icon {
+  flex: none; width: 20px; text-align: center; font-size: 1rem; line-height: 1.3;
+}
+/* Label may wrap to two lines; never clip descenders (no overflow:hidden). */
+.app-shell .sidebar-link-label { flex: 1; min-width: 0; }
 .app-shell .sidebar-link-wip { color: var(--ink-faint); }
 .app-shell .sidebar-link .nav-wip-badge {
   flex: none; font: 700 .58rem/1 'JetBrains Mono'; letter-spacing: .08em;

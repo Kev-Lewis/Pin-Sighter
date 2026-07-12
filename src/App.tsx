@@ -1503,6 +1503,21 @@ function App() {
     { heading: "Tools", ids: ["ball-seeker", "layout-visualizer", "speed-rev"] },
     { heading: "System", ids: ["data", "about"] },
   ];
+  // A little flavor: an emoji per tab, shown before the sidebar label.
+  const navIcons: Partial<Record<Tab, string>> = {
+    home: "🏠",
+    "log-games": "🎯",
+    stats: "📊",
+    bowlers: "👤",
+    centers: "🏟️",
+    events: "🏆",
+    patterns: "🛢️",
+    "ball-seeker": "🔍",
+    "layout-visualizer": "📐",
+    "speed-rev": "⚡",
+    data: "💾",
+    about: "ℹ️",
+  };
   const currentPageLabel =
     activeTab === "home"
       ? "Home"
@@ -1592,6 +1607,9 @@ function App() {
                 onClick={() => requestNavigate("home")}
                 aria-current={activeTab === "home" ? "page" : undefined}
               >
+                <span className="sidebar-link-icon" aria-hidden="true">
+                  {navIcons.home}
+                </span>
                 <span className="sidebar-link-label">Home</span>
               </button>
               {navGroups.map((group, groupIndex) => (
@@ -1613,6 +1631,9 @@ function App() {
                         onClick={() => requestNavigate(tab.id)}
                         aria-current={activeTab === tab.id ? "page" : undefined}
                       >
+                        <span className="sidebar-link-icon" aria-hidden="true">
+                          {navIcons[tab.id]}
+                        </span>
                         <span className="sidebar-link-label">{tab.label}</span>
                         {tab.wip && <span className="nav-wip-badge">WIP</span>}
                       </button>
