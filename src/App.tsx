@@ -54,6 +54,13 @@ import { StaticPinLeaveDeck } from "./components/StaticPinLeaveDeck";
 import { AboutPage } from "./pages/AboutPage";
 import { HomePage } from "./pages/HomePage";
 import { APP_VERSION } from "./version";
+import {
+  buildSessionGroups,
+  getHighSeriesDetail,
+  getHighFullSeries,
+  getHighTeamSeriesDetail,
+} from "./lib/sessions";
+import type { HighSeriesDetail } from "./lib/sessions";
 import type {
   CompetitionType,
   BowlingFormat,
@@ -206,19 +213,6 @@ type DetailedStatDetail = {
   formula: string;
   detailRows: { label: string; value: string }[];
   note?: string;
-};
-
-type HighSeriesGameDetail = {
-  gameNumber: number;
-  score: number;
-  laneLabel: string;
-  savedAt: string;
-};
-
-type HighSeriesDetail = {
-  total: number;
-  eventLabel: string;
-  games: HighSeriesGameDetail[];
 };
 
 type OverviewScoreDetail = {
@@ -13393,49 +13387,6 @@ function calculateTeamSetRows(sessionGroups: ReturnType<typeof buildSessionGroup
   });
 }
 
-function buildSessionGroups(games: SavedGameRecord[]) {
-  const groups = new Map<
-    string,
-    {
-      sessionKey: string;
-      title: string;
-      centerName: string;
-      patternName: string;
-      games: SavedGameRecord[];
-    }
-  >();
-
-  games.forEach((game) => {
-    const sessionKey =
-      game.sessionId ||
-      game.eventLogKey ||
-      `${game.savedAt}-${game.centerName}-${game.patternName}-${game.format}`;
-
-    const titleParts = [
-      game.eventName || game.competitionType,
-      game.eventStageLabel,
-      game.format,
-    ].filter(Boolean);
-
-    if (!groups.has(sessionKey)) {
-      groups.set(sessionKey, {
-        sessionKey,
-        title: titleParts.join(" — "),
-        centerName: game.centerName,
-        patternName: game.patternName,
-        games: [],
-      });
-    }
-
-    groups.get(sessionKey)?.games.push(game);
-  });
-
-  return Array.from(groups.values()).map((group) => ({
-    ...group,
-    games: group.games.sort((a, b) => a.gameNumber - b.gameNumber),
-  }));
-}
-
 // Frame Result Helpers
 // ==================
 
@@ -14987,156 +14938,4 @@ function buildDetailedStatCards(
       ],
     },
   ];
-}
-
-function getHighSeriesDetail(
-  sessionGroups: ReturnType<typeof buildSessionGroups>,
-  bowlerName: string,
-  seriesLength: number
-): HighSeriesDetail | null {
-  let highSeries = 0;
-  let highSeriesDetail: HighSeriesDetail | null = null;
-
-  sessionGroups.forEach((session) => {
-    const scoredGames = session.games
-      .filter((game) => game.competitionType !== "Open")
-      .slice()
-      .sort((a, b) => a.gameNumber - b.gameNumber)
-      .map((game) => {
-        const score = game.scores.find(
-          (currentScore) => currentScore.label === bowlerName
-        );
-
-        if (!score) {
-          return null;
-        }
-
-        return {
-          game,
-          score: score.score,
-        };
-      })
-      .filter(
-        (gameScore): gameScore is { game: SavedGameRecord; score: number } =>
-          gameScore !== null
-      );
-
-    if (scoredGames.length < seriesLength) {
-      return;
-    }
-
-    for (let index = 0; index <= scoredGames.length - seriesLength; index += 1) {
-      const seriesGames = scoredGames.slice(index, index + seriesLength);
-      const seriesTotal = seriesGames.reduce(
-        (sum, currentGame) => sum + currentGame.score,
-        0
-      );
-
-      if (seriesTotal <= highSeries) {
-        continue;
-      }
-
-      const firstGame = seriesGames[0].game;
-      const eventLabel = [
-        firstGame.eventName,
-        firstGame.eventStageLabel,
-        firstGame.centerName,
-      ]
-        .filter(Boolean)
-        .join(" • ");
-
-      highSeries = seriesTotal;
-      highSeriesDetail = {
-        total: seriesTotal,
-        eventLabel: eventLabel || "Saved Set",
-        games: seriesGames.map(({ game, score }) => ({
-          gameNumber: game.gameNumber,
-          score,
-          laneLabel: game.laneLabel,
-          savedAt: game.savedAt,
-        })),
-      };
-    }
-  });
-
-  return highSeriesDetail;
-}
-
-function getHighFullSeries(
-  sessionGroups: ReturnType<typeof buildSessionGroups>,
-  bowlerName: string
-) {
-  let highSeries = 0;
-
-  sessionGroups.forEach((session) => {
-    const seriesTotal = session.games.reduce((sum, game) => {
-      const score = game.scores.find(
-        (currentScore) => currentScore.label === bowlerName
-      );
-
-      return sum + (score?.score ?? 0);
-    }, 0);
-
-    highSeries = Math.max(highSeries, seriesTotal);
-  });
-
-  return highSeries;
-}
-
-function getHighTeamSeriesDetail(
-  sessionGroups: ReturnType<typeof buildSessionGroups>,
-  seriesLength: number
-): HighSeriesDetail | null {
-  let highSeries = 0;
-  let highSeriesDetail: HighSeriesDetail | null = null;
-
-  sessionGroups.forEach((session) => {
-    const scoredGames = session.games
-      .filter((game) => game.competitionType !== "Open")
-      .slice()
-      .sort((a, b) => a.gameNumber - b.gameNumber)
-      .map((game) => ({
-        game,
-        score: game.scores.reduce((sum, score) => sum + score.score, 0),
-      }));
-
-    if (scoredGames.length < seriesLength) {
-      return;
-    }
-
-    for (let index = 0; index <= scoredGames.length - seriesLength; index += 1) {
-      const seriesGames = scoredGames.slice(index, index + seriesLength);
-      const seriesTotal = seriesGames.reduce(
-        (sum, currentGame) => sum + currentGame.score,
-        0
-      );
-
-      if (seriesTotal <= highSeries) {
-        continue;
-      }
-
-      const firstGame = seriesGames[0].game;
-      const eventLabel = [
-        firstGame.eventName,
-        firstGame.eventStageLabel,
-        firstGame.centerName,
-      ]
-        .filter(Boolean)
-        .join(" • ");
-
-      highSeries = seriesTotal;
-      highSeriesDetail = {
-        total: seriesTotal,
-        eventLabel: eventLabel || "Saved Set",
-        games: seriesGames.map(({ game, score }) => ({
-          gameNumber: game.gameNumber,
-          score,
-          laneLabel: game.laneLabel,
-          savedAt: game.savedAt,
-        })),
-      };
-    }
-  });
-
-  return highSeriesDetail;
 }
