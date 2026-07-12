@@ -1534,12 +1534,15 @@ function App() {
       ? "Home"
       : tabs.find((tab) => tab.id === activeTab)?.label ?? "Pin-Sighter";
   const showAppChrome = hasCheckedAppDataFile && hasCompletedSetup;
-  // The main bowler only counts if it still matches a current bowler; otherwise
-  // fall back to the all-bowlers composite.
+  // Resolve the main bowler: an explicit, still-valid pick wins; otherwise, if
+  // there's exactly one bowler on the roster, default to them (a single-user
+  // setup skips the composite); otherwise the all-bowlers composite ("").
   const effectiveMainBowler =
     mainBowler && bowlers.some((bowler) => bowler.name === mainBowler)
       ? mainBowler
-      : "";
+      : bowlers.length === 1
+        ? bowlers[0].name
+        : "";
 
   return (
     <main className="app-shell">
@@ -1687,7 +1690,7 @@ function App() {
                 <HomePage
                   savedGames={savedGames}
                   bowlers={bowlers}
-                  mainBowler={mainBowler}
+                  mainBowler={effectiveMainBowler}
                   onChangeMainBowler={setMainBowler}
                   onLogGame={() => requestNavigate("log-games")}
                   onOpenStats={() => requestNavigate("stats")}

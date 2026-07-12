@@ -49,11 +49,9 @@ export function HomePage({
   );
   const bowlerCount = rosterWithGames.length;
 
-  // The active scope: a valid main bowler, or "" for the all-bowlers composite.
-  const selected =
-    mainBowler && bowlers.some((bowler) => bowler.name === mainBowler)
-      ? mainBowler
-      : "";
+  // The active scope arrives already resolved by App: a valid roster name, the
+  // sole bowler when there's only one, or "" for the all-bowlers composite.
+  const selected = mainBowler;
 
   if (savedGames.length === 0) {
     return (
