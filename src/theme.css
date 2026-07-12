@@ -4,7 +4,7 @@
    Ported from kevinlewis.net's "kl-ui" kit. This single file
    restyles the app's existing class vocabulary to the kl-ui
    look: soft white surfaces, hairline borders, rounded corners,
-   gentle elevation, Inter + Space Mono, and a themeable accent.
+   gentle elevation, Open Sans + JetBrains Mono, and a themeable accent.
 
    It also FLATTENS the app's nested "boxes-in-boxes" layout:
    collapsible sections become clean header rows separated by
@@ -23,13 +23,13 @@
    follows.
    ========================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700;800&display=swap');
 
 .app-shell {
   /* --- Neutrals (from kl-ui) --- */
   --ink: #0e1526;
-  --ink-soft: #46536b;
-  --ink-faint: #75839a;
+  --ink-soft: #454b57;
+  --ink-faint: #6a707c;
   --line: #ece9f2;
   --line-strong: #dfe1ea;
   --paper: #ffffff;
@@ -52,7 +52,7 @@
   --shadow-3: 0 14px 32px -12px rgba(16,25,45,.14), 0 44px 80px -22px rgba(16,25,45,.22);
   --spring: cubic-bezier(.2,.8,.2,1);
 
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Open Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
   color: var(--ink);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -65,7 +65,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell *, .app-shell *::before, .app-shell *::after { box-sizing: border-box; }
 
 .app-shell h1, .app-shell h2, .app-shell h3, .app-shell h4 {
-  font-family: 'Inter', sans-serif; font-weight: 800;
+  font-family: 'Open Sans', sans-serif; font-weight: 800;
   letter-spacing: -.025em; line-height: 1.12; color: var(--ink);
 }
 .app-shell h2 { font-size: clamp(1.6rem, 3.4vw, 2.05rem); margin: 0 0 8px; }
@@ -75,7 +75,7 @@ body:has(.app-shell) { background: var(--bg); }
 
 /* Monospace eyebrow/label */
 .app-shell .eyebrow {
-  font-family: 'Space Mono', monospace; letter-spacing: .08em;
+  font-family: 'JetBrains Mono', monospace; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-faint); font-size: .72rem;
 }
 
@@ -130,7 +130,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .nav-button-wip::after { display: none; }
 .app-shell .nav-wip-badge {
   margin-top: auto; align-self: flex-start;
-  font-family: 'Space Mono', monospace; font-size: .62rem; letter-spacing: .08em;
+  font-family: 'JetBrains Mono', monospace; font-size: .62rem; letter-spacing: .08em;
   text-transform: uppercase; font-weight: 700; color: var(--accent-ink);
   background: var(--accent-soft); border: 1px solid var(--accent-soft-bd);
   border-radius: var(--pill); padding: 3px 9px;
@@ -139,7 +139,7 @@ body:has(.app-shell) { background: var(--bg); }
 /* "Coming soon" placeholder page for WIP projects */
 .app-shell .coming-soon-page { max-width: 640px; }
 .app-shell .coming-soon-badge {
-  display: inline-block; font-family: 'Space Mono', monospace; font-size: .7rem;
+  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: .7rem;
   letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--accent-ink);
   background: var(--accent-soft); border: 1px solid var(--accent-soft-bd);
   border-radius: var(--pill); padding: 5px 12px; margin-bottom: 14px;
@@ -224,7 +224,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .stats-section-summary:hover strong { color: var(--ink); }
 .app-shell .stats-section-summary > div { display: flex; flex-direction: column; gap: 3px; }
 .app-shell .stats-section-summary strong {
-  font: 800 1.18rem/1.2 'Inter'; letter-spacing: -.02em; color: var(--ink);
+  font: 800 1.18rem/1.2 'Open Sans'; letter-spacing: -.02em; color: var(--ink);
   transition: color .2s var(--spring);
 }
 .app-shell .stats-section-summary p { margin: 0; font-size: .9rem; color: var(--ink-faint); max-width: 70ch; }
@@ -333,7 +333,7 @@ body:has(.app-shell) { background: var(--bg); }
   font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
 }
 .app-shell .stat-card span {
-  font-family: 'Space Mono', monospace; font-size: .72rem; letter-spacing: .06em;
+  font-family: 'JetBrains Mono', monospace; font-size: .72rem; letter-spacing: .06em;
   text-transform: uppercase; color: var(--ink-faint);
 }
 .app-shell .stat-card-button { cursor: pointer; transition: transform .22s var(--spring), box-shadow .22s var(--spring), border-color .22s, background .22s; }
@@ -357,7 +357,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .stats-summary-grid .stat-card small,
 .app-shell .deep-stats-grid .stat-card small {
   margin-top: auto; padding-top: 8px;
-  font-family: 'Space Mono', monospace; text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace; text-transform: uppercase;
   font-size: .66rem; letter-spacing: .07em; font-weight: 700; color: var(--accent-ink);
 }
 
@@ -384,7 +384,7 @@ body:has(.app-shell) { background: var(--bg); }
 }
 .app-shell .stats-table, .app-shell .distribution-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .app-shell .stats-table th, .app-shell .distribution-table th {
-  background: var(--bg-tint); color: var(--ink); font-family: 'Space Mono', monospace;
+  background: var(--bg-tint); color: var(--ink); font-family: 'JetBrains Mono', monospace;
   font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; text-align: left;
   padding: 11px 14px; position: sticky; top: 0;
   border: 0 !important; border-bottom: 1px solid var(--line-strong) !important;
@@ -518,7 +518,7 @@ body:has(.app-shell) { background: var(--bg); }
 /* Titles: ink, not the old blue; sub-text muted */
 .app-shell .bowler-summary strong, .app-shell .center-summary strong, .app-shell .pattern-summary strong,
 .app-shell .event-summary strong, .app-shell .add-form-summary strong, .app-shell .saved-set-summary strong {
-  color: var(--ink) !important; font: 800 1.15rem/1.2 'Inter' !important; transition: color .2s var(--spring);
+  color: var(--ink) !important; font: 800 1.15rem/1.2 'Open Sans' !important; transition: color .2s var(--spring);
 }
 .app-shell .bowler-summary:hover strong, .app-shell .center-summary:hover strong,
 .app-shell .pattern-summary:hover strong, .app-shell .event-summary:hover strong,
@@ -765,7 +765,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .progress-row span {
   border: 1px solid var(--line) !important; background: var(--bg-tint) !important;
   color: var(--ink-soft) !important; border-radius: var(--pill) !important;
-  padding: 6px 12px !important; font: 600 .8rem/1 'Inter' !important;
+  padding: 6px 12px !important; font: 600 .8rem/1 'Open Sans' !important;
 }
 /* Frame-edit warning → soft amber note, not a black box */
 .app-shell .frame-edit-warning-text {
@@ -809,7 +809,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .shot-tab:hover { border-color: var(--accent); color: var(--accent-ink); }
 .app-shell .shot-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .app-shell .shot-switch-hint {
-  font: 600 .72rem/1 'Space Mono', monospace; color: var(--ink-faint); margin-left: 4px;
+  font: 600 .72rem/1 'JetBrains Mono', monospace; color: var(--ink-faint); margin-left: 4px;
 }
 .app-shell .pin-entry-side { display: flex; flex-direction: column; gap: 20px; }
 /* summary reads as a light panel in its new home */
@@ -955,7 +955,7 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .ball-card-header p { margin: 2px 0 0 !important; font-size: .86rem; color: var(--ink-faint); }
 .app-shell .ball-edit-trigger {
   flex: none; border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
-  border-radius: var(--pill); padding: 7px 16px; font: 600 .85rem/1 'Inter'; cursor: pointer;
+  border-radius: var(--pill); padding: 7px 16px; font: 600 .85rem/1 'Open Sans'; cursor: pointer;
   box-shadow: var(--shadow-1); transition: border-color .2s var(--spring), color .2s;
 }
 .app-shell .ball-edit-trigger:hover { border-color: var(--accent); color: var(--accent-ink); }
@@ -1206,7 +1206,7 @@ body:has(.ps-modal) { overflow: hidden; }
 .app-shell .stats-filter-head { display: flex; flex-direction: column; gap: 8px; }
 .app-shell .stats-filter-eyebrow {
   align-self: flex-start;
-  font-family: 'Space Mono', monospace; font-size: .72rem; letter-spacing: .08em;
+  font-family: 'JetBrains Mono', monospace; font-size: .72rem; letter-spacing: .08em;
   text-transform: uppercase; font-weight: 700; color: var(--accent-ink);
   background: var(--paper); border: 1px solid var(--accent-soft-bd);
   border-radius: var(--pill); padding: 4px 12px;
@@ -1255,43 +1255,4 @@ body:has(.ps-modal) { overflow: hidden; }
 /* Saved Sets → fixed-height scroll window (tiles already contrast; just cap + scroll) */
 .app-shell .saved-sets-list .stats-collapsible-content {
   max-height: 720px; overflow-y: auto; overscroll-behavior: contain;
-}
-
-/* Stats scope selector — explicit All / Individual / Baker segmented control */
-.app-shell .stats-scope-toggle {
-  display: inline-flex;
-  gap: 4px;
-  margin-top: 6px;
-  padding: 4px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-tint);
-}
-.app-shell .stats-scope-toggle button {
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: 0.85rem;
-  line-height: 1.2;
-  padding: 6px 14px;
-  border-radius: calc(var(--radius-sm) - 4px);
-  cursor: pointer;
-  transition: background 0.15s var(--spring), color 0.15s var(--spring),
-    border-color 0.15s var(--spring);
-}
-.app-shell .stats-scope-toggle button:hover {
-  color: var(--ink);
-}
-.app-shell .stats-scope-toggle button.is-active {
-  background: var(--paper);
-  border-color: var(--accent-soft-bd);
-  color: var(--accent-ink);
-  font-weight: 600;
-  box-shadow: var(--shadow-1);
-}
-.app-shell .stats-scope-toggle button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
