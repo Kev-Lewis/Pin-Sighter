@@ -91,6 +91,17 @@ import {
   calculateBoardProgressionRows,
   type BoardShotRow,
 } from "./stats/board";
+import {
+  formatSetSavedDateTime,
+  formatStatRatio,
+  formatDetailedPercent,
+  formatHighSeriesDetailRows,
+} from "./stats/format";
+import {
+  getHighGameDetail,
+  buildOverviewStatCards,
+  type OverviewScoreDetail,
+} from "./stats/overview";
 import { APP_VERSION } from "./version";
 import {
   buildSessionGroups,
@@ -98,7 +109,6 @@ import {
   getHighFullSeries,
   getHighTeamSeriesDetail,
 } from "./lib/sessions";
-import type { HighSeriesDetail } from "./lib/sessions";
 import {
   storageKeys,
   loadFromLocalStorage,
@@ -224,15 +234,6 @@ type DetailedStatDetail = {
   formula: string;
   detailRows: { label: string; value: string }[];
   note?: string;
-};
-
-type OverviewScoreDetail = {
-  score: number;
-  bowlerLabel: string;
-  gameNumber: number;
-  laneLabel: string;
-  savedAt: string;
-  eventLabel: string;
 };
 
 type SetStatDetailRow = {
@@ -8897,22 +8898,6 @@ function BakerFrameTable({ game }: { game: SavedGameRecord }) {
 // Set / Session Helpers
 // ==================
 
-function formatSetSavedDateTime(savedAt: string) {
-  const savedDate = new Date(savedAt);
-
-  if (Number.isNaN(savedDate.getTime())) {
-    return savedAt;
-  }
-
-  return savedDate.toLocaleString([], {
-    month: "numeric",
-    day: "numeric",
-    year: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function buildSetFilterOptions(games: SavedGameRecord[]) {
   return buildSessionGroups(games).map((group) => {
     const firstGame = group.games[0];
@@ -9269,121 +9254,6 @@ function calculateDetailedBowlerStats(
     averageByGameRows,
     scoreDistribution,
     transitionRows,
-  };
-}
-
-function formatStatRatio(numerator: number, denominator: number) {
-  return `${numerator.toLocaleString()} / ${denominator.toLocaleString()}`;
-}
-
-function formatDetailedPercent(value: number) {
-  return `${value.toFixed(1)}%`;
-}
-
-function formatHighSeriesDetailRows(
-  detail: HighSeriesDetail | null
-): { label: string; value: string }[] {
-  if (!detail) {
-    return [{ label: "Series Games", value: "Not enough games tracked" }];
-  }
-
-  return [
-    {
-      label: "Series Date",
-      value: formatSetSavedDateTime(detail.games[0]?.savedAt ?? ""),
-    },
-    {
-      label: "Event / Set",
-      value: detail.eventLabel,
-    },
-    ...detail.games.map((game, index) => ({
-      label: `Game ${index + 1}`,
-      value: `${game.score} — Game ${game.gameNumber}, ${game.laneLabel}`,
-    })),
-  ];
-}
-
-function getHighGameDetail(scoreEntries: OverviewScoreDetail[]) {
-  if (scoreEntries.length === 0) {
-    return null;
-  }
-
-  return scoreEntries.reduce((highest, current) =>
-    current.score > highest.score ? current : highest
-  );
-}
-
-function buildOverviewStatCards({
-  average,
-  totalPins,
-  totalScores,
-  highGameDetail,
-  highSeriesDetail,
-}: {
-  average: number;
-  totalPins: number;
-  totalScores: number;
-  highGameDetail: OverviewScoreDetail | null;
-  highSeriesDetail: HighSeriesDetail | null;
-}) {
-  return {
-    average: {
-      title: "Average",
-      label: "Average",
-      value: totalScores > 0 ? average.toFixed(1) : "—",
-      description:
-        "Average score across the saved games that match the current filters.",
-      formula: "Total pins ÷ total game scores.",
-      detailRows: [
-        { label: "Total Pins", value: totalPins.toLocaleString() },
-        { label: "Scores Counted", value: totalScores.toLocaleString() },
-        {
-          label: "Calculation",
-          value:
-            totalScores > 0
-              ? `${totalPins} ÷ ${totalScores} = ${average.toFixed(1)}`
-              : "No scores match the current filters",
-        },
-      ],
-    },
-    highGame: {
-      title: "High Game",
-      label: "High Game",
-      value: highGameDetail ? String(highGameDetail.score) : "—",
-      description:
-        "The highest single game score found under the current filters.",
-      formula: "Highest score among matching saved game scores.",
-      detailRows: highGameDetail
-        ? [
-            { label: "Score", value: String(highGameDetail.score) },
-            { label: "Bowler / Team", value: highGameDetail.bowlerLabel },
-            { label: "Game", value: `Game ${highGameDetail.gameNumber}` },
-            { label: "Lane / Pair", value: highGameDetail.laneLabel || "—" },
-            { label: "Event / Set", value: highGameDetail.eventLabel || "—" },
-            {
-              label: "Saved",
-              value: formatSetSavedDateTime(highGameDetail.savedAt),
-            },
-          ]
-        : [{ label: "High Game", value: "No scores match the current filters" }],
-    },
-    highSeries: {
-      title: "High Series",
-      label: "High Series (3-game)",
-      value: highSeriesDetail ? String(highSeriesDetail.total) : "—",
-      description:
-        "The highest 3-game series found under the current filters.",
-      formula:
-        "Best total from three consecutive matching games in the same saved set.",
-      detailRows: [
-        {
-          label: "Series Total",
-          value: highSeriesDetail ? String(highSeriesDetail.total) : "—",
-        },
-        ...formatHighSeriesDetailRows(highSeriesDetail),
-      ],
-      note: "Open bowling games are not included in high series calculations.",
-    },
   };
 }
 
