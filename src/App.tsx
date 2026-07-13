@@ -61,6 +61,17 @@ import {
   getHighTeamSeriesDetail,
 } from "./lib/sessions";
 import type { HighSeriesDetail } from "./lib/sessions";
+import {
+  storageKeys,
+  loadFromLocalStorage,
+  saveToLocalStorage,
+  hasCompletedFirstLaunchSetup,
+  markFirstLaunchSetupComplete,
+  clearPinSighterLocalStorage,
+  createEmptyBackupData,
+  downloadJsonBackup,
+  formatBackupFileTimestamp,
+} from "./lib/storage";
 import type {
   CompetitionType,
   BowlingFormat,
@@ -869,92 +880,10 @@ function createSampleSavedEventLogs(): SavedEventLog[] {
 // Persistence Helpers
 // ==================
 
-const storageKeys = {
-  bowlers: "pin-sighter:bowlers:v1",
-  centers: "pin-sighter:centers:v1",
-  patterns: "pin-sighter:patterns:v1",
-  events: "pin-sighter:events:v1",
-  savedEventLogs: "pin-sighter:saved-event-logs:v1",
-  savedGames: "pin-sighter:saved-games:v1",
-  appDataFileFallback: "pin-sighter:app-data-file-json:v1",
-  temporaryBackup: "pin-sighter:temporary-backup-json:v1",
-  setupComplete: "pin-sighter:setup-complete:v1",
-  mainBowler: "pin-sighter:main-bowler:v1",
-};
-
 const dataFolderName = "data";
 const backupFolderName = "back-ups";
 const appDataFileName = "pin-sighter-data.json";
 const temporaryBackupFileName = "pin-sighter-temporary-backup.json";
-
-function loadFromLocalStorage<T>(key: string, fallbackValue: T): T {
-  try {
-    const storedValue = localStorage.getItem(key);
-
-    if (!storedValue) {
-      return fallbackValue;
-    }
-
-    return JSON.parse(storedValue) as T;
-  } catch (error) {
-    console.warn(`Unable to load ${key} from localStorage.`, error);
-    return fallbackValue;
-  }
-}
-
-function hasExistingPinSighterData() {
-  return Object.entries(storageKeys).some(([storageName, key]) => {
-    if (
-      storageName === "temporaryBackup" ||
-      storageName === "setupComplete" ||
-      storageName === "appDataFileFallback" ||
-      storageName === "mainBowler"
-    ) {
-      return false;
-    }
-
-    return localStorage.getItem(key) !== null;
-  });
-}
-
-function hasCompletedFirstLaunchSetup() {
-  return (
-    localStorage.getItem(storageKeys.setupComplete) === "true" ||
-    hasExistingPinSighterData()
-  );
-}
-
-function markFirstLaunchSetupComplete() {
-  localStorage.setItem(storageKeys.setupComplete, "true");
-}
-
-function createEmptyBackupData(): PinSighterBackupData {
-  return {
-    bowlers: [],
-    centers: [],
-    patterns: ensureUnknownPattern([]),
-    events: [],
-    savedEventLogs: [],
-    savedGames: [],
-  };
-}
-
-
-function saveToLocalStorage<T>(key: string, value: T) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.warn(`Unable to save ${key} to localStorage.`, error);
-  }
-}
-
-function clearPinSighterLocalStorage() {
-  Object.entries(storageKeys).forEach(([storageName, key]) => {
-    if (storageName !== "temporaryBackup" && storageName !== "setupComplete") {
-      localStorage.removeItem(key);
-    }
-  });
-}
 
 async function loadTauriFileSystem() {
   const dynamicImport = new Function(
@@ -2045,24 +1974,6 @@ function DataManagementPage({
       </section>
     </>
   );
-}
-
-function downloadJsonBackup(fileName: string, backup: PinSighterBackup) {
-  const backupBlob = new Blob([JSON.stringify(backup, null, 2)], {
-    type: "application/json",
-  });
-  const downloadUrl = URL.createObjectURL(backupBlob);
-  const downloadLink = document.createElement("a");
-
-  downloadLink.href = downloadUrl;
-  downloadLink.download = fileName;
-  downloadLink.click();
-
-  URL.revokeObjectURL(downloadUrl);
-}
-
-function formatBackupFileTimestamp() {
-  return new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
 }
 
 // Log Games
