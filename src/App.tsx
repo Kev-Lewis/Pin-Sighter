@@ -15,7 +15,6 @@ import "./theme.css";
 import {
   ALL_PINS,
   getPinsStanding,
-  isSplitLeave,
   getFrameResult,
   getFrameRolls,
   scoreBowlingFrames,
@@ -61,6 +60,23 @@ import {
   createSampleSavedGames,
   createSampleSavedEventLogs,
 } from "./lib/sampleData";
+import {
+  isStrikeEntry,
+  isSplitEntry,
+  isCleanGameForEntries,
+  countCleanGames,
+  isSpareEntry,
+  isCleanFrame,
+  getBowlerHandedness,
+  isPocketHit,
+  isPocketStrike,
+  isMakeableSpareAttempt,
+} from "./stats/frames";
+import {
+  getSpareLeaveKey,
+  calculateSpareLeaveSummary,
+  calculateSpareLeaveRows,
+} from "./stats/spareLeaves";
 import { APP_VERSION } from "./version";
 import {
   buildSessionGroups,
@@ -9190,233 +9206,6 @@ function calculateTeamSetRows(sessionGroups: ReturnType<typeof buildSessionGroup
       cleanTeamGames,
     };
   });
-}
-
-// Frame Result Helpers
-// ==================
-
-function isStrikeEntry(entry: FrameEntry) {
-  return entry.firstShotKnockedPins.length === 10;
-}
-
-function isSplitEntry(entry: FrameEntry) {
-  return !isStrikeEntry(entry) && isSplitLeave(entry.firstShotKnockedPins);
-}
-
-function isCleanGameForEntries(entries: FrameEntry[]) {
-  const frames = entries.filter(
-    (entry) => entry.frameNumber >= 1 && entry.frameNumber <= 10
-  );
-
-  return frames.length === 10 && frames.every(isCleanFrame);
-}
-
-function countCleanGames(
-  games: SavedGameRecord[],
-  selectedBowler: string,
-  selectedBall: string
-) {
-  return games.filter((game) => {
-    const relevantEntries = game.entries.filter((entry) => {
-      const matchesBowler =
-        selectedBowler === "All" || entry.bowlerName === selectedBowler;
-      const matchesBall =
-        selectedBall === "All" || entry.ballUsed === selectedBall;
-
-      return matchesBowler && matchesBall;
-    });
-
-    if (selectedBowler === "All") {
-      if (game.format === "Baker") {
-        return isCleanGameForEntries(relevantEntries);
-      }
-
-      const entriesByBowler = new Map<string, FrameEntry[]>();
-
-      relevantEntries.forEach((entry) => {
-        const currentEntries = entriesByBowler.get(entry.bowlerName) ?? [];
-        entriesByBowler.set(entry.bowlerName, [...currentEntries, entry]);
-      });
-
-      return Array.from(entriesByBowler.values()).some(isCleanGameForEntries);
-    }
-
-    return isCleanGameForEntries(relevantEntries);
-  }).length;
-}
-
-function isSpareAttemptEntry(entry: FrameEntry) {
-  return !isStrikeEntry(entry);
-}
-
-function getSpareLeavePins(entry: FrameEntry) {
-  if (!isSpareAttemptEntry(entry)) {
-    return [];
-  }
-
-  return getPinsStanding(entry.firstShotKnockedPins);
-}
-
-function getSpareLeaveKey(entry: FrameEntry) {
-  const leavePins = getSpareLeavePins(entry);
-
-  return leavePins.length > 0 ? leavePins.join("-") : "None";
-}
-
-function calculateSpareLeaveSummary(entries: FrameEntry[]) {
-  const categories = {
-    makeable: { attempts: 0, conversions: 0, percentage: 0 },
-    singlePin: { attempts: 0, conversions: 0, percentage: 0 },
-    multiPin: { attempts: 0, conversions: 0, percentage: 0 },
-    split: { attempts: 0, conversions: 0, percentage: 0 },
-  };
-
-  entries.filter(isSpareAttemptEntry).forEach((entry) => {
-    const leavePins = getSpareLeavePins(entry);
-    const isConverted = isSpareEntry(entry);
-
-    if (isMakeableSpareAttempt(entry)) {
-      categories.makeable.attempts += 1;
-
-      if (isConverted) {
-        categories.makeable.conversions += 1;
-      }
-    }
-
-    if (leavePins.length === 1) {
-      categories.singlePin.attempts += 1;
-
-      if (isConverted) {
-        categories.singlePin.conversions += 1;
-      }
-    }
-
-    if (leavePins.length > 1) {
-      categories.multiPin.attempts += 1;
-
-      if (isConverted) {
-        categories.multiPin.conversions += 1;
-      }
-    }
-
-    if (isSplitLeave(entry.firstShotKnockedPins)) {
-      categories.split.attempts += 1;
-
-      if (isConverted) {
-        categories.split.conversions += 1;
-      }
-    }
-  });
-
-  Object.values(categories).forEach((category) => {
-    category.percentage =
-      category.attempts > 0
-        ? (category.conversions / category.attempts) * 100
-        : 0;
-  });
-
-  return categories;
-}
-
-function calculateSpareLeaveRows(entries: FrameEntry[]) {
-  const rowMap = new Map<
-    string,
-    {
-      leave: string;
-      attempts: number;
-      conversions: number;
-      misses: number;
-      conversionPercentage: number;
-    }
-  >();
-
-  entries
-    .filter(isSpareAttemptEntry)
-    .forEach((entry) => {
-      const leave = getSpareLeaveKey(entry);
-      const currentRow =
-        rowMap.get(leave) ?? {
-          leave,
-          attempts: 0,
-          conversions: 0,
-          misses: 0,
-          conversionPercentage: 0,
-        };
-
-      currentRow.attempts += 1;
-
-      if (isSpareEntry(entry)) {
-        currentRow.conversions += 1;
-      } else {
-        currentRow.misses += 1;
-      }
-
-      currentRow.conversionPercentage =
-        currentRow.attempts > 0
-          ? (currentRow.conversions / currentRow.attempts) * 100
-          : 0;
-
-      rowMap.set(leave, currentRow);
-    });
-
-  return Array.from(rowMap.values()).sort((a, b) => {
-    if (b.attempts !== a.attempts) {
-      return b.attempts - a.attempts;
-    }
-
-    return a.leave.localeCompare(b.leave, undefined, { numeric: true });
-  });
-}
-
-function isSpareEntry(entry: FrameEntry) {
-  if (isStrikeEntry(entry)) {
-    return false;
-  }
-
-  const firstShotStandingPins = getPinsStanding(entry.firstShotKnockedPins);
-  const pinsStandingAfterFrame = firstShotStandingPins.filter(
-    (pin) => !entry.secondShotKnockedPins.includes(pin)
-  );
-
-  return pinsStandingAfterFrame.length === 0;
-}
-
-function isCleanFrame(entry: FrameEntry) {
-  return isStrikeEntry(entry) || isSpareEntry(entry);
-}
-
-function getBowlerHandedness(
-  bowlerName: string,
-  bowlerHandednessByName: Map<string, Handedness>
-) {
-  return bowlerHandednessByName.get(bowlerName) ?? "Right";
-}
-
-function getPocketContactPins(handedness: Handedness) {
-  // LaneTalk-style pocket proxy:
-  // right-handed pocket = 1/3 contact on first ball,
-  // left-handed pocket = 1/2 contact on first ball.
-  return handedness === "Left" ? [1, 2] : [1, 3];
-}
-
-function isPocketHit(entry: FrameEntry, handedness: Handedness) {
-  const pocketPins = getPocketContactPins(handedness);
-
-  return pocketPins.every((pin) => entry.firstShotKnockedPins.includes(pin));
-}
-
-function isPocketStrike(entry: FrameEntry, handedness: Handedness) {
-  return isPocketHit(entry, handedness) && isStrikeEntry(entry);
-}
-
-function isMakeableSpareAttempt(entry: FrameEntry) {
-  if (isStrikeEntry(entry)) {
-    return false;
-  }
-
-  const standingPins = getPinsStanding(entry.firstShotKnockedPins);
-
-  return standingPins.length <= 3;
 }
 
 // Detailed Bowler Analysis Helpers

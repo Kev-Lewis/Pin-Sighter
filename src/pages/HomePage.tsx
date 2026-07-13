@@ -2,12 +2,13 @@
 // A "Showing" dropdown picks the main bowler (or the all-bowlers composite);
 // every metric, recent set, and the trend reflect that choice. Numbers are read
 // from the authoritative stored scores so they stay consistent with the Stats
-// page; strike rate classifies frames the same way StatsPage does.
+// page; strike rate uses the shared isStrikeEntry classifier (stats/frames).
 
 import { useState } from "react";
 import type { Bowler, SavedGameRecord } from "../types";
 import { gameDate } from "../lib/statsFilters";
 import { buildSessionGroups } from "../lib/sessions";
+import { isStrikeEntry } from "../stats/frames";
 
 type HomePageProps = {
   savedGames: SavedGameRecord[];
@@ -94,9 +95,7 @@ export function HomePage({
   const scopeEntries = selected
     ? savedGames.flatMap((g) => g.entries.filter((e) => e.bowlerName === selected))
     : savedGames.flatMap((g) => g.entries);
-  const strikeFrames = scopeEntries.filter(
-    (e) => e.firstShotKnockedPins.length === 10,
-  ).length;
+  const strikeFrames = scopeEntries.filter(isStrikeEntry).length;
   const strikeRate =
     scopeEntries.length > 0 ? Math.round((strikeFrames / scopeEntries.length) * 100) : 0;
 
