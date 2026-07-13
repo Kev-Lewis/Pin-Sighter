@@ -102,6 +102,12 @@ import {
   buildOverviewStatCards,
   type OverviewScoreDetail,
 } from "./stats/overview";
+import type {
+  SetMetadataDraft,
+  GameMetadataDraft,
+  DetailedStatDetail,
+  SetStatDetailRow,
+} from "./stats/types";
 import { APP_VERSION } from "./version";
 import {
   buildSessionGroups,
@@ -210,39 +216,6 @@ type StatsPageProps = {
    *  "" = no main bowler → default all-bowlers scope. */
   mainBowler: string;
   onContinueSavedSet: (request: ContinueSavedSetRequest) => void;
-};
-
-type SetMetadataDraft = {
-  centerName: string;
-  patternName: string;
-  gameLaneLabels: Record<string, string>;
-  setNotes: string;
-};
-
-type GameMetadataDraft = {
-  gameNotes: string;
-  ballReactionNotes: string;
-  laneTransitionNotes: string;
-  adjustmentNotes: string;
-};
-
-type DetailedStatDetail = {
-  title: string;
-  label: string;
-  value: string;
-  description: string;
-  formula: string;
-  detailRows: { label: string; value: string }[];
-  note?: string;
-};
-
-type SetStatDetailRow = {
-  id: string;
-  score: number;
-  gameNumber: number;
-  laneLabel: string;
-  savedAt: string;
-  eventLabel: string;
 };
 
 type GameEntryPageProps = {
