@@ -5,6 +5,8 @@
 // builders stay in App for now (they move with the shared stat-card layer).
 
 import type { FrameEntry, SavedGameRecord } from "../types";
+import type { DetailedStatDetail } from "./types";
+import { formatStatRatio } from "./format";
 
 export type BoardStatRow = {
   ball: string;
@@ -220,4 +222,183 @@ export function calculateBoardProgressionRows(
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
+}
+
+// --- Targeting / board stat-card builders (DetailedStatDetail-based) ---
+
+export function getValidBoardValues(
+  rows: BoardShotRow[],
+  selector: (row: BoardShotRow) => number | null
+) {
+  return rows.map(selector).filter((value): value is number => value !== null);
+}
+
+export function sumBoardValues(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+export function averageBoardValue(values: number[]) {
+  return values.length > 0 ? sumBoardValues(values) / values.length : null;
+}
+
+export function createAverageBoardDetail({
+  title,
+  label,
+  values,
+  valueFormatter,
+  description,
+  formula,
+}: {
+  title: string;
+  label: string;
+  values: number[];
+  valueFormatter: (value: number | null) => string;
+  description: string;
+  formula: string;
+}): DetailedStatDetail {
+  const averageValue = averageBoardValue(values);
+  const totalValue = sumBoardValues(values);
+
+  return {
+    title,
+    label,
+    value: valueFormatter(averageValue),
+    description,
+    formula,
+    detailRows: [
+      { label: "Values Counted", value: values.length.toLocaleString() },
+      { label: "Total", value: totalValue.toFixed(1) },
+      {
+        label: "Calculation",
+        value:
+          values.length > 0
+            ? `${totalValue.toFixed(1)} ÷ ${values.length} = ${valueFormatter(averageValue)}`
+            : "No matching board values tracked",
+      },
+    ],
+  };
+}
+
+export function createBoardHitRateDetail({
+  title,
+  label,
+  values,
+  description,
+  formula,
+}: {
+  title: string;
+  label: string;
+  values: number[];
+  description: string;
+  formula: string;
+}): DetailedStatDetail {
+  const hits = values.filter((value) => Math.abs(value) <= 1).length;
+  const percentage = values.length > 0 ? (hits / values.length) * 100 : null;
+
+  return {
+    title,
+    label,
+    value: formatPercentValue(percentage),
+    description,
+    formula,
+    detailRows: [
+      { label: "Hits Within ±1", value: hits.toLocaleString() },
+      { label: "Values Counted", value: values.length.toLocaleString() },
+      {
+        label: "Calculation",
+        value:
+          values.length > 0
+            ? `${formatStatRatio(hits, values.length)} = ${formatPercentValue(percentage)}`
+            : "No matching board values tracked",
+      },
+    ],
+  };
+}
+
+export function buildTargetingStatCards(entries: FrameEntry[]): DetailedStatDetail[] {
+  const boardRows = entries.map(createBoardShotRow).filter(hasBoardData);
+  const arrowMissValues = getValidBoardValues(
+    boardRows,
+    (row) => row.arrowMiss
+  );
+  const absoluteArrowMissValues = arrowMissValues.map((value) =>
+    Math.abs(value)
+  );
+  const breakpointMissValues = getValidBoardValues(
+    boardRows,
+    (row) => row.breakpointMiss
+  );
+  const absoluteBreakpointMissValues = breakpointMissValues.map((value) =>
+    Math.abs(value)
+  );
+
+  return [
+    {
+      title: "Tracked Shots",
+      label: "Tracked Shots",
+      value: String(boardRows.length),
+      description:
+        "Number of shots with at least one saved targeting field.",
+      formula:
+        "Count of frame entries with foot board, target arrow, actual arrow, target breakpoint, or actual breakpoint saved.",
+      detailRows: [
+        { label: "Tracked Shots", value: boardRows.length.toLocaleString() },
+        { label: "Total Filtered Frames", value: entries.length.toLocaleString() },
+      ],
+    },
+    createAverageBoardDetail({
+      title: "Average Arrow Miss",
+      label: "Avg Arrow Miss",
+      values: arrowMissValues,
+      valueFormatter: formatSignedNumber,
+      description:
+        "Average directional miss at the arrows. Positive means farther right on the board scale, negative means farther left.",
+      formula: "Sum of (actual arrow − target arrow) ÷ arrow values counted.",
+    }),
+    createAverageBoardDetail({
+      title: "Average Absolute Arrow Miss",
+      label: "Avg Abs Arrow Miss",
+      values: absoluteArrowMissValues,
+      valueFormatter: formatMaybeNumber,
+      description:
+        "Average size of the arrow miss regardless of left/right direction.",
+      formula: "Sum of absolute arrow misses ÷ arrow values counted.",
+    }),
+    createBoardHitRateDetail({
+      title: "Arrow Within ±1 Board",
+      label: "Arrow ±1 Board",
+      values: arrowMissValues,
+      description:
+        "How often the actual arrow was within one board of the target arrow.",
+      formula: "Arrow misses with absolute value ≤ 1 ÷ arrow values counted.",
+    }),
+    createAverageBoardDetail({
+      title: "Average Breakpoint Miss",
+      label: "Avg Breakpoint Miss",
+      values: breakpointMissValues,
+      valueFormatter: formatSignedNumber,
+      description:
+        "Average directional miss at the breakpoint. Positive means farther right on the board scale, negative means farther left.",
+      formula:
+        "Sum of (actual breakpoint − target breakpoint) ÷ breakpoint values counted.",
+    }),
+    createAverageBoardDetail({
+      title: "Average Absolute Breakpoint Miss",
+      label: "Avg Abs BP Miss",
+      values: absoluteBreakpointMissValues,
+      valueFormatter: formatMaybeNumber,
+      description:
+        "Average size of the breakpoint miss regardless of left/right direction.",
+      formula: "Sum of absolute breakpoint misses ÷ breakpoint values counted.",
+    }),
+    createBoardHitRateDetail({
+      title: "Breakpoint Within ±1 Board",
+      label: "Breakpoint ±1 Board",
+      values: breakpointMissValues,
+      description:
+        "How often the actual breakpoint was within one board of the target breakpoint.",
+      formula:
+        "Breakpoint misses with absolute value ≤ 1 ÷ breakpoint values counted.",
+    }),
+  ];
 }
