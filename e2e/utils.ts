@@ -48,16 +48,39 @@ export async function openStats(page: Page) {
   await page.clock.setFixedTime(new Date("2026-07-08T12:00:00"));
   await seedAppData(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Stats" }).click();
+  // Scope to the sidebar nav + exact match: the Home dashboard also renders an
+  // "Open Stats" quick-action button, so a substring "Stats" match is ambiguous.
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "Stats", exact: true })
+    .click();
   await expect(page.getByRole("button", { name: "All Bowlers" })).toBeVisible();
 }
 
-/** The "Total Games" value in the Overview tiles. */
+/** The Overview "Games" tile value (count of games in the current filter). */
 export function totalGamesValue(page: Page) {
-  return page.locator(".stat-card", { hasText: "Total Games" }).locator("strong");
+  // Match the tile whose label is exactly "Games" so it doesn't also catch the
+  // Frame Outcomes "Clean Games" tile.
+  return page
+    .locator(".stat-card", { has: page.getByText("Games", { exact: true }) })
+    .locator("strong");
 }
 
-/** Expand a collapsible Stats section by its summary text. */
+/**
+ * Ensure a collapsible Stats section is open. Some sections (e.g. Overview,
+ * Frame Outcomes) render open by default, so only click the summary when the
+ * section is currently closed — an unconditional click would toggle an
+ * already-open section shut.
+ */
 export async function expandSection(page: Page, name: string) {
-  await page.locator("summary", { hasText: name }).first().click();
+  const details = page
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: name }) })
+    .first();
+  const isOpen = await details.evaluate(
+    (element) => (element as HTMLDetailsElement).open
+  );
+  if (!isOpen) {
+    await details.locator("summary").first().click();
+  }
 }

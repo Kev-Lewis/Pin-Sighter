@@ -16,7 +16,7 @@ test("time frame filters out older games", async ({ page }) => {
   await expandSection(page, "Overview");
   await expect(totalGamesValue(page)).toHaveText("8");
 
-  await page.getByLabel("Time Frame").selectOption({ label: "This year" });
+  await page.getByLabel("When").selectOption({ label: "This year" });
 
   // Sections re-collapse on any filter change, so re-open Overview.
   await expandSection(page, "Overview");
@@ -53,7 +53,7 @@ test("baker scope swaps to the Baker Team Stats section", async ({ page }) => {
 });
 
 test("exports a CSV of the current stats", async ({ page }) => {
-  await page.getByRole("button", { name: "Export Options" }).click();
+  await page.getByRole("button", { name: "Export report" }).click();
   await page.getByLabel("Export Format").selectOption({ label: "CSV" });
 
   const downloadPromise = page.waitForEvent("download");
