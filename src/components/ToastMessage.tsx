@@ -8,15 +8,21 @@
 type ToastMessageProps = {
   message: string;
   onDismiss: () => void;
+  /** Optional extra class (e.g. a page-scoped floating variant). */
+  className?: string;
 };
 
-export function ToastMessage({ message, onDismiss }: ToastMessageProps) {
+export function ToastMessage({ message, onDismiss, className }: ToastMessageProps) {
   if (!message) {
     return null;
   }
 
   return (
-    <div className="toast-message" role="status" aria-live="polite">
+    <div
+      className={`toast-message${className ? ` ${className}` : ""}`}
+      role="status"
+      aria-live="polite"
+    >
       <span>{message}</span>
       <button type="button" onClick={onDismiss} aria-label="Dismiss message">
         ×

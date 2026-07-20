@@ -188,9 +188,21 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .dash-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 
 .app-shell .dash-grid {
-  display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: start;
+  display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: stretch;
 }
 .app-shell .dash-side { display: flex; flex-direction: column; gap: 20px; }
+/* The Quick-actions panel (always the last panel in the side column) grows to
+   fill the remaining height so the right column reaches the Recent-sets panel
+   instead of leaving open space below — its buttons stretch to share the gain. */
+.app-shell .dash-side > .dash-panel:last-child {
+  flex: 1 1 auto; display: flex; flex-direction: column;
+}
+.app-shell .dash-side > .dash-panel:last-child .dash-actions {
+  flex: 1; justify-content: space-between;
+}
+.app-shell .dash-side > .dash-panel:last-child .dash-action {
+  flex: 1 1 0; min-height: 52px;
+}
 
 .app-shell .dash-panel {
   background: var(--paper); border: 1px solid var(--line);
@@ -492,7 +504,7 @@ body:has(.app-shell) { background: var(--bg); }
 /* Content sits inside the card with even padding */
 .app-shell .stats-collapsible-content {
   border: 0 !important; background: transparent !important; box-shadow: none !important;
-  padding: 20px !important; margin: 0 !important;
+  padding: 14px 18px 18px !important; margin: 0 !important;
 }
 /* Nested (flat) collapsible content keeps tighter side padding */
 .app-shell .stats-collapsible-card .stats-collapsible-card .stats-collapsible-content {
@@ -565,11 +577,11 @@ body:has(.app-shell) { background: var(--bg); }
    Stat tiles — a light grid, not nested boxes
    ========================================================= */
 .app-shell .stat-card, .app-shell .mini-stat-card, .app-shell .wide-mini-stat-card {
-  border: 1px solid var(--line); background: var(--bg-tint); border-radius: var(--radius);
-  box-shadow: none; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;
+  border: 1.5px solid var(--line-strong); background: var(--paper); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1); padding: 11px 13px; display: flex; flex-direction: column; gap: 3px;
 }
 .app-shell .stat-card strong {
-  font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
+  font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
 }
 .app-shell .stat-card span {
   font-family: 'JetBrains Mono', monospace; font-size: .72rem; letter-spacing: .06em;
@@ -591,7 +603,14 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .deep-stats-grid .stat-card strong { line-height: 1.1; }
 .app-shell .stats-summary-grid .stat-card span,
 .app-shell .deep-stats-grid .stat-card span {
-  display: block; line-height: 1.3; min-height: 2.6em;
+  display: block; line-height: 1.25; min-height: 2.2em;
+}
+/* Compact the spare-leave pin decks — at full size they made that table
+   several screens tall. Shrink the deck + pins so rows stay tight. */
+.app-shell .mini-pin-deck { width: 62px !important; height: 52px !important; }
+.app-shell .mini-pin {
+  width: 13px !important; height: 13px !important; font-size: .46rem !important;
+  border-width: 1px !important; font-weight: 700 !important;
 }
 .app-shell .stats-summary-grid .stat-card small,
 .app-shell .deep-stats-grid .stat-card small {
@@ -599,6 +618,36 @@ body:has(.app-shell) { background: var(--bg); }
   font-family: 'JetBrains Mono', monospace; text-transform: uppercase;
   font-size: .66rem; letter-spacing: .07em; font-weight: 700; color: var(--accent-ink);
 }
+
+/* Hero stat tiles → the headline metrics (Average, Games) get a soft accent
+   wash and accent figures so they read as the primary numbers. */
+.app-shell .stat-card.hero-card {
+  background: linear-gradient(180deg, var(--paper), var(--accent-soft)) !important;
+  border-color: var(--accent-soft-bd) !important;
+}
+.app-shell .stat-card.hero-card strong { color: var(--accent-ink) !important; }
+
+/* Section-header count badge (e.g. "1,280 frames") sitting beside the title */
+.app-shell .section-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.app-shell .section-count {
+  font: 600 .68rem/1 'JetBrains Mono', monospace; letter-spacing: .04em;
+  color: var(--ink-faint); background: var(--bg-tint);
+  border: 1px solid var(--line-strong); border-radius: var(--pill);
+  padding: 4px 10px; white-space: nowrap;
+}
+
+/* Sortable table headers → the label is a click target with a sort arrow */
+.app-shell .stats-table th .th-sort {
+  border: 0; background: transparent; padding: 0; margin: 0; cursor: pointer;
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.app-shell .stats-table th .th-sort:hover { color: var(--accent-ink); }
+.app-shell .th-sort-ind { font-size: .82em; color: var(--ink-faint); opacity: .5; }
+.app-shell .stats-table th[aria-sort="ascending"] .th-sort,
+.app-shell .stats-table th[aria-sort="descending"] .th-sort { color: var(--accent-ink); }
+.app-shell .stats-table th[aria-sort="ascending"] .th-sort-ind,
+.app-shell .stats-table th[aria-sort="descending"] .th-sort-ind { color: var(--accent); opacity: 1; }
 
 /* Secondary content cards → soft, single-level surfaces */
 .app-shell .data-card, .app-shell .pattern-card, .app-shell .pattern-preview-card,
@@ -621,16 +670,24 @@ body:has(.app-shell) { background: var(--bg); }
   overflow-x: auto; -webkit-overflow-scrolling: touch;
   border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper);
 }
-.app-shell .stats-table, .app-shell .distribution-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.app-shell .stats-table, .app-shell .distribution-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
 .app-shell .stats-table th, .app-shell .distribution-table th {
   background: var(--bg-tint); color: var(--ink); font-family: 'JetBrains Mono', monospace;
-  font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; text-align: left;
-  padding: 11px 14px; position: sticky; top: 0;
+  font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; text-align: left;
+  padding: 7px 11px; position: sticky; top: 0;
   border: 0 !important; border-bottom: 1px solid var(--line-strong) !important;
+  border-right: 1px solid var(--line-strong) !important;
 }
 .app-shell .stats-table td, .app-shell .distribution-table td {
-  padding: 10px 14px; color: var(--ink-soft);
+  padding: 6px 11px; color: var(--ink-soft);
   border: 0 !important; border-bottom: 1px solid var(--line) !important;
+  border-right: 1px solid var(--line) !important;
+}
+/* Vertical gridlines make it read like a real data table — but drop the outer
+   right edge so it stays flush inside the rounded scroll frame. */
+.app-shell .stats-table th:last-child, .app-shell .distribution-table th:last-child,
+.app-shell .stats-table td:last-child, .app-shell .distribution-table td:last-child {
+  border-right: 0 !important;
 }
 .app-shell .stats-table tr:last-child td { border-bottom: 0; }
 /* Keep cells on one line so narrow numeric columns don't wrap and jitter —
@@ -660,6 +717,25 @@ body:has(.app-shell) { background: var(--bg); }
 .app-shell .toast-message {
   border: 1px solid var(--accent-soft-bd); background: var(--accent-soft); color: var(--accent-ink);
   border-radius: var(--radius-sm); padding: 12px 14px; box-shadow: var(--shadow-1);
+}
+/* Stats filter toast → a light popover that floats over the filter area rather
+   than an inline banner that shoves the whole page down while it's visible. */
+.app-shell .stats-toast-anchor { position: relative; height: 0; z-index: 30; }
+.app-shell .toast-message.stats-toast {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  margin: 0; width: max-content; max-width: min(520px, 92%);
+  border-radius: var(--pill); padding: 9px 10px 9px 18px;
+  box-shadow: var(--shadow-2); animation: stats-toast-pop .18s var(--spring);
+}
+.app-shell .toast-message.stats-toast button {
+  flex: 0 0 auto; width: 22px !important; height: 22px !important; border-radius: 50% !important;
+  border: 1px solid var(--accent-soft-bd) !important; background: var(--paper) !important;
+  color: var(--accent-ink) !important; font-weight: 700; cursor: pointer; box-shadow: none !important;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+}
+@keyframes stats-toast-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* =========================================================
@@ -862,29 +938,63 @@ body:has(.app-shell) { background: var(--bg); }
 }
 .app-shell .saved-set-content-divider { border: 0 !important; border-top: 1px solid var(--line) !important; }
 
-/* Saved-set entries → contrasting tiles inside the white Saved Sets card.
-   Tinted when collapsed; lift to white + accent border when opened. */
+/* Saved-set rows → clickable cards that open the set's full detail in a modal
+   (no more inline expand). */
 .app-shell .saved-sets-list .saved-set-card {
-  border: 1px solid var(--line-strong) !important;
-  border-radius: var(--radius) !important;
-  background: var(--bg-tint) !important;
-  padding: 4px 18px !important;
-  margin: 0 0 12px !important;
-  transition: border-color .2s var(--spring), background .2s var(--spring), box-shadow .2s var(--spring);
+  display: flex !important; align-items: center; justify-content: space-between; gap: 16px;
+  width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--line-strong) !important; border-radius: var(--radius) !important;
+  background: var(--paper) !important; padding: 14px 18px !important; margin: 0 0 10px !important;
+  box-shadow: var(--shadow-1) !important;
+  transition: border-color .18s var(--spring), box-shadow .18s var(--spring), transform .18s var(--spring);
 }
 .app-shell .saved-sets-list .saved-set-card:last-child { margin-bottom: 0 !important; }
-.app-shell .saved-sets-list .saved-set-card:hover { border-color: var(--accent-soft-bd) !important; }
-.app-shell .saved-sets-list .saved-set-card[open] {
-  background: var(--paper) !important;
-  border-color: var(--accent-soft-bd) !important;
-  box-shadow: var(--shadow-1) !important;
+.app-shell .saved-sets-list .saved-set-card:hover {
+  border-color: var(--accent-soft-bd) !important; box-shadow: var(--shadow-2) !important;
+  transform: translateY(-1px);
 }
-/* Summary of a tile: keep the strong title dark, tighter inset */
-.app-shell .saved-sets-list .saved-set-card > .saved-set-summary { padding: 14px 2px !important; }
-.app-shell .saved-sets-list .saved-set-summary strong { color: var(--ink) !important; font-weight: 800 !important; }
-/* Divider under the summary once opened */
-.app-shell .saved-sets-list .saved-set-card[open] > .saved-set-summary {
-  border-bottom: 1px solid var(--line) !important; margin-bottom: 4px !important;
+.app-shell .saved-set-card-info strong { display: block; color: var(--ink); font-weight: 800; font-size: 1.02rem; }
+.app-shell .saved-set-card-info p { margin: 2px 0 0; color: var(--ink-faint); font-size: .88rem; }
+.app-shell .saved-set-card-cue { flex: 0 0 auto; color: var(--ink-faint); font-size: 1.5rem; line-height: 1; }
+.app-shell .saved-sets-list .saved-set-card:hover .saved-set-card-cue { color: var(--accent-ink); }
+
+/* Saved-set modal → the set's full content in a popup (opened from a row) */
+.app-shell .saved-set-modal-overlay {
+  position: fixed; inset: 0; z-index: 60; overflow-y: auto;
+  display: flex; align-items: flex-start; justify-content: center; padding: 5vh 16px;
+  background: rgba(16,25,45,.42); animation: saved-set-fade .16s var(--spring);
+}
+@keyframes saved-set-fade { from { opacity: 0; } to { opacity: 1; } }
+.app-shell .saved-set-modal {
+  width: min(940px, 100%); max-height: 90vh; display: flex; flex-direction: column;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3); overflow: hidden;
+}
+.app-shell .saved-set-modal-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 18px 22px; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+}
+.app-shell .saved-set-modal-head strong { font-size: 1.15rem; font-weight: 800; color: var(--ink); }
+.app-shell .saved-set-modal-head p { margin: 3px 0 0; color: var(--ink-faint); font-size: .9rem; }
+.app-shell .saved-set-modal-head > button { margin: 0 !important; flex: 0 0 auto; }
+.app-shell .saved-set-modal-body { padding: 6px 22px 22px; overflow-y: auto; }
+.app-shell .saved-set-modal-body .saved-set-details { border: 0 !important; padding: 0 !important; }
+
+/* Keep every top-level report section card on the same paper surface — a couple
+   carried an old tinted "boxy" background that read dimmer than the rest. */
+.app-shell .spare-leave-card, .app-shell .board-analysis-card,
+.app-shell .team-set-card, .app-shell .stats-table-card, .app-shell .baker-stats-card {
+  background: var(--paper) !important;
+}
+/* Spare Leave + Targeting sections also carry .spare-leave-card / .board-analysis-card,
+   which the later DE-BLOCK sweep would otherwise give a thin --line border and no
+   shadow — thinner and more blended than the other section cards. This compound
+   selector (0,3,0) outranks that sweep and matches the section chrome exactly. */
+.app-shell .stats-collapsible-card.spare-leave-card,
+.app-shell .stats-collapsible-card.board-analysis-card {
+  border: 1px solid var(--line-strong) !important;
+  box-shadow: 0 1px 3px rgba(16,25,45,.05), 0 10px 22px -14px rgba(16,25,45,.18) !important;
+  border-radius: var(--radius) !important;
 }
 
 /* =========================================================
@@ -1125,6 +1235,46 @@ body:has(.app-shell) { background: var(--bg); }
   border-color: var(--line-strong) !important;
 }
 
+/* Log Games pre-entry setup — lift the two big gray panels ("Before Starting"
+   guidance + "Bowler Order") to clean white cards with a hairline + soft shadow,
+   matching the rest of the app instead of heavy tinted boxes. Scoped so the
+   compact validation cards inside modals keep their tint, and the error state
+   stays a red callout. */
+.app-shell .field-validation-card:not(.compact-validation-card):not(.error-validation-card),
+.app-shell .bowler-order-card,
+.app-shell .log-setup-card {
+  background: var(--paper) !important; border: 1px solid var(--line) !important;
+  border-radius: var(--radius) !important; box-shadow: var(--shadow-1) !important;
+  padding: 20px 22px !important;
+}
+.app-shell .field-validation-card:not(.compact-validation-card) h3,
+.app-shell .bowler-order-card h3,
+.app-shell .log-setup-card h3 { margin-top: 0 !important; }
+/* The wrapped session form has its own card padding, so drop the grid's extra
+   top margin and let its heading sit flush. */
+.app-shell .log-setup-card > .form-grid { margin-top: 14px; }
+/* Error variant (already-logged stage) keeps a clear red callout look. */
+.app-shell .error-validation-card {
+  background: var(--accent-soft) !important; border: 1px solid var(--accent-soft-bd) !important;
+  box-shadow: none !important;
+}
+.app-shell .error-validation-card h3 { color: var(--accent-ink) !important; }
+
+/* "Before Starting" → a tidy checklist: each outstanding step gets a hollow
+   accent marker (a to-do dot) instead of a plain disc bullet. */
+.app-shell .field-validation-card:not(.compact-validation-card) ul {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.app-shell .field-validation-card:not(.compact-validation-card) li {
+  position: relative; padding-left: 26px; color: var(--ink-soft); line-height: 1.45;
+}
+.app-shell .field-validation-card:not(.compact-validation-card) li::before {
+  content: ""; position: absolute; left: 0; top: .2em;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--accent-soft-bd); background: var(--accent-soft);
+}
+
 /* =========================================================
    Bowlers — action buttons, arsenal cards, scroll window
    ========================================================= */
@@ -1302,12 +1452,19 @@ body:has(.ps-modal) { overflow: hidden; }
 .app-shell .pattern-preview-card p.helper-text,
 .app-shell .pattern-preview-card p.helper-text strong { color: var(--ink-faint) !important; }
 
-/* Patterns toolbar: Kegel link + Add Pattern button on one row */
+/* Patterns toolbar: Kegel link + Add Pattern button on one row, sized equal.
+   Explicit two-column 1fr grid on an auto-width (inline) container resolves
+   both tracks to the wider button's intrinsic width, so the two buttons match
+   exactly regardless of label length. (grid-auto-columns does NOT equalize this
+   way — the tracks must be explicit template columns.) */
 .app-shell .patterns-toolbar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 18px;
+  display: inline-grid; grid-template-columns: 1fr 1fr;
+  align-items: center; gap: 12px; margin: 0 0 2px;
 }
-.app-shell .patterns-toolbar .resource-link-pill { margin: 0; }
-.app-shell .patterns-toolbar .add-entity-trigger { margin: 0 !important; }
+.app-shell .patterns-toolbar .resource-link-pill,
+.app-shell .patterns-toolbar .add-entity-trigger {
+  width: 100%; margin: 0 !important; justify-content: center; text-align: center;
+}
 
 /* Duel Pattern toggle — inline checkbox + label (undo global input/label rules) */
 .app-shell .duel-pattern-toggle-card {
@@ -1408,14 +1565,68 @@ body:has(.ps-modal) { overflow: hidden; }
 .app-shell .data-summary-grid .stat-card strong {
   margin-top: auto; line-height: 1;
 }
+/* Keep the count tiles on one cohesive row instead of the old 6-then-lonely-1
+   wrap (was minmax 160 → the 7th tile dropped to its own line). */
+.app-shell .data-summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)) !important;
+  gap: 12px !important; margin: 22px 0 26px !important;
+}
+
+/* Backup / Restore / Reset → a settings-row layout: description on the left,
+   the action on the right, instead of a full-width button bar stacked under
+   each blurb (much less blocky, tighter vertical rhythm). */
+.app-shell .data-card {
+  display: flex !important; align-items: center; justify-content: space-between;
+  gap: 28px; padding: 18px 22px !important;
+}
+.app-shell .data-card > div { flex: 1 1 auto; min-width: 0; }
+/* All three actions share one width so they line up as an even column of
+   buttons down the right edge (sized to the widest label). */
+.app-shell .data-card > .primary-button,
+.app-shell .data-card > .import-button,
+.app-shell .data-card .data-button-row > .danger-button {
+  flex: none; width: auto !important; min-width: 12rem; min-height: 0 !important;
+  margin: 0 !important; padding: 12px 24px !important; white-space: nowrap;
+  justify-content: center; text-align: center;
+}
+.app-shell .data-card .data-button-row {
+  flex: none; display: block !important; width: auto; margin: 0 !important;
+}
+@media (max-width: 640px) {
+  .app-shell .data-card { flex-direction: column; align-items: stretch; gap: 14px; }
+  .app-shell .data-card > .primary-button,
+  .app-shell .data-card > .import-button,
+  .app-shell .data-card .data-button-row > .danger-button {
+    width: 100% !important; min-width: 0;
+  }
+  .app-shell .data-card .data-button-row { width: 100%; }
+}
 
 /* The global h3 rule adds a 22px top margin — remove it where an h3 is the
    first line of a card so headings don't float down from the top edge. */
 .app-shell .about-card h3,
 .app-shell .data-card h3 { margin-top: 0 !important; }
 
+/* About page — lead copy, info cards, and quick links -------------- */
+/* One shared column width so the lead, cards, and links line up on the same
+   left AND right edges (the cards used to sprawl wider than the paragraph). */
+.app-shell .about-page { max-width: 680px; }
+.app-shell .about-lead {
+  margin: 14px 0 24px; max-width: none;
+  color: var(--ink-soft); font-size: 1.02rem; line-height: 1.6;
+}
+.app-shell .about-links-section { margin-top: 26px; }
+.app-shell .about-links-heading {
+  margin: 0 0 12px !important; font: 700 .78rem/1 'JetBrains Mono';
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint);
+}
+.app-shell .about-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.app-shell .about-links .resource-link-pill { margin: 0; }
+
 /* About cards: consistent internal rhythm, value spacing */
-.app-shell .simple-about-grid { gap: 16px; }
+.app-shell .simple-about-grid {
+  gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+}
 .app-shell .simple-about-grid .about-card {
   padding: 18px 20px !important; min-height: 0 !important;
   display: flex; flex-direction: column; gap: 6px;
@@ -1434,31 +1645,135 @@ body:has(.ps-modal) { overflow: hidden; }
    ========================================================= */
 
 /* Filters read as a distinct control surface, not another flat section */
+/* =========================================================
+   Stats page header — title + intro on the left, Export on the right
+   ========================================================= */
+.app-shell .stats-page-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+}
+.app-shell .stats-page-head > div p { margin: 4px 0 0; }
+.app-shell .stats-export-button {
+  flex: 0 0 auto; margin: 0 !important;
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+  border-radius: var(--pill); padding: 9px 18px; font: 600 .9rem 'Open Sans'; cursor: pointer;
+  box-shadow: var(--shadow-1); transition: border-color .15s, color .15s;
+}
+.app-shell .stats-export-button:hover:not(:disabled) { border-color: var(--accent-soft-bd); color: var(--accent-ink); }
+.app-shell .stats-export-button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* =========================================================
+   Stats filter bar — segmented scope + labeled pill dropdowns + "More" tray.
+   A single clean row on the page (no bordered panel), divider underneath.
+   ========================================================= */
 .app-shell .stats-filter-panel {
-  border: 1px solid var(--line-strong);
-  background: var(--bg-tint);
-  border-radius: var(--radius-lg);
-  padding: 20px 22px 22px;
-  margin: 6px 0 28px;
-  box-shadow: var(--shadow-1);
+  border: 0; background: transparent; border-radius: 0; box-shadow: none;
+  padding: 0; margin: 18px 0 8px;
 }
-.app-shell .stats-filter-head { display: flex; flex-direction: column; gap: 8px; }
-.app-shell .stats-filter-eyebrow {
-  align-self: flex-start;
-  font-family: 'JetBrains Mono', monospace; font-size: .72rem; letter-spacing: .08em;
-  text-transform: uppercase; font-weight: 700; color: var(--accent-ink);
-  background: var(--paper); border: 1px solid var(--accent-soft-bd);
-  border-radius: var(--pill); padding: 4px 12px;
+.app-shell .stats-filter-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding-bottom: 18px; border-bottom: 1px solid var(--line);
 }
-.app-shell .stats-filter-head p { margin: 0; font-size: .9rem; color: var(--ink-soft); max-width: 70ch; }
-.app-shell .stats-filter-body { margin-top: 2px; }
-.app-shell .stats-filter-body .form-grid { margin-top: 14px; }
-/* Action row (Clear Filters / Export Options) — spaced, wraps on small screens */
-.app-shell .stats-action-row {
-  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px;
-  padding-top: 18px; border-top: 1px solid var(--line-strong);
+
+/* Segmented scope toggle */
+.app-shell .stats-scope-toggle {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--bg-tint); border: 1px solid var(--line-strong); border-radius: var(--pill);
 }
-.app-shell .stats-action-row > button { flex: 1 1 200px; margin: 0 !important; }
+.app-shell .stats-scope-toggle button {
+  border: 0 !important; background: transparent !important; color: var(--ink-soft) !important;
+  border-radius: var(--pill) !important; padding: 7px 15px !important;
+  font: 600 .86rem 'Open Sans' !important; cursor: pointer; transition: .15s; box-shadow: none !important;
+}
+.app-shell .stats-scope-toggle button.is-active {
+  background: var(--paper) !important; color: var(--accent) !important; box-shadow: var(--shadow-1) !important;
+}
+
+/* Labeled pill dropdown: LABEL  value  ▾ — a transparent full-size <select>
+   overlays the whole pill so a click anywhere opens the native menu.
+   Pills flex-grow so they fill the row instead of leaving open space. */
+.app-shell .filter-pill {
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex: 1 1 175px; min-width: 150px;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--pill);
+  padding: 7px 8px 7px 16px; box-shadow: var(--shadow-1); cursor: pointer; margin: 0;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.app-shell .filter-pill:hover { border-color: var(--accent-soft-bd); background: var(--bg-tint); }
+.app-shell .filter-pill:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.app-shell .filter-pill-k {
+  flex: 0 0 auto; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-faint); white-space: nowrap;
+}
+.app-shell .filter-pill-v {
+  flex: 1 1 auto; text-align: left; font: 700 .88rem 'Open Sans'; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* chevron in a soft round well → an unmistakable "this is a dropdown" cue */
+.app-shell .filter-pill-chev {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%; background: var(--bg-tint);
+  color: var(--ink-soft); font-size: .62rem; transition: background .15s, color .15s;
+}
+.app-shell .filter-pill:hover .filter-pill-chev { background: var(--accent-soft); color: var(--accent-ink); }
+.app-shell .filter-pill.is-set { border-color: var(--accent-soft-bd); background: var(--accent-soft); }
+.app-shell .filter-pill.is-set .filter-pill-v { color: var(--accent-ink); }
+.app-shell .filter-pill.is-set .filter-pill-chev { background: var(--paper); color: var(--accent-ink); }
+/* the transparent overlay select captures clicks across the whole pill */
+.app-shell .filter-pill .filter-pill-native {
+  position: absolute; inset: 0; width: 100% !important; height: 100%;
+  margin: 0 !important; padding: 0 !important; opacity: 0; cursor: pointer;
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none; font-size: 1rem;
+}
+/* Custom-range date pills use a real (visible) date input, not an overlay */
+.app-shell .filter-pill-date { cursor: default; }
+.app-shell .filter-pill-date .filter-pill-dateinput {
+  appearance: none; border: 0 !important; background: transparent !important; box-shadow: none !important;
+  padding: 0 !important; margin: 0 !important; width: auto !important; min-width: 0 !important;
+  font: 700 .84rem 'Open Sans' !important; color: var(--accent-ink) !important; cursor: pointer; outline: none;
+}
+
+/* "More filters" button + tray */
+.app-shell .stats-more-button {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0 !important;
+  background: transparent; border: 1px dashed var(--line-strong); color: var(--ink-soft);
+  border-radius: var(--pill); padding: 7px 14px; font: 600 .84rem 'Open Sans'; cursor: pointer; transition: .15s;
+}
+.app-shell .stats-more-button:hover { border-color: var(--accent-soft-bd); color: var(--accent-ink); }
+.app-shell .stats-more-button.is-open { border-style: solid; background: var(--bg-tint); }
+.app-shell .stats-more-button.is-active { border-color: var(--accent-soft-bd); color: var(--accent-ink); }
+.app-shell .stats-more-badge {
+  background: var(--accent-soft); color: var(--accent-ink); border-radius: var(--pill);
+  font-size: .68rem; font-weight: 700; padding: 1px 7px;
+}
+.app-shell .stats-more-tray {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 14px 16px; margin: 12px 0 0;
+  background: var(--bg-tint); border: 1px solid var(--line); border-radius: var(--radius);
+}
+
+/* Reset link — quiet accent text, pushed to the far right */
+.app-shell .stats-reset-link {
+  margin: 0 !important; background: transparent !important; border: 0 !important;
+  color: var(--accent-ink) !important; font: 600 .84rem 'Open Sans' !important;
+  cursor: pointer; padding: 7px 10px !important; box-shadow: none !important; white-space: nowrap;
+}
+.app-shell .stats-reset-link:hover { text-decoration: underline; }
+
+/* Collapse/Expand-all toolbar sitting above the report sections */
+.app-shell .stats-section-toolbar {
+  display: flex; justify-content: flex-end; gap: 8px; margin: 16px 0 14px;
+}
+.app-shell .stats-toolbar-button {
+  margin: 0 !important; border: 1.5px solid var(--line-strong); background: var(--paper);
+  color: var(--ink); border-radius: var(--pill); padding: 6px 16px;
+  font: 600 .8rem 'Open Sans'; cursor: pointer; box-shadow: var(--shadow-1);
+  transition: border-color .15s, color .15s, box-shadow .15s;
+}
+.app-shell .stats-toolbar-button:hover {
+  border-color: var(--accent-soft-bd); color: var(--accent-ink); box-shadow: var(--shadow-2);
+}
 
 /* =========================================================
    Entity list pages (Bowlers / Centers / Tournaments / Patterns)
@@ -1476,6 +1791,37 @@ body:has(.ps-modal) { overflow: hidden; }
 }
 /* Bowlers expand tall (edit form + arsenal) → give them a larger window */
 .app-shell .bowler-list { max-height: 720px; }
+/* …but the fixed-height tinted scroll box read as a box-in-a-box (inner
+   scrollbar, clipped last card). Let the roster flow down the page instead:
+   the white cards separate themselves with a hairline + soft shadow. */
+.app-shell .bowler-list {
+  max-height: none !important; overflow: visible !important;
+  background: transparent !important; border: 0 !important;
+  border-radius: 0 !important; padding: 0 !important;
+  margin: 18px 0 0 !important; gap: 14px;
+}
+/* Bowling Centers: same lift — flow the cards down the page instead of a
+   fixed-height tinted scroll box. */
+.app-shell .center-list {
+  max-height: none !important; overflow: visible !important;
+  background: transparent !important; border: 0 !important;
+  border-radius: 0 !important; padding: 0 !important;
+  margin: 18px 0 0 !important; gap: 14px;
+}
+/* Tournaments / Leagues: same lift. */
+.app-shell .event-list {
+  max-height: none !important; overflow: visible !important;
+  background: transparent !important; border: 0 !important;
+  border-radius: 0 !important; padding: 0 !important;
+  margin: 18px 0 0 !important; gap: 14px;
+}
+/* Patterns: same lift. */
+.app-shell .pattern-list {
+  max-height: none !important; overflow: visible !important;
+  background: transparent !important; border: 0 !important;
+  border-radius: 0 !important; padding: 0 !important;
+  margin: 18px 0 0 !important; gap: 14px;
+}
 /* Keep the entity cards as distinct white tiles inside the scroll panel */
 .app-shell .bowler-list .bowler-card,
 .app-shell .center-list .center-card,
